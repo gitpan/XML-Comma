@@ -1,0 +1,61 @@
+use strict;
+use FindBin;
+use File::Path;
+
+print "1..7\n";
+
+use XML::Comma;
+use XML::Comma::Util qw( dbg );
+use XML::Comma::Pkg::Transfer::HTTP_Upload;
+
+my $doc_block = <<END;
+<_test_transfer_manual>
+  <el>blah blah</el>
+</_test_transfer_manual>
+END
+
+###########
+
+
+## create the doc
+my $doc = XML::Comma::Doc->new ( block=>$doc_block );
+$doc->el ( rand(1234) );
+print "ok 1\n" if $doc;
+
+## store
+$doc->store ( store=>'main' );
+$doc = $doc->retrieve ( $doc->doc_key() );
+print "ok 2\n";
+
+my $filename = $doc->doc_location();
+my $hash = $doc->comma_hash();
+my $id = $doc->doc_id();
+my $store_name = $doc->doc_store()->name();
+
+
+## get transfer obj
+my $xfer = XML::Comma::Pkg::Transfer::HTTP_Upload->new ( name=>'khk_test' );
+print "ok 3\n"  if  $xfer;
+
+## get the remote hash, because the doc should have been transfer_on_store'ed
+my $rhash = $xfer->get_hash ( type => '_test_transfer_manual',
+                              id => $id,
+                              store => $store_name );
+print "ok 4\n"  if  $rhash =~ /^[0-9a-f]+$/;
+print "ok 5\n"  if  $rhash eq $hash;
+#print "rhash: $rhash\n";
+#print "-hash: $hash\n";
+
+## erase
+my $ok = $doc->erase();
+print "ok 6\n"  if  $ok;
+$rhash = $xfer->get_hash ( type => '_test_transfer_manual',
+                           id => $id,
+                           store => $store_name );
+print "ok 7\n"  if  ! defined $rhash;
+
+
+
+
+
+

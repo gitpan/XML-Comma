@@ -1,0 +1,11 @@
+$self->add_hook ( 'validate_hook',
+
+  sub {
+    my ( $doc, $content ) = @_;
+    #dbg "mac", $self, $doc, $content;
+    if ( $content !~ /^\d{4}\d{2}\d{2}$/ ) {
+      die "$content is not 8 digits\n";
+    };
+  }
+
+);

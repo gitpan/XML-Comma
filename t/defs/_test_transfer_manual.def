@@ -1,0 +1,38 @@
+<DocumentDefinition>
+  <name>_test_transfer_manual</name>
+  <element><name>el</name></element>
+
+  <store>
+    <name>main</name>
+    <base>test/transfer-manual</base>
+    <location>Sequential_file</location>
+    <post_store_hook>
+      <![CDATA[
+        sub {
+          my ( $self, $storage ) = @_;
+          $self->def()->def_pnotes()->{xfer}->put ( $self );
+        }
+      ]]>
+    </post_store_hook>
+    <erase_hook>
+      <![CDATA[
+        sub {
+          my ( $self, $storage, $location ) = @_;
+          $self->def()->def_pnotes()->{xfer}->erase ( $self );
+        }
+      ]]>
+    </erase_hook>
+  </store>
+
+
+  <def_hook>
+    <![CDATA[
+      use XML::Comma::Pkg::Transfer::HTTP_Upload;      
+      my $xfer = XML::Comma::Pkg::Transfer::HTTP_Upload->new
+                    ( name => 'khk_test' );
+      $self->def_pnotes()->{xfer} = $xfer;      
+    ]]>
+  </def_hook>
+
+
+</DocumentDefinition>

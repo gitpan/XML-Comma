@@ -1,0 +1,13 @@
+$self->add_hook ( 'validate_hook',
+
+  sub {
+    my ( $el, $content ) = @_;
+    #dbg "unix-time macro", $self, $el, $content;
+    if ( $content !~ /^\d*$/ ) {
+      die "'$content' isn't just digits\n";
+    };
+  }
+
+);
+
+1;

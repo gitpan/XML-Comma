@@ -1,0 +1,189 @@
+--
+XML::Comma
+--
+
+<all configuration variables readable via methods>
+
+
+--
+XML::Comma::Doc
+--
+
+$doc = XML::Comma::Doc->new ( type => )
+$doc = XML::Comma::Doc->new ( block => )
+$doc = XML::Comma::Doc->new ( file => )
+$doc = XML::Comma::Doc->retrieve ( key )
+$doc = XML::Comma::Doc->retrieve ( store =>, type =>, id => )
+$doc || undef = XML::Comma::Doc->retrieve_no_wait ( key )
+$doc || undef = XML::Comma::Doc->retrieve_no_wait ( store =>, type =>, id => )
+$doc = XML::Comma::Doc->read ( key )
+$doc = XML::Comma::Doc->read ( <retrieve arguments> )
+
+$doc = $doc->get_lock();
+$doc || undef = $doc->get_lock_no_wait();
+
+$string = $doc->to_string()
+$string = $doc->comma_hash()
+
+$self = $doc->store ( store=>, [keep_open=>], [args...] )
+$self = $doc->erase()
+$self = $doc->copy()
+$self = $doc->copy() ( <store arguments> )
+$self = $doc->move()
+$self = $doc->move() ( <store arguments> )
+
+$store  = $doc->doc_store()
+$string = $doc->doc_location()
+$string = $doc->doc_id()
+$string = $doc->doc_key()
+$string = $doc->doc_source_file()
+$bool   = $doc->doc_is_locked()
+$int    = $doc->doc_last_modified()
+
+$doc = $doc->index_update ( $index )
+$doc = $doc->index_remove ( $index )
+
+
+--
+all elements
+--
+
+$string = $el->tag()
+$string = $el->tag_up_path()
+$def = $el->def()
+$return_val = $el->method ( $name, [ @args...] )
+null = $el->set_attr ( $name => $value, [ $name => $value ... ] );
+$string = $el->get_attr ( $name );
+
+--
+blob elements
+--
+
+$string = $el->set( $string )
+$string = $el->get()
+'' = $el->set_from_file ( $filename )
+$string = $el->get_location()
+
+
+--
+simple elements
+--
+
+$string = $el->get( [unescape=>], [%args] )
+$string = $el->get_without_default()
+$string = $el->set ( $string, [escape=>], [%args] )
+$string = $el->append ( $more_string )
+$string = $el->validate_content ( $string )
+
+1 = $el->cdata_wrap();
+
+--
+nested elements
+--
+
+@els/[] = $el->elements ( [@tags] )
+$el = $el->element ( $tag )
+$el = $el->add_element ( $tag )
+$el = $el->delete_element ( $tag )
+
+@strings/[] = $el->elements_group_get ( $tag )
+@strings/[] = $el->elements_group_add ( $tag, @strings )
+@els/[] = $el->elements_group_delete ( $tag, @strings ) 
+$bool = $el->elements_group_lists ( $tag, $string )
+
+$bool = $el->element_is_plural ( $tag )
+$bool = $el->element_is_defined ( $tag )
+$bool = $el->element_is_nested ( $tag )
+$bool = $el->element_is_blob ( $tag )
+$bool = $el->element_is_required ( $tag )
+
+'' = $el->validate_structure()
+
+@els = $el->get_all_blobs()
+
+$el = $el->group_elements();
+
+--
+XML::Comma::Def
+--
+
+$def = XML::Comma::Def->read ( name => )
+$store = $def->get_store ( $name );
+$store = $def->get_index ( $name );
+$hash_ref = $def->def_pnotes();
+
+--
+XML::Comma::Indexing::Index
+--
+
+$iterator = $index->iterator ( [%args] );
+$iterator/undef = $index->single ( [%args] );
+$doc/undef = $index->single_read ( [%args] );
+$doc/undef = $index->single_retrieve ( [%args] );
+$int = $index->count ( [%args] );
+$int = $index->last_modified_time ( [$sort_name, $sort_string] );
+$val = $index->aggregate ( function=> [%args] );
+'' = $index->rebuild ( [verbose=>] );
+'' = $index->clean();
+st
+--
+XML::Comma::Indexing::Iterator
+--
+
+$iterator = $iterator_refresh() ( [$limit_number], [$limit_offset] );
+$iterator/false = $iterator->iterator_next();
+$bool = $iterator->iterator_has_stuff();
+$doc = $iterator->retrieve_doc();
+$doc = $iterator->read_doc();
+$return_value = $iterator->$field/$method ( [@args] );
+
+--
+XML::Comma::Log
+--
+
+<thrown error/die> = XML::Comma::Log->err ( $error_string, $info_string );
+'' = XML::Comma::Log->warn ( $string );
+'' = XML::Comma::Log->log ( $string/$error );
+
+[[ ... and a few less-finished ones in Store and Util ... ]]
+
+--
+XML::Comma::Storage::Store
+--
+
+$id_string = $store->first_id();
+$id_string = $store->last_id();
+$id_string = $store->next_id ( $id_string );
+$id_string = $store->prev_id ( $id_string );
+$directory = $store->base_directory();
+
+
+--
+XML::Comma::Util
+--
+
+$first_element   = trim ( @strings_to_trim );
+@trimmed_strings = trim ( @strings_to_trim );
+$bool = array_includes ( @array, $string );
+@array/[] = arrayref_remove_dups ( $array_ref );
+@array/[] = arrayref_remove ( $array_ref, @els/[] );
+@array = flatten_arrayrefs ( @arrays/[] [...] );
+$escaped_string = XML_basic_escape ( $string );
+$unescaped_string = XML_basic_unescape ( $string );
+'' = dbg ( @arrays/[] [...] );
+($name, @args) = name_and_args_eval ( $string );
+$string = random_an_string ( $length );
+
+------
+Hooks
+------
+
+validate_hook ( $element, $content )
+document_write_hook ( $doc )
+pre_store_hook ( $doc, $store )
+post_store_hook ( $doc, $store )
+erase_hook ( $doc, $store, $location )
+index_hook ( $doc, $index )
+stop_rebuild_hook ( $doc, $index )
+def_hook { block with $self set to the $def we belong to }
+

@@ -1,0 +1,88 @@
+- sherrard notes that we should be tricky enough to spool blobs
+  somewhere for documents that haven't been stored yet, and then save
+  the blobs on eventual store.
+
+- retrieve does not do a permissions check on retrieve -- that's no
+  good. retrieve should fail, rather than store failing. and probably
+  store needs some better code to fail earlier and more gracefully
+  than it does?
+
+- does a <default>0</default> work as it should?
+
+- make SQL syntax be an ISA thing rather than a crufty begin-block thing
+
+- think about whether plural elements should be "order-able" by a def
+  (the def should maintain plural element order based on a code block
+  passed to sort, or something?)
+
+- work on permissions for files (Sherrard says doc->erase() doesn't
+  erase and doesn't warn if you don't have write permission to file --
+  but that index entries are removed.)
+
+- maybe Indexing::Iterator->_make_sort_spec shouldn't die just because
+  it doesn't find a sort table
+
+- figure out what to do about postgres 31-char name limit
+
+- sql defaults for index fields should maybe be something other than NULL?
+
+- rebuild() should read() rather than retrieve()?
+
+- rebuild() needs to NOT erase docs at the end that were added during
+  rebuild. wasn't this the origingal idea?
+
+- should errors have an "object context" field, passing a reference to
+  the object that is "most involved" in the error. Ie, for
+  validate_content errors, the element that failed to validate?
+
+- add error-handling and a better error message around the req_el
+  fetch in the validate_hook that <required> installs. As it is, the
+  error message is confusing if the <required> list gets out of sync
+  with the declared elements.
+
+- AbstractElement should define an is_empty() test that is overridden
+  by Element and NestedElement. This will make required's
+  validate_hook simpler and eliminate the bug wherein an nested
+  element with no sub-elements is okay. 
+
+- range macro needs argument checking
+
+- macros: length (min=> and max=>) ;  email
+
+- validate_content() should return the empty string
+
+- auto-CDATA on element set?
+
+- validate defs on load, to make use of 'required' and any other
+available internal functions, and avoid special-purpose validation
+code in Def.pm
+
+- function arg-checking (like Class::NamedParms, or something)
+
+- command line tools to examine/prune Doc locks
+
+- throw an error if a process is trying to lock a file that it
+  (itself) already has locked. (that's an easy "deadlock" to catch)
+
+- re-add permissions checking to index add and delete
+
+- add error-throwing to Index->rebuild() and Index->clean()
+
+- make clean use the PID as its comma flag, and if that PID is no
+  longer running, then clean anyway?
+
+- make SQL stuff really robust -- for example, recover from multiple
+  fields with the same name, needing to reconstruct a broken data
+  table, etc.
+
+- clean up the errors thrown by iterators a little more
+
+- write tests for index->aggregate()
+
+- throw an error if you try to keep_open a new-then-store()ed Doc?
+
+- add_element hook
+
+- improve line-number reporting from parser
+
+- re-write PurePerl parser to use index() rather than getc()

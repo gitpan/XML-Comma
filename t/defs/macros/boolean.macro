@@ -1,0 +1,11 @@
+$self->add_hook ( 'validate_hook',
+
+  sub {
+    my ( $doc, $content ) = @_;
+    ($content !~ /^(TRUE|FALSE)$/) ||
+      die "'$content' is not a valid boolean value";
+  }
+
+);
+
+1;

@@ -1,0 +1,16 @@
+my $low = $macro_args[0];
+my $high = $macro_args[1];
+
+$self->add_hook ( 'validate_hook',
+
+  sub {
+    my ( $doc, $content ) = @_;
+    if ( $content < $low  or
+         $content > $high ) {
+      die "'$content' out of range ($low:$high)\n";
+    };
+  }
+
+);
+
+1;

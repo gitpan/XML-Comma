@@ -1,0 +1,132 @@
+<DocumentDefinition>
+  <name>_test_indexing</name>
+
+  <element><name>foo</name></element>
+  <element><name>bar</name></element>
+  <element><name>id_as_number</name></element>
+  <element><name>many</name></element>
+  <element><name>extra1</name></element>
+  <element><name>extra2</name></element>
+  <element><name>paragraph</name></element>
+  <nested_element>
+    <name>nel</name>
+    <element><name>buried</name></element>
+  </nested_element>    
+
+  <store>
+    <name>main</name>
+    <base>test</base>
+    <location>Sequential_file:'extension','.doctest'</location>
+    <index_on_store>main</index_on_store>
+  </store>
+
+  <store>
+    <name>other</name>
+    <base>test/other</base>
+    <location>Sequential_file:'extension','.doctest'</location>
+  </store>
+
+
+  <index>
+    <name>main</name>
+    <doc_id_sql_type>CHAR(4)</doc_id_sql_type>
+
+    <field>
+      <name>foo</name>
+    </field>
+
+    <field>
+      <name>bar</name>
+      <sql_type>VARCHAR(25)</sql_type>
+    </field>
+
+    <field>
+      <name>id_as_number</name>
+      <sql_type>INT</sql_type>
+    </field>
+
+    <field><name>extra1</name></field>
+
+    <field>
+      <name>buried</name>
+      <code><![CDATA[ sub { $_[0]->nel()->buried() } ]]></code>
+    </field>
+
+    <sort>
+      <name>many</name>
+      <clean>
+        <to_size>3</to_size>
+        <size_trigger>5</size_trigger>
+        <order_by>id_as_number DESC, doc_id DESC</order_by>
+      </clean>
+    </sort>
+
+    <collection><name>many</name></collection>
+
+    <collection>
+      <name>another_many</name>
+      <code><![CDATA[ sub { $_[0]->many() } ]]></code>
+    </collection>
+
+    <textsearch>
+      <name>paragraph</name>
+      <which_preprocessor>
+        <![CDATA[ 
+          use XML::Comma::Pkg::Textsearch::Preprocessor_En;
+          sub { 'XML::Comma::Pkg::Textsearch::Preprocessor_En'; }
+        ]]>
+      </which_preprocessor>
+    </textsearch>
+
+    <sql_index>
+      <name>idx_1</name>
+      <unique>1</unique>
+      <fields>doc_id, foo</fields>
+    </sql_index>
+
+    <order_by_expression>
+      <name>constant_exp</name>
+      <expression>10</expression>
+    </order_by_expression>
+
+    <order_by_expression>
+      <name>id_mod_3</name>
+      <expression>'id_as_number % 3'</expression>
+    </order_by_expression>
+
+    <order_by_expression>
+      <name>test_eval</name>
+      <expression>time()</expression>
+    </order_by_expression>
+
+    <clean>
+      <to_size>5</to_size>
+      <size_trigger>10</size_trigger>
+      <order_by>id_as_number DESC, doc_id DESC</order_by>
+      <erase_where_clause>foo = 'erase this one'</erase_where_clause>
+    </clean>
+
+    <index_hook>
+      <![CDATA[
+        sub {
+          my ( $doc, $index ) = @_;
+          die  if  $doc->element('foo')->get() eq 'do not index';
+        };
+      ]]>
+    </index_hook>
+
+    <default_order_by>doc_id DESC</default_order_by>
+  </index>
+
+
+
+  <index>
+    <name>other</name>
+    <field><name>bar</name></field>
+  </index>
+
+
+
+  <plural>'many'</plural>
+
+</DocumentDefinition>
