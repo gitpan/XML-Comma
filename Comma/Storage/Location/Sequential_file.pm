@@ -32,6 +32,7 @@ use XML::Comma::Util qw( dbg );
 # _Sf_basecalc    : Math::BaseCalc object for formatting next id
 # _Sf_max         :
 # _Sf_width       :
+# _Sf_first_digit :
 
 sub _init {
   my ( $self, %arg ) = @_;
@@ -40,6 +41,7 @@ sub _init {
   $self->{_Sf_max} = $arg{max} || 9999;
   my $formatted_max = $self->{_Sf_basecalc}->to_base ( $self->{_Sf_max} );
   $self->{_Sf_width} = length ( $formatted_max );
+  ( $self->{_Sf_first_digit} ) = $self->{_Sf_basecalc}->digits();
   return ( 'extension' );
 }
 
@@ -52,8 +54,10 @@ sub make_id {
       $self->{_extension},
       $self->{_Sf_max} );
   return undef  if  ! defined $next_id;
-  $next_id = sprintf ( "%0*s", $self->{_Sf_width}, 
+  $next_id = sprintf ( '% *s', $self->{_Sf_width},
                        $self->{_Sf_basecalc}->to_base($next_id) );
+  my $fd = $self->{_Sf_first_digit};
+  $next_id =~ s| |$fd|g;
   return ( join('',@{$struct->{ids}},$next_id),
            File::Spec->catfile($location, $next_id.$self->{_extension}) );
 }

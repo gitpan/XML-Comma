@@ -130,6 +130,7 @@ use XML::Comma::Util qw( dbg );
 
 sub sql_create_lock_table {
   my $dbh = shift();
+  dbg "base", "creating lock table";
   $dbh->commit()  unless  $dbh->{AutoCommit};
   my $sth = $dbh->prepare (
 "CREATE TABLE comma_lock
@@ -522,7 +523,6 @@ sub sql_delete_from_sort {
 
 sub sql_create_bcollection_table {
   my ( $index, $collection_name, $bcoll_el ) = @_;
-  # dbg 'creating bcol', $collection_name;
   return $index->sql_create_a_table
     ( table_type    => XML::Comma::Indexing::Index->BCOLLECTION_TABLE_TYPE(),
       table_def_sub => 'sql_bcollection_table_definition',
@@ -568,10 +568,16 @@ sub sql_get_bcollection_table {
 }
 
 sub sql_insert_into_bcollection {
-  my ( $index, $table_name, $qdoc_id, $col_str ) = @_;
+  my ( $index, $table_name, $qdoc_id, $col_str, $col_extra ) = @_;
   my $dbh = $index->get_dbh();
   my $qvalue = $dbh->quote ( $col_str );
-  my $sth = $dbh->prepare ( "INSERT INTO $table_name ( _comma_flag, doc_id, value ) VALUES ( 0, $qdoc_id, $qvalue )" );
+  my $sth;
+  if ( $col_extra ) {
+    my $qextra = $dbh->quote ( $col_extra );
+    $sth = $dbh->prepare ( "INSERT INTO $table_name ( _comma_flag, doc_id, value, extra ) VALUES ( 0, $qdoc_id, $qvalue, $qextra )" );
+  } else {
+    $sth = $dbh->prepare ( "INSERT INTO $table_name ( _comma_flag, doc_id, value ) VALUES ( 0, $qdoc_id, $qvalue )" );
+  }
   $sth->execute();
   $sth->finish();
 }
@@ -607,7 +613,7 @@ sub sql_textsearch_defers_table_definition {
 sub sql_drop_textsearch_tables {
   my ( $index, $textsearch_name ) = @_;
   my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE textsearch=${ \( $dbh->quote($textsearch_name) ) }" );
+  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype) ) } AND textsearch=${ \( $dbh->quote($textsearch_name) ) }" );
   $sth->execute();
   while ( my $row = $sth->fetchrow_arrayref() ) {
     my $table_name = $row->[0];
@@ -623,7 +629,7 @@ sub sql_drop_textsearch_tables {
 sub sql_get_textsearch_tables {
   my ( $index, $textsearch_name ) = @_;
   my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE textsearch=${ \( $dbh->quote($textsearch_name) ) } ORDER BY table_type" );
+  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype) ) } AND textsearch=${ \( $dbh->quote($textsearch_name) ) } ORDER BY table_type" );
   $sth->execute();
   return map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
@@ -794,6 +800,7 @@ sub sql_get_textsearch_index_packed {
 # returns count
 sub sql_id_indexed_p {
   my ( $index, $id ) = @_;
+  return 0 if $id eq 'COMMA_DB_SEQUENCE_SET';
   my $dbh = $index->get_dbh();
   my $sth = $dbh->prepare ( "SELECT count(*) from ${ \( $index->data_table_name() ) } WHERE doc_id = ${ \( $dbh->quote($id) ) }" );
   $sth->execute();
@@ -1003,7 +1010,8 @@ return $result ? $result->[0]->[0] : '';
 # complex select statement build -- for iterator
 #
 sub sql_select_from_data {
-  my ( $self, $order_by_expressions, $from_tables, $where_clause,
+  my ( $self, $order_by_expressions, $from_tables,
+       $where_clause, $having_clause,
        $distinct, $order_by, $limit_number, $limit_offset,
        $columns_list,
        $collection_spec,
@@ -1034,8 +1042,13 @@ sub sql_select_from_data {
       $select .= join
         ( ',',
           "$data_table_name.doc_id",
-          (map { "$data_table_name.$_ " } @$columns_list),
+
+          (map { ref $_
+                   ? $_->[0] . '.extra as ' . $_->[1]
+                   : "$data_table_name.$_" } @$columns_list),
+
           "$data_table_name.record_last_modified" );
+      
     }
   }
 
@@ -1064,6 +1077,10 @@ sub sql_select_from_data {
   $where .= " AND $collection_spec"  if  $collection_spec;
   $where .= " AND ($textsearch_spec)"  if  $textsearch_spec;
 
+  # having clause
+  my $having = '';
+  $having .= " HAVING ($having_clause)" if $having_clause;
+
   # group by clause
   my $group_by = '';
 
@@ -1087,7 +1104,7 @@ sub sql_select_from_data {
   } else {
     # my ( $package, $filename, $line ) = caller(2);
     #print $select.$extra_order_by.$from.$where.$order.$limit . "\n";
-    return $select . $extra_order_by . $from . $where .
+    return $select . $extra_order_by . $from . $where . $having .
       $group_by. $order . $limit;
   }
 }

@@ -1,6 +1,6 @@
 use strict;
 
-print "1..34\n";
+print "1..36\n";
 
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -121,11 +121,18 @@ print "ok 29\n"  if  $doc->third() eq 'bar';
 $doc->third ( "something else", value=>'fish' );
 print "ok 30\n"  if  $doc->third() eq 'fish';
 
-# test pnotes
+# test def_pnotes
 print "ok 31\n"  if  $doc->def()->def_pnotes()->{test} eq 'ok';
 $doc->def()->def_pnotes()->{foo} = 'bar';
 print "ok 32\n"  if  $doc->def()->def_pnotes()->{foo} eq 'bar';
 print "ok 33\n"  if
   $doc->element('looks_at_firsts_pnotes')->pn->{first_value} eq 'plop';
 print "ok 34\n"  if
-  XML::Comma->pnotes('_test_virtual_element:first')->{first_value} eq 'plop';
+  XML::Comma->def_pnotes('_test_virtual_element:first')->{first_value} eq 'plop';
+
+# test pnotes
+my $doc2 = XML::Comma::Doc->new ( type=>"_test_virtual_element" );
+$doc->pnotes->{'foo'} = 'bar';
+$doc2->pnotes->{'foo'} = 'other';
+print "ok 35\n"  if  $doc->pnotes->{'foo'}  eq 'bar';
+print "ok 36\n"  if  $doc2->pnotes->{'foo'} eq 'other';

@@ -21,7 +21,8 @@ Comma/Parsing/SAXEventParser.pm
 Comma/Parsing/SimpleC.pm
 Comma/Pkg/ModuleConfiguration.pm
 Comma/Pkg/Mason/ParResolver.pm
-Comma/Pkg/test.par
+Comma/Pkg/Mason/ParComponent.pm
+Comma/Pkg/Mason/par-demo.par
 Comma/Pkg/Transfer/HTTP_Transfer.pm
 Comma/Pkg/Transfer/HTTP_Upload.pm
 Comma/Pkg/Transfer/HTTP_Upload/HTTP_Upload_mod_perl.pm
@@ -45,6 +46,7 @@ Comma/Storage/Location/Derived_GMT_3layer_dir.pm
 Comma/Storage/Location/GMT_3layer_dir.pm
 Comma/Storage/Location/Read_only_file.pm
 Comma/Storage/Location/Sequential_dir.pm
+Comma/Storage/Location/Prepended_dir.pm
 Comma/Storage/Location/Sequential_file.pm
 Comma/Storage/Location/SequentialCheck_file.pm
 Comma/Storage/Location/Index_Only.pm
@@ -52,6 +54,7 @@ Comma/Storage/Location/location_modules.doc
 Comma/Storage/Output/Gzip.pm
 Comma/Storage/Output/Twofish.pm
 Comma/Storage/Output/HMAC_MD5.pm
+Comma/Storage/Output/MailMessageReader.pm
 Comma/Storage/Store.pm
 Comma/Storage/Util.pm
 Comma/Util.pm
@@ -69,6 +72,8 @@ README
 Makefile.PL
 bin/comma-drop-index.pl
 bin/comma-load-doc.pl
+bin/comma-load-and-store-doc.pl
+bin/comma-load-and-index-doc.pl
 t/aaa_test_setup.t
 t/bootstrap.t
 t/defs/_test_document_hooks.def
@@ -80,6 +85,7 @@ t/defs/_test_parser_di_lst_eval_err.def
 t/defs/_test_parser_di_sub_eval_err.def
 t/defs/_test_parser_di_sub_exe_err.def
 t/defs/_test_storage.def
+t/defs/_test_timestamp.def
 t/defs/_test_transfer_manual.def
 t/defs/_test_validation.def
 t/defs/_test_virtual_element.def
@@ -90,6 +96,8 @@ t/defs/macros/date_8.macro
 t/defs/macros/enum.macro  
 t/defs/macros/integer.macro  
 t/defs/macros/range.macro  
+t/defs/macros/timestamp.macro  
+t/defs/macros/truncate_to_length.macro  
 t/defs/macros/unix_time.macro
 t/defs/macros/_test_parser_di_eval_err.include
 t/defs/macros/_test_parser_di_exe_err.include
@@ -104,6 +112,7 @@ t/par_def.t
 t/par_def.par
 t/parser.t
 t/storage.t
+t/timestamp.t
 t/transfer.manual
 t/util.t
 t/validation.t

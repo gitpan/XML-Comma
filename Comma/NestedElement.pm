@@ -138,6 +138,7 @@ sub add_element {
   }
   # underlying add
   $self->_add_elements ( $new_el );
+  $self->set_read_only()  if  $self->{_read_only};
   return $new_el;
 }
 

@@ -119,7 +119,6 @@ BEGIN {
           besid
           between
           beyond
-          billion
           biol
           both
           briefli
@@ -137,7 +136,6 @@ BEGIN {
           chem
           co
           contain
-          copyright
           could
           couldn
           couldnt
@@ -247,15 +245,11 @@ BEGIN {
           ill
           im
           immedi
-          import
           in
           inc
           includ
           inde
-          index
-          inform
           instead
-          internet
           into
           i
           isn
@@ -265,7 +259,6 @@ BEGIN {
           iv
           j
           jpg
-          jpeg
           just
           k
           keep
@@ -273,7 +266,6 @@ BEGIN {
           kei
           kg
           km
-          knowledg
           l
           larg
           last
@@ -300,7 +292,6 @@ BEGIN {
           meanwhil
           mg
           might
-          million
           miss
           ml
           more
@@ -398,7 +389,6 @@ BEGIN {
           regardless
           relat
           rel
-          research
           respect
           result
           run
@@ -406,7 +396,6 @@ BEGIN {
           said
           same
           sai
-          search
           sec
           section
           seem
@@ -418,14 +407,12 @@ BEGIN {
           she
           she
           shed
-          shell
           she
           should
           shouldn
           shouldnt
           show
           shown
-          show
           significantli
           similar
           similarli
@@ -444,7 +431,6 @@ BEGIN {
           somewher
           soon
           specif
-          state
           still
           stop
           strongli
@@ -488,7 +474,6 @@ BEGIN {
           those
           though
           thoughh
-          thousand
           three
           throug
           through
@@ -501,38 +486,6 @@ BEGIN {
           togeth
           too
           toward
-          trillion
-          try
-          twenti
-          two
-          u
-          under
-          unless
-          unlik
-          until
-          unto
-          up
-          upon
-          up
-          u
-          us
-          usefulli
-          us
-          usual
-          v
-          variou
-          ve
-          veri
-          via
-          vol
-          v
-          w
-          wa
-          wasn
-          wasnt
-          wai
-          we
-          web
           wed
           well
           were
@@ -578,7 +531,6 @@ BEGIN {
           won
           wont
           word
-          world
           would
           wouldn
           wouldnt

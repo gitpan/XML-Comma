@@ -1,5 +1,10 @@
 use strict;
 
+unless ( XML::Comma->defs_from_PARs() ) {
+  print "1..1\n";
+  print "ok 1\n";
+  exit 0;
+}
 
 print "1..6\n";
 

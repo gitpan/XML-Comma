@@ -84,7 +84,6 @@ sub _init_def {
 #
 ########
 
-
 sub tag {
   return $_[0]->{_tag};
 }
@@ -100,6 +99,25 @@ sub def {
 sub def_pnotes {
   return XML::Comma::DefManager->get_pnotes ( $_[0]->{_def} );
 }
+
+sub pnotes {
+  return $_[0]->{_pnotes} ||= {};
+}
+
+
+########
+#
+# HASH
+#
+########
+
+sub comma_hash {
+  my $self = shift();
+  my $digest = XML::Comma->hash_module()->new();
+  $digest->add ( $self->_get_hash_add() );
+  return $digest->hexdigest();
+}
+
 
 ########
 #

@@ -30,7 +30,9 @@ use strict;
 sub _config__method {
   my ( $self, $el ) = @_;
   my $code_ref = eval $el->element('code')->get();
-  die "$@"  if  $@;
+  die XML::Comma::Log->err ( 'METHOD_PARSE_ERR', $@, undef, 
+                             'in "' . $el->element('name')->get . '"' )
+    if  $@;
   $self->add_method ( $el->element('name')->get(),
                       $el->element('code')->get() );
 }

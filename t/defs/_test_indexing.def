@@ -8,6 +8,7 @@
   <element><name>extra1</name></element>
   <element><name>extra2</name></element>
   <element><name>paragraph</name></element>
+  <element><name>count</name></element>
 
   <nested_element>
     <name>nel</name>

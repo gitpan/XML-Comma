@@ -13,10 +13,10 @@ use XML::Comma;
 my $doc;
 
 if ( ! $file ) {
-  my $addr = shift();
+  my $key = shift();
   die "usage: comma-load-doc.pl [-file <filename>] [doc-key]\n"
-    if ! $addr;
-  $doc = XML::Comma::Doc->retrieve ( $addr );
+    if ! $key;
+  $doc = XML::Comma::Doc->retrieve ( $key );
 } else {
   $doc = XML::Comma::Doc->new ( file => $file );
 }

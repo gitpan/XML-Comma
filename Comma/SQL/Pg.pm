@@ -43,6 +43,7 @@ require Exporter;
   sql_bcollection_table_definition
   sql_textsearch_index_table_definition
   sql_textsearch_defers_table_definition
+  sql_index_only_doc_id_type
 
   sql_textsearch_word_lock
   sql_textsearch_word_unlock
@@ -132,11 +133,19 @@ sub sql_data_table_definition {
 
 sub sql_bcollection_table_definition {
   my ( $index, $name, %arg ) = @_;
+  my $extra_column = '';
+  if ( @{$arg{bcoll_el}->elements('field')} ) {
+    $extra_column = ", extra " .
+      $arg{bcoll_el}->element('field')->element('sql_type')->get();
+  }
+
   return
 "CREATE TABLE $name (
   _comma_flag  INT2,
   doc_id ${ \( $index->element('doc_id_sql_type')->get() ) },
-  value   ${ \( $arg{bcoll_el}->element('sql_type')->get() ) } );
+  value   ${ \( $arg{bcoll_el}->element('sql_type')->get() ) }
+  $extra_column
+ );
  CREATE INDEX bci_$name ON $name (value)";
 }
 
@@ -176,6 +185,11 @@ sub sql_textsearch_word_unlock {
   $dbh->commit();
   $dbh->{AutoCommit}=1;
   #$dbh->do ( "COMMIT WORK" );
+}
+
+
+sub sql_index_only_doc_id_type {
+  return 'INT4';
 }
 
 

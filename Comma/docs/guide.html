@@ -720,11 +720,11 @@ can be resolved. Here then, are the many faces of
 </tr>
 <tr>
  <td><code>$x->elements_group_get('foo')</code></td>
- <td>For plural, nested <i>foo</i> called with no arguments</td>
+ <td>For plural, non-nested <i>foo</i> called with no arguments</td>
 </tr>
 <tr>
  <td><code>$x->elements_group_add('foo', @args)</code></td>
- <td>For plural, nested <i>foo</i> called with arguments</td>
+ <td>For plural, non-nested <i>foo</i> called with arguments</td>
 </tr>
 </table>
 </p>
@@ -1132,7 +1132,9 @@ element has no content at all. </p>
 
 <p> Document definitions are static constructs. However it can be
 useful to tie some dynamic bits of information -- status or state
-flags, simple lookup tables and the like -- to a def. </p>
+flags, simple lookup tables and the like -- to a def. It can also be
+useful to have simple access to a perl-level hash that can store
+arbritrary references.</p>
 
 <p> To enable a Def to "hold" some long-lived bits of dynamic
 information, each def exposes a unique <b>pnotes</b> hash, available
@@ -1170,8 +1172,57 @@ convenience, you can call <b>def_pnotes()</b> on an element or on that
 element's def and get back the same hash reference. </p>
 
 <p> The third new method is the system call
-<b>XML::Comma->pnotes()</b>, which takes a pathname and returns that
-def path's pnotes hash. </p>
+<b>XML::Comma->def_pnotes()</b>, which takes a pathname and returns
+that def path's pnotes hash. </p>
+
+<h2> Not just for Defs: pnotes for Elements </h2>
+
+<p> Sometimes you need to store bits of perl-level data that are
+specific to a particular Doc, rather than to a Def. You could always
+write a closure-ish method that creates persistant variables, but
+Comma provides a simple, Element-bound pnotes hash as an
+alternative. <p>
+
+<p> Here's the workhorse method from the MailMessageReader
+input/output filter, which uses Mark Overmeer's Mail::Message module
+to parse an internet email message and create a Doc. The code sticks
+the Mail::Message object into the doc's pnotes hash, for possible
+later use. </p>
+
+<pre>
+sub input {
+  my $msg = Mail::Message-&gt;read ( $_[1] );
+  my $doc = XML::Comma::Doc-&gt;new ( type =&gt; $_[0]-&gt;{_doctype} );
+
+  $doc-&gt;message_id ( get_message_id($msg) );
+  $doc-&gt;subject    ( $msg-&gt;get ('Subject') );
+  $doc-&gt;from       ( $msg-&gt;get ('From') );
+  $doc-&gt;to         ( $msg-&gt;get ('To') );
+
+  my $date = $msg-&gt;get( 'Date' );
+  if ( $date ) {
+    my $unix_time = Date::Parse::str2time ( $date );
+    $doc-&gt;date ( $date );
+    $doc-&gt;date_utime ( $unix_time );
+  }
+
+  foreach ( get_references($msg) ) {
+    $doc-&gt;add_element('reference')-&gt;set ( $_ );
+  }
+
+  foreach ( get_parts_content_types($msg) ) {
+    $doc-&gt;add_element('part_content_type')-&gt;set ( $_ );
+  }
+
+  my $plain_part = get_plain_part ( $msg );
+  my $body = autoformat $plain_part-&gt;decoded if  $plain_part;
+  $doc-&gt;body ( $body )  if  $body;
+  $doc-&gt;pnotes()-&gt;{mail_message_object} = $msg;
+
+  return $doc;
+}
+</pre>
+
 
 <h1>Storage and Retrieval</h1>
 
@@ -4409,6 +4460,7 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
       <ul>
       <li>undef = $lock_interface->wait_for_hold ( $string );</li>
       <li>undef = $lock_interface->release_hold ( $string );</li></ul>
+      <li>$hashref = XML::Comma->def_pnotes($defpath);</li></ul>
     </ul></li>
 
   <li>XML::Comma::Doc
@@ -4454,6 +4506,7 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$hash_ref = $def-&gt;def_pnotes();</li>
     <li>@names = $def-&gt;applied_macros();</li>
     <li>1/undef = $def-&gt;applied_macros ( @names );</li>
+    <li>$hashref = $el->pnotes();</li>
     </ul></li>
 
   <li>blob elements
@@ -4602,6 +4655,12 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>'' = dbg ( @arrays/[] [...] );</li>
     <li>($name, @args) = name_and_args_eval ( $string );</li>
     <li>$string = random_an_string ( $length );</li>
+    </ul></li>
+
+  <li>XML::Comma::Storage::Util
+    <ul>
+    <li>$doc_key = XML::Comma::Storage::Util::concat_key ( type=>$type, store=>$store_name, id=>$id );</li>
+    <li>( $type, $store_name, $id ) = XML::Comma::Storage::Util->split_key ( $key );</li>
     </ul></li>
 
 </ul>

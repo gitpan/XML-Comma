@@ -71,7 +71,10 @@ my $spec_parser =
 #                                     select statement
 
 # _Iterator_collection_spec  : SQL string created from collection_spec arg
+# _Iterator_textsearch_arg
 # _Iterator_textsearch_spec  : SQL string created from textsearch_spec arg
+# _Iterator_stopwords        :      stopwords found for a textsearch
+# _Iterator_notfoundwords           textsearch words with no entries
 
 # _Iterator_st
 # _Iterator_current_row
@@ -95,8 +98,12 @@ sub new {
       die "need an Indexing::Index reference to make an Iterator\n";
     $self->{_Iterator_order_by} = $args{order_by} || '';
     $self->{_Iterator_where_clause} = $args{where_clause} || '';
+    $self->{_Iterator_having_clause} = $args{having_clause} || '';
     $self->{_Iterator_from_tables} =
       [ $self->{_Iterator_index}->data_table_name() ];
+
+    ( $self->{_Iterator_columns_lst}, $self->{_Iterator_columns_pos} ) =
+      $self->_make_columns_lsts ( $args{fields} );
 
     my $cspec_arg;
     if ( $args{collection_spec} and $args{sort_spec} ) {
@@ -107,17 +114,13 @@ sub new {
     $self->{_Iterator_collection_spec} =
       $self->_make_collection_spec( $cspec_arg );
 
+    $self->{_Iterator_textsearch_arg} = $args{textsearch_spec};
+
     # this 'distinct' arg isn't documented, because I'm not sure
     # why/how it might be used at the API level
     if ( defined $args{distinct} ) {
       $self->{_Iterator_distinct} = $args{distinct};
     }
-
-    $self->{_Iterator_textsearch_spec} =
-      $self->_make_textsearch_spec( $args{textsearch_spec} );
-
-    ( $self->{_Iterator_columns_lst}, $self->{_Iterator_columns_pos} ) =
-      $self->_make_columns_lsts ( $args{fields} );
 
     $self->{_Iterator_newly_created} = 1;
     #  dbg 'i-spec', $self->{_Iterator_sort_spec};
@@ -131,11 +134,15 @@ sub count_only {
   my $self = $class->new ( %args );
   eval {
     my $order_by = $self->_fill_order_expressions();
+    ( $self->{_Iterator_textsearch_spec},
+      $self->{_Iterator_stopwords},
+      $self->{_Iterator_notfoundwords} ) = $self->_make_textsearch_spec();
     my $string = sql_select_from_data
       ( $self->{_Iterator_index},
         $self->{_Iterator_order_expressions},
         $self->{_Iterator_from_tables},
         $self->{_Iterator_where_clause},
+        $self->{_Iterator_having_clause},
         $self->{_Iterator_distinct},
         $order_by,
         0, 0, # limits
@@ -157,11 +164,15 @@ sub aggregate {
   my $self = $class->new ( %args );
   eval {
     my $order_by = $self->_fill_order_expressions();
+    ( $self->{_Iterator_textsearch_spec},
+      $self->{_Iterator_stopwords},
+      $self->{_Iterator_notfoundwords} ) = $self->_make_textsearch_spec();
     my $string = sql_select_from_data
       ( $self->{_Iterator_index},
         $self->{_Iterator_order_expressions},
         $self->{_Iterator_from_tables},
         $self->{_Iterator_where_clause},
+        $self->{_Iterator_having_clause},
         $self->{_Iterator_distinct},
         $order_by,
         0, 0, # limits
@@ -181,6 +192,9 @@ sub iterator_refresh {
   my ( $self, $limit_number, $limit_offset ) = @_;
   eval {
     my $order_by = $self->_fill_order_expressions();
+    ( $self->{_Iterator_textsearch_spec},
+      $self->{_Iterator_stopwords},
+      $self->{_Iterator_notfoundwords} ) = $self->_make_textsearch_spec();
     my $index = $self->{_Iterator_index};
     my $dbh = $index->get_dbh();
     $self->{_Iterator_sth}->finish()  if  $self->{_Iterator_sth};
@@ -189,6 +203,7 @@ sub iterator_refresh {
        $self->{_Iterator_order_expressions},
        $self->{_Iterator_from_tables},
        $self->{_Iterator_where_clause},
+       $self->{_Iterator_having_clause},
        $self->{_Iterator_distinct},
        $order_by,
        $limit_number,
@@ -197,7 +212,7 @@ sub iterator_refresh {
        $self->{_Iterator_collection_spec},
        $self->{_Iterator_textsearch_spec} );
     #  dbg 'refreshing', $self;
-    #dbg 'sql', $string;
+    # dbg 'sql', $string;
     $self->{_Iterator_sth} = $dbh->prepare ( $string );
     $self->{_Iterator_select_returnval} = $self->{_Iterator_sth}->execute();
     #  dbg 'srv', $self->{_Iterator_select_returnval};
@@ -246,6 +261,14 @@ sub iterator_select_returnval {
     $_[0]->iterator_refresh();
   }
   return $_[0]->{_Iterator_select_returnval};
+}
+
+sub textsearch_stopwords {
+  return @{$_[0]->{_Iterator_stopwords} || []};
+}
+
+sub textsearch_not_found {
+  return @{$_[0]->{_Iterator_notfoundwords} || []};
 }
 
 sub retrieve_doc {
@@ -334,7 +357,7 @@ sub _fill_order_expressions {
   my $odb = $self->_get_order_by() || return '';
   $self->{_Iterator_order_expressions} = [];
   foreach my $exp ($self->{_Iterator_index}->elements('order_by_expression')) {
-    # if the name of this el appears in the order_by clause (as a
+    # if the name of this exp appears in the order_by clause (as a
     # whole word), push this el onto our order_by_expressions array
     if ( $odb =~ m:\b${ \( $exp->element('name')->get() )}\b: ) {
       push @{$self->{_Iterator_order_expressions}}, $exp;
@@ -365,9 +388,11 @@ sub _make_collection_spec {
   my @sort_tables;
   my $chunks = $spec_parser->statement ( $arg . " )END OF STATEMENT" );
   die "bad collection spec: '$arg'\n"  unless  $chunks;
+
   foreach my $chunk ( @{$chunks} ) {
     my $NOT = ''; my $OP = '=';
     my ( $name, $value) = split /:/, $chunk, 2;
+
     if ( $value ) {
       $NOT = 'NOT'  if  $name =~ s/NOT //;
       $OP = 'LIKE' if $value =~ /\%/;
@@ -376,6 +401,7 @@ sub _make_collection_spec {
         $self->{_Iterator_index}->collection_table_name ($name,$value);
       push ( @from_tables, $table_name )  if  $table_name;
       $type = $self->{_Iterator_index}->collection_type ( $name );
+
       if ( $type eq 'stringified' ) {
         if ( $OP eq 'LIKE' ) {
           # we only support partial matches that are "anchored" at the
@@ -389,6 +415,7 @@ sub _make_collection_spec {
           $self->{_Iterator_index}->collection_stringify_partial ( $value );
         $sql .= "$table_name.$name $NOT LIKE " .
           $self->{_Iterator_index}->get_dbh()->quote ( "%$partial%" );
+
       } elsif ( $type eq 'binary table' ) {
         push @binary_tables, $table_name;
         die "can't use NOT with binary-tables-type collection '$name'\n"
@@ -401,6 +428,16 @@ sub _make_collection_spec {
         unless ( defined $self->{_Iterator_distinct} ) {
           $self->{_Iterator_distinct} = 1  if  $OP eq 'LIKE';
         }
+        # finally, we'll need to make sure that we select for the
+        # 'extra' table, mapping it (using a sequel "as") to the name
+        # that its field was given in the def.
+        my $field = $self->{_Iterator_index}->collection_field ( $name );
+        if ( $field ) {
+          $self->{_Iterator_distinct} = 1;
+          push @{$self->{_Iterator_columns_lst}},
+            [ $table_name, $field->element('name')->get ];
+        }
+
       } elsif ( $type eq 'many tables' ) {
         die "can't use a partial (%) match with collection '$name'\n"
           if $OP eq 'LIKE';
@@ -442,7 +479,7 @@ sub _make_collection_spec {
     $self->{_Iterator_distinct} = 1 unless defined $self->{_Iterator_distinct};
   }
 
-  #dbg 'collection sql', $sql;
+  # dbg 'collection sql', $sql;
   return $sql;
 }
 
@@ -450,13 +487,16 @@ sub _make_collection_spec {
 # FIX: should a single term with no matches should stop the search,
 # ala google?
 sub _make_textsearch_spec {
-  my ( $self, @arg ) = @_;
-  return '' if ! $arg[0]; # no textsearch given to invocation method
+  my $self = shift;
+  return ( '', [], [] ) unless $self->{_Iterator_textsearch_arg};
+  my @stopwords;
+  my @notfoundwords;
   my $dbh = $self->{_Iterator_index}->get_dbh();
   my $data_table_name = $self->{_Iterator_index}->data_table_name();
   my $sql_string='';
   my @temp_tables;
-  my ( $ts_name, $word_string ) = split ( /\:/, $arg[0], 2 );
+  my ( $ts_name, $word_string ) =
+    split ( /\:/, $self->{_Iterator_textsearch_arg}, 2 );
   my $ts_attribute;
   if ( $ts_name =~ m:(.*)\{(.*)\}: ) {
     $ts_name = $1;
@@ -464,19 +504,29 @@ sub _make_textsearch_spec {
   }
   my $preproc = $self->_get_textsearch_preprocessor ( $ts_name, $ts_attribute );
   foreach my $word ( split /\s+/, $word_string ) {
+    next unless $word;
     my ($stemmed_word) = $preproc->stem ( $word );
-    next  if  ! $stemmed_word;  # arg was stopword
+    if ( ! $stemmed_word ) {
+      # arg was stopword
+      push @stopwords, $word;
+      next;
+    }
     my $q_word = $dbh->quote ( $stemmed_word );
     my ($ts_table_name) =
       $self->{_Iterator_index}->sql_get_textsearch_tables($ts_name);
     die "no textsearch table found for $ts_name\n" if ! $ts_table_name;
     my ($temp_table_name, $size) = $self->{_Iterator_index}
       ->sql_create_textsearch_temp_table ( $ts_table_name, $stemmed_word );
-    next  if  ! $temp_table_name;  # arg record not found or empty
+    if ( ! $temp_table_name ) {
+      # arg record not found or empty
+      push @notfoundwords, $word;
+      next;
+    }
     push @temp_tables, { name=>$temp_table_name, size=>$size };
   }
   if ( ! @temp_tables ) {
-    die "no record found for any of the keywords given";
+    # no usable words found in spec
+    return ( '0=1', \@stopwords, \@notfoundwords );
   }
   @temp_tables = sort { $a->{size} <=> $b->{size} } @temp_tables;
   # do the first part of the join pivot
@@ -489,7 +539,12 @@ sub _make_textsearch_spec {
     $sql_string .= " AND $last_temp_table_name.id=$temp_table_name.id";
   }
   push @{$self->{_Iterator_from_tables}}, map { $_->{name} } @temp_tables;
-  return $sql_string;
+
+  #dbg 'ts', $sql_string;
+  #dbg 'st', @stopwords;
+  #dbg 'nf', @notfoundwords;
+
+  return ( $sql_string, \@stopwords, \@notfoundwords );
 }
 
 sub _get_textsearch_preprocessor {
@@ -520,9 +575,14 @@ sub _get_textsearch_preprocessor {
 
 sub AUTOLOAD {
   my ( $self, @args ) = @_;
-  my $value;
   # strip out local method name and stick into $m
   $AUTOLOAD =~ /::(\w+)$/;  my $m = $1;
+  return $self->iterator_dispatch ( $m, @args );
+}
+
+sub iterator_dispatch {
+  my ( $self, $m, @args ) = @_;
+  my $value;
   eval {
     if ( my $method = $self->{_Iterator_index}->get_method($m) ) {
       $value = $method->( $self, @args );

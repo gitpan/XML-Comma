@@ -127,6 +127,10 @@
     </escapes>
   </element>
 
+  <element>
+    <name>truncated</name>
+    <macro>truncate_to_length: 7</macro>
+  </element>
 
 </DocumentDefinition>
 

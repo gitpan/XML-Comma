@@ -22,7 +22,7 @@
 
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.18';
+$XML::Comma::VERSION = '1.20';
 
 use strict;
 use vars '$AUTOLOAD';
@@ -56,7 +56,7 @@ BEGIN {
     return $lock_singlet ||= XML::Comma::SQL::Lock->new();
   }
 
-  sub pnotes {
+  sub def_pnotes {
     return XML::Comma::DefManager->get_pnotes ( $_[1] );
   }
 

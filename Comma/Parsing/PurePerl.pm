@@ -86,8 +86,9 @@ sub includes_parser {
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
     $context = ($self->{_from_file}.':'.$context) if $self->{_from_file};
     $self->{_el_stack} = undef;
-    chop $@;
-    die "$@ (in '$context' at " . $self->pos_line_and_column . ")\n";
+    XML::Comma::Log->err
+        ( 'PARSE_ERR', $@, undef,
+          "(in '$context' at " . $self->pos_line_and_column() . ")\n" );
   }
   $self->{_el_stack} = undef;
 }
@@ -116,8 +117,9 @@ sub parse {
   }; if ( $@ ) {
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
     $self->{_el_stack} = undef;
-    chop $@;
-    die "$@ in '$context' at " . $self->pos_line_and_column . "\n";
+    XML::Comma::Log->err 
+        ( 'PARSE_ERR', $@, undef,
+          "(in '$context' at " . $self->pos_line_and_column() . ")\n" );
   }
   $self->{_el_stack} = undef;
 }
@@ -160,8 +162,9 @@ sub handle_document {
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
     $context = ($self->{_from_file}.':'.$context) if $self->{_from_file};
     $self->{_el_stack} = undef;
-    chop $@;
-    die "$@ (in '$context' at " . $self->pos_line_and_column . ")\n";
+    XML::Comma::Log->err 
+        ( 'PARSE_ERR', $@, undef,
+          "(in '$context' at " . $self->pos_line_and_column() . ")\n" );
   }
   $self->{_el_stack} = undef;
   return $doc;

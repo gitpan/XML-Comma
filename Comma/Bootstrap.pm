@@ -327,6 +327,14 @@ sub bootstrap_block {
         <default>VARCHAR(245)</default>
       </element>
       <nested_element>
+        <name>field</name>
+        <element><name>name</name></element>
+        <element>
+          <name>sql_type</name>
+          <default>VARCHAR(245)</default>
+        </element>
+      </nested_element>
+      <nested_element>
         <name>clean</name>
         <element><name>to_size</name></element>
         <element><name>order_by</name></element>

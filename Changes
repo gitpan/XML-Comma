@@ -164,7 +164,7 @@ Revision history for XML::Comma modules:
     from going to the log.
 
 -------------------------
-1.10  
+1.10  2002/12/06
 -------------------------
 
   - Fixed bug in textsearch code that prevented processes that hadn't
@@ -217,9 +217,101 @@ Revision history for XML::Comma modules:
   - Added PAR resolving functionality to DefManager
 
 -------------------------
-1.17
+1.17  2003/03/04
 -------------------------
 
+  - Fixed missing file in MANIFEST
 
+  - ParResolver is working; added Comma/Pkg/test.par
+
+-------------------------
+1.18  2003/03/18
+-------------------------
+
+  - Fixed Sequential_dir and Sequential_file to pad with the 0th digit
+    rather than with '0'
+
+  - Added new bin/comma-load-and-store-doc.pl utility
+
+  - Improved some SimpleC error messages
+
+  - Removed about a dozen stopwords from the english stopwords list
+
+  - Added Storage::Util method to docs
+
+  - Fixed a bug in escape/unescape code that was producing strange character 
+    sequences
+
+  - Added experimental "collection field" features
+
+  - Added a pnotes functionality to elements -- a hash-keyed store for
+    any data that the element object would like to salt away for
+    itself. not shared in a class-like manner as def_pnotes
+    is. Changed the generic Comma.pm level def_pnotes lookup method to
+    be called def_pnotes rather than pnotes, to avoid confusion now
+    that both instance- and class-like pnotes calls exist.
+
+  - Made Proc::ProcessTable optional. Still need to write docs (and
+    perhaps a Makefile.PL notice) saying that its useful to have.
+
+-------------------------
+1.19  2003/05/22
+-------------------------
+
+  - Added doc_id to error messages in basic doc methods
+
+  - Made the internal calls to def-level escape_code and unescape_code
+    subs pass any set() or get() args, so that escape and unescape
+    routines can vary depending on application code arguments
+
+  - Fixed a read_only bug that made newly-created elements of
+    read-only docs NOT read-only
+
+  - Fixed textsearch bug wherein textsearch elements with the same
+    name in different indexes/defs became mixed up
+
+  - Added XML::Comma::Def-><name> shortcut method
+
+  - Added Indexing iterator method iterator_dispatch, decoupling the autoload 
+    from the the method/element fetch.
+
+  - Moved pnotes handling up an (OO) layer into AbstractElement, so
+    all parts of a doc or def can now have their own pnotes objects
+
+  - Proc::ProcessTable is now optional, used if available to try and
+    determine whether a (local) process that holds doc locks is still
+    alive.
+
+  - Comma/Pkg/Mason/ParResolver and ParComponent added to core
+    distribution. 
+
+  - Removed some stopwords from Comma/Pkg/Mason/Preprocessor_En that
+    never should have been there in the first place (like "internet").
+
+  - Added STDERR output to error notices from $index->rebuild()
+
+  - New utility bin/comma-load-and-index-doc.pl
+
+  - New Comma/Storage/Output module (that, confusingly, only does
+    input): MailMessageReader
  
+  - Made errors thrown during parsing conform to Log->err style, and
+    added $extra_text field to Error constructor. Now errors thrown
+    during def method parsing report the method name and have a more
+    specific heirarchy field.
+
+  - Removed date_8.macro's Date::Calc dependency (rewriting the
+    validate_hook in the process) and added a number of tests (Dug).
+
+  - Changed default Comma/Configuration file to use system directories
+    relative to the current directory under TEST/ for all test
+    scripts. Tried and failed to add a SQLite database driver so that
+    we can install (for example from CPAN) even on a vanilla system
+    and hae everything work without needing to configure an
+    RDBMS. SQLite presents various issues that will be difficult to
+    resolve without a large amount of rewritage.
+
+-------------------------
+1.20  2003/10/13
+-------------------------
 

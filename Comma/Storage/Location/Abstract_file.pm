@@ -44,7 +44,7 @@ use XML::Comma::Util qw( dbg );
 
 sub new {
   my ( $class, %arg ) = @_; my $self = {}; bless ( $self, $class );
-  $self->{_extension} = $arg{extension} || '.comma';
+  $self->{_extension} = (defined $arg{extension}) ? $arg{extension} : '.comma';
   $self->{_decl_pos} = $arg{decl_pos};
   return ( $self, 'extension', $self->_init(%arg) );
 }

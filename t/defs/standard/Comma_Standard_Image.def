@@ -46,7 +46,7 @@
                  (! ref($content) and defined $content) ) {
               my ( $x, $y, $type ) = Image::Size::imgsize($content);
               if ( ! $x ) {
-                die "no content-type discernable for image file\n";
+                die "could not process this image file\n";
               }
               my $type_entry = $self->def_pnotes()->{types}->{$type};
               die "no such type as '$type' recognized\n"  if  ! $type_entry;

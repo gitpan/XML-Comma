@@ -26,22 +26,28 @@ use strict;
 
 
 sub err {
-  my ( $class, $error_name, $arg2 ) = @_;
+  my ( $class, $error_name, $arg2, $doc_id, $extra_text ) = @_;
   my ( $file, $line, $internal_eval, $caller_eval ) = $class->external_caller();
   if ( ref($arg2) eq 'XML::Comma::Err' ) {
-    my $error = XML::Comma::Err->new ( err_name
-                                         => "$error_name/".$arg2->error_name(),
-                                       info_string => $arg2->info_string_full(),
-                                       file => $arg2->file(),
-                                       line => $arg2->line() );
+    my $str = $arg2->info_string_full();
+    $str .= " - $extra_text"  if  $extra_text;
+    my $error = XML::Comma::Err->new 
+      ( err_name => "$error_name/".$arg2->error_name(),
+        info_string => $str,
+        file   => $arg2->file(),
+        line   => $arg2->line(),
+        doc_id => $doc_id );
     $class->log ( $error->to_string() )  unless  $internal_eval || $caller_eval;
     die $error;
   } else {
     chomp $arg2;
+    my $str = $arg2;
+    $str .= " - $extra_text"  if  $extra_text;
     my $error = XML::Comma::Err->new ( err_name => $error_name,
-                                       info_string => $arg2,
-                                       file => $file,
-                                       line => $line );
+                                       info_string => $str,
+                                       file    => $file,
+                                       line    => $line,
+                                       doc_id  => $doc_id );
     $class->log ( $error->to_string() )  unless $internal_eval || $caller_eval;
     die $error;
   }
@@ -110,6 +116,7 @@ sub new {
   $self->{_info_string} = $arg{info_string};
   $self->{_file} = $arg{file};
   $self->{_line} = $arg{line};
+  $self->{_doc_id} = $arg{doc_id};
   return $self;
 }
 
@@ -142,8 +149,10 @@ sub line {
 
 sub to_string {
   my $self = shift();
-  return join " ", $self->{_err_name}, '--', $self->{_info_string},
-    'at', $self->{_file}, 'line', $self->{_line}, "\n";
+  return $self->{_err_name} .
+    ( $self->{_doc_id} ? ' (' . $self->{_doc_id} . ')' : '' ) .
+    ' -- ' . $self->{_info_string} .
+    ' at ' .  $self->{_file} .  ' line ' .  $self->{_line} . "\n";
 }
 
 1;

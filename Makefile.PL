@@ -33,6 +33,8 @@ my @cmd_line_utils = qw(
 
 bin/comma-drop-index.pl
 bin/comma-load-doc.pl
+bin/comma-load-and-store-doc.pl
+bin/comma-load-and-index-doc.pl
 
 );
 
@@ -43,14 +45,13 @@ WriteMakefile(
     'VERSION_FROM' => 'Comma.pm',
     'PREREQ_PM'    =>
               { Inline                   => 0,
-                Proc::ProcessTable       => 0,
                 Lingua::Stem             => 0,
                 Crypt::Twofish           => 0,
                 Crypt::CBC               => 0,
                 Digest::HMAC_MD5         => 0,
                 String::CRC              => 0,
                 Math::BaseCalc           => 0,
-                PAR                      => 0,
+                DBI                      => 0,
               },
     'clean' => {
       'FILES' => 'lib/XML/Comma.pm'

@@ -67,12 +67,11 @@ $index_other->ping();
 print "ok 4\n";
 
 ####
-## Test the indexing of three docs (two copies of "a" and one of "b"),
-## with a few different iterator retrieves.
+## Test the indexing of three docs (two copies of "doc_block_a" and
+## one of "doc_block_b"), with a few different iterator retrieves.
 ####
 
 my $i;
-
 # create and store
 my $doc = XML::Comma::Doc->new ( block=>$doc_block_a );
 print "ok 5\n" if $doc;
@@ -201,6 +200,7 @@ sub _chk_0003_0002_0001 {
   return if $iterator;
   return 1;
 }
+
 
 $i = $index_main->iterator ( collection_spec => "NOT 'many1_c:abcdef'" );
 print "ok 49\n"  if  _chk_0003_0002_0001($i);

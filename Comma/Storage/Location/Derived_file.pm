@@ -100,10 +100,12 @@ sub id_from_location {
   die "bad location\n"  if  ! $location;
   $location =~ /^(.*)${ \( $self->{_extension} ) }$/ ||
     die "bad location\n";
+  my $body = $1;
   if ( $self->{_Df_balanced} ) {
-    $location = substr ( $location, $self->{_Df_balanced}->{length} );
+    # assumption: directory path separator is one character wide
+    $body = substr ( $body, $self->{_Df_balanced}->{length}+1 );
   }
-  return ( $id . $1, '' );
+  return ( $id . $body, '' );
 }
 
 sub _get_balance_directory {

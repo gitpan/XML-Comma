@@ -1,0 +1,32 @@
+my ( $stores, $created, $last_modified ) = @macro_args;
+die "timestamp macro needs a list of stores\n" unless ref($stores) eq 'ARRAY';
+die "timestamp macro needs the name of a 'created' element\n" unless $created;
+
+$self->add_element ( 'element' )->add_element ( 'name' )->set ( $created );
+foreach my $store_name ( @$stores ) {
+  my $store = $self->get_store($store_name );
+  $store->add_hook ( 'pre_store_hook',
+    sub {
+      my $doc = shift;
+      $doc->element ( $created )->set ( time() )
+        unless $doc->element ( $created )->get();
+    }
+  );
+}
+
+
+if ( $last_modified ) {
+  $self->add_element ( 'element' )->add_element ( 'name' )
+    ->set ( $last_modified );
+  foreach my $store_name ( @$stores ) {
+    my $store = $self->get_store($store_name);
+    $store->add_hook ( 'pre_store_hook',
+      sub {
+        my $self = shift;
+        $self->element ( $last_modified )->set ( time() );
+      }
+    );
+  }
+}
+
+1;

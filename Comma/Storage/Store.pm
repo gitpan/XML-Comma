@@ -75,8 +75,13 @@ sub read {
     foreach my $filter ( reverse @{$self->{_Store_outputs}} ) {
       $input_str = $filter->input ( $input_str );
     }
-    # make doc
-    $doc = XML::Comma::Doc->new ( block=>$input_str, read_args => $read_args );
+    # make doc unless the last filter has already returned us one
+    if ( ref $input_str and ref $input_str eq 'XML::Comma::Doc' ) {
+      $doc = $input_str;
+    } else {
+      $doc = 
+        XML::Comma::Doc->new ( block=>$input_str, read_args => $read_args );
+    }
     $doc->{_Doc_new} = 0; # blech, hack, yuck
     $doc->set_storage_info ( $self, $location, $id, $key, $lock );
   }; if ( $@ ) {
@@ -124,7 +129,7 @@ sub write {
   # pass through output filters
   my $output_str = $arg{doc}->to_string();
   foreach my $filter ( @{$self->{_Store_outputs}} ) {
-    $output_str = $filter->output ( $output_str );
+    $output_str = $filter->output ( $output_str, $arg{doc} );
   }
   $self->{_Store_locations}->[0]->write ( $self,
                                           $location,
@@ -487,7 +492,7 @@ sub _config__output {
     my ( $name, %args ) = name_and_args_eval ( $el->get() );
     my $class = "XML::Comma::Storage::Output::$name";
     eval "use $class"; die "couldn't use class '$name': $@\n" if $@;
-    my $object = $class->new ( %args );
+    my $object = $class->new ( %args, '_store' => $self );
     push @{$self->{_Store_outputs}}, $object;
   }; if ( $@ ) { chomp $@; die "problem with output section: $@\n" };
 }

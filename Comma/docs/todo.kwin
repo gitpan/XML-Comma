@@ -1,3 +1,11 @@
+- check whether simple index fields actually correspond to methods or
+  elements. if index field names are misspelled, for example, indexing
+  ends up not adding records, and it's hard to figure out why.
+
+- die'ing in an index collection code section seems to make the
+  "undo_collection" fail -- figure out why. also, the die is silently
+  ignored. is this the right thing?
+
 - improve and flexibilify "escape" functionality. perhaps: there
   should be a short-cut element-level def tag that allows escape
   behavior to be specified. the tag content should e a two-argument

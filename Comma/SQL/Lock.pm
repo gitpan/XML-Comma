@@ -30,7 +30,11 @@ use XML::Comma::Util qw( dbg );
 use XML::Comma::SQL::DBH_User;
 use XML::Comma::SQL::Base;
 
-use Proc::ProcessTable;
+my $PROC_PTABLE_AVAILABLE;
+eval {
+  require Proc::ProcessTable;
+  $PROC_PTABLE_AVAILABLE = 1;
+};
 
 my $LOCK_LOOP_WAIT_SECONDS = 3;
 
@@ -112,6 +116,7 @@ sub unlock {
 
 sub maybe_unlock {
   my ( $self, $pid, $key ) = @_;
+  return  unless  $PROC_PTABLE_AVAILABLE;
   my $lr = sql_get_lock_record($self->get_dbh(), $key);
   return unless $lr;
   if ( $lr->{info} eq Sys::Hostname::hostname ) {

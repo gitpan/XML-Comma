@@ -32,7 +32,8 @@ use XML::Comma;
 sub new {
   my ( $class, %args ) = @_;
   my $self = {}; bless ( $self, $class );
-  $self->{_Sf_extension} = $args{extension} || '.comma';
+  $self->{_Sf_extension} = defined $args{extension} ? 
+    $args{extension} : '.comma';
   return ( $self, 'extension' );
 }
 

@@ -552,6 +552,17 @@ sub method_code {
 }
 
 
+
+sub auto_dispatch {
+  my ( $self, $m, @args ) = @_;
+  if ( $self eq 'XML::Comma::Def' ) {
+    return XML::Comma::Def->read ( name => $m, @args );
+  } else {
+    return $self->SUPER::auto_dispatch ( $m, @args );
+  }
+}
+
+
 ##
 # Empty DESTROY: we don't want to autoload this
 ##

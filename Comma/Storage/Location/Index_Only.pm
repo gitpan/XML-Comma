@@ -44,7 +44,8 @@ sub new {
   my $index = XML::Comma::Def->read ( name=>$self->{_doctype} )
     ->get_index ( $self->{_index_name} ) ||
     die "Index_Only error -- can't get index named $arg{index_name} for doctype '$arg{store}\n";
-  $index->element('doc_id_sql_type')->set ( 'INT UNSIGNED' );
+  $index->element('doc_id_sql_type')
+    ->set ( $index->sql_index_only_doc_id_type );
 
   return ( $self );
 }

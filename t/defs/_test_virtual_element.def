@@ -68,7 +68,7 @@
       <name>pn</name>
       <code>
         <![CDATA[
-          sub { return XML::Comma->pnotes('_test_virtual_element:first'); }
+          sub { return XML::Comma->def_pnotes('_test_virtual_element:first'); }
         ]]>
       </code>
     </method>

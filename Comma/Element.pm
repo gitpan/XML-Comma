@@ -85,11 +85,11 @@ sub get {
   }
   if ( defined $args{unescape} ) {
     if ( $args{unescape} ) {
-      $content = $self->def()->{_Def_unescape_code}->($content);
+      $content = $self->def()->{_Def_unescape_code}->($content, %args);
     }
   } else {
     if ( $self->def()->{_Def_auto_unescape} ) {
-      $content = $self->def()->{_Def_unescape_code}->($content);
+      $content = $self->def()->{_Def_unescape_code}->($content, %args);
     }
   }
   # run get hooks, passing content and args -- FIX (add get hook)
@@ -111,11 +111,11 @@ sub set {
     # escape arg/config handling
     if ( defined $args{escape} ) {
       if ( $args{escape} ) {
-        $content = $self->def()->{_Def_escape_code}->($content);
+        $content = $self->def()->{_Def_escape_code}->($content, %args);
       }
     } else {
       if ( $self->def()->{_Def_auto_escape} ) {
-        $content = $self->def()->{_Def_escape_code}->($content);
+        $content = $self->def()->{_Def_escape_code}->($content, %args);
       }
     }
   }
@@ -151,7 +151,7 @@ sub raw_append {
 #
 sub validate {
   my $self = shift();
-  $self->validate_content ( $self->get() );
+  $self->validate_content ( $self->get(unescape=>0) );
 }
 
 # all callees (validate_content_hooks) should die with a message
@@ -165,7 +165,7 @@ sub validate_content {
   # errors. then ask the def to call any of its validate_hooks
   eval {
     if ( defined $text ) {
-      XML::Comma->parser()->parse ( block => "<test>$text</test>" );
+      XML::Comma->parser()->parse ( block => "<_>$text</_>" );
     }
     $self->def()->validate ( $self, $text );
   }; if ( $@ ) {

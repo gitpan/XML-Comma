@@ -1,14 +1,30 @@
-use Date::Calc  qw();
 use Time::Local qw();
 use POSIX       qw();
+
+my @month_lenths = ( 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 );
+my @leap_month_lenghts = @month_lenths;  $leap_month_lenghts[1]++;
 
 $self->add_hook ( 'validate_hook',
 
   sub {
-    my ( $doc, $content ) = @_;
-    return  if  $content =~ /^(\d{4})(\d{2})(\d{2})$/  and
-      Date::Calc::check_date ( $1, $2, $3 );
-    die "not a valid date\n";
+    $_[1] =~ /^(\d{4})(\d{2})(\d{2})$/ or 
+      die "$_[1] is not a valid date"; 
+    # quick month check
+    $2 < 13 && $2 > 0 or die "$_[1] is not a valid date"; 
+    # quick day check
+    $3 < 32 && $3 > 0 or die "$_[1] is not a valid date"; 
+    my $is_leap; 
+    if($1 % 400 == 0) {
+      $is_leap = 1;
+    } elsif ($1 % 100 == 0) {
+      undef $is_leap
+    } elsif ($1 % 4 == 0) {
+      $is_leap = 1;
+    }
+    my $last_day_in_month = $is_leap ? $leap_month_lenghts[ $2 - 1 ] 
+                                     : $month_lenths[ $2 - 1 ];
+    die "$_[1] not a valid date\n" if $last_day_in_month < $3;
+    return;
   }
 
 );
@@ -42,4 +58,17 @@ $self->add_method ( 'diff_today',
                       my ($y, $m, $d) = ( $1, $2, $3 );
                       my $time = Time::Local::timegm ( 0, 0, 0, $d, $m-1, $y );
                       return POSIX::floor ( (time() - $time) / 86400 );
+                    } );
+
+$self->add_method ( 'gmtime',
+                    sub {
+                      my ( $self, $days_offset ) = @_;
+                      $self->get() =~ /^(\d{4})(\d{2})(\d{2})$/;
+                      my ($y, $m, $d) = ( $1, $2, $3 );
+                      my $time = Time::Local::timegm ( 0, 0, 0, $d, $m-1, $y );
+                      if ( $days_offset ) {
+                        $time += $days_offset * (60*60*24);
+                      }
+                      my @tm = gmtime ( $time );
+                      return @tm;
                     } );

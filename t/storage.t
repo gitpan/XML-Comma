@@ -475,17 +475,17 @@ rmtree  $def->get_store('twelve')->base_directory();
 $doc = XML::Comma::Doc->new ( type => '_test_storage' );
 $doc->el ( '123' );
 $doc->store ( store => 'twelve' );
-print "ok 119\n"  if  $doc->doc_id() eq 'y0b';
+print "ok 119\n"  if  $doc->doc_id() eq 'yab';
 $doc->copy();
-print "ok 120\n"  if  $doc->doc_id() eq 'y0c';
+print "ok 120\n"  if  $doc->doc_id() eq 'yac';
 $doc->copy();
 print "ok 121\n"  if  $doc->doc_id() eq 'yba';
 $doc->copy();
 print "ok 122\n"  if  $doc->doc_id() eq 'ybb';
 $doc->copy();
-print "ok 123\n"  if  $doc->doc_id() eq 'z0b';
+print "ok 123\n"  if  $doc->doc_id() eq 'zab';
 $doc->copy();
-print "ok 124\n"  if  $doc->doc_id() eq 'z0c';
+print "ok 124\n"  if  $doc->doc_id() eq 'zac';
 
 #  ####
 #  # test next_in_list function

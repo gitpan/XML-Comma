@@ -143,7 +143,7 @@ sub read {
   my $class = shift();
   my ( $store, $id, $to, $parsed_args ) = $class->_retrieval_common(@_);
   my $doc = eval { $store->read ( $id, $parsed_args ); };
-  if ( $@ ) { XML::Comma::Log->err ( 'DOC_READ_ERROR', $@); };
+  if ( $@ ) { XML::Comma::Log->err ( 'DOC_READ_ERROR', $@, $id ); };
   $doc->set_read_only  if  $doc;
   return $doc;
 }
@@ -153,7 +153,7 @@ sub retrieve {
   my ( $store, $id, $timeout, $parsed_args ) = $class->_retrieval_common(@_);
   # store's read() handles locking and info setting
   my $doc = eval { $store->read ( $id, $parsed_args, 1, 0, $timeout ); };
-  if ( $@ ) { XML::Comma::Log->err ( 'DOC_RETRIEVE_ERROR', $@ ); };
+  if ( $@ ) { XML::Comma::Log->err ( 'DOC_RETRIEVE_ERROR', $@, $id ); };
   return $doc;
 }
 
@@ -233,16 +233,6 @@ sub system_stringify {
     $str .= "\n";
   }
   return $str;
-}
-
-##
-# HASH
-#
-sub comma_hash {
-  my $self = shift();
-  my $digest = XML::Comma->hash_module()->new();
-  $digest->add ( $self->_get_hash_add() );
-  return $digest->hexdigest();
 }
 
 
@@ -355,7 +345,11 @@ sub store {
     else {
       $self->copy ( %arg );
     }
-  }; if ( $@ ) { XML::Comma::Log->err ( 'STORE_ERROR', $@ ); }
+  }; if ( $@ ) { 
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'STORE_ERROR', $error, $doc_id ); }
   return $self;
 }
 
@@ -376,7 +370,11 @@ sub erase {
     $self->doc_store()->erase ( $self, $self->doc_location() );
     $self->doc_unlock();
     $self->clear_storage_info();
-  }; if ( $@ ) { XML::Comma::Log->err ( 'STORE_ERROR', $@ ); }
+  }; if ( $@ ) {
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'ERASE_ERROR', $error, $doc_id ); }
   return $self;
 }
 
@@ -406,7 +404,11 @@ sub copy {
     $store->write ( %arg, doc=>$self, anew=>1  );
     XML::Comma::Doc->doc_unlock ( $key );
     $self->doc_unlock()  unless  $arg{keep_open};
-  }; if ( $@ ) { XML::Comma::Log->err ( 'STORE_ERROR', $@ ); }
+  }; if ( $@ ) { 
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'STORE_ERROR', $error, $doc_id ); }
   return $self;
 }
 
@@ -431,7 +433,11 @@ sub move {
     $self->copy ( %arg );
     # retrieve the pre-copy version and erase it
     XML::Comma::Doc->retrieve($old_key)->erase();
-  }; if ( $@ ) { XML::Comma::Log->err ( 'STORE_ERROR', $@ ); }
+  }; if ( $@ ) {
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'STORE_ERROR', $error, $doc_id ); }
   return $self;
 }
 
@@ -460,7 +466,11 @@ sub index_update {
                                                    $arg{comma_flag},
                                                    $arg{defer_textsearches} );
   };
-  if ( $@ ) { XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $@ ); }
+  if ( $@ ) {
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
   return $ret;
 }
 
@@ -472,7 +482,11 @@ sub index_remove {
                            "no index-name given to Doc->index_remove()" );
   }
   my $ret = eval { $self->def()->get_index($arg{index})->delete($self); };
-  if ( $@ ) { XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $@ ); }
+  if ( $@ ) {
+    my $error = $@;
+    my $doc_id;
+    eval { $doc_id = $self->doc_id; };
+    XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
   return $ret;
 }
 

@@ -189,6 +189,8 @@ sub _init_make_column_entry {
     die "error with code block of $type '$name' for index '$index_name': $@\n"
       if $@;
   }
+  die "could not get a code reference of $type '$name' in index '$index_name'\n"
+    unless $code_ref;
   $self->{_Index_columns}->{$name}->{code} = $code_ref;
   $self->{_Index_columns}->{$name}->{pos} = $self->{_Index_columns_pos}++;
   $self->{_Index_columns}->{$name}->{type} = $type;
@@ -251,6 +253,15 @@ sub collection_type {
   my $cref = $_[0]->{_Index_collections}->{$_[1]};
   return unless $cref;
   return $cref->{type};
+}
+
+sub collection_field {
+  my $cref = $_[0]->{_Index_collections}->{$_[1]};
+  return unless $cref;
+  my ( $field ) = $cref->{el}->elements('field');
+  #dbg 'cref', $field, $field->to_string, $cref->{el}->to_string;
+  return $field if $field;
+  return;
 }
 
 sub textsearch_names {
@@ -623,8 +634,11 @@ sub _rebuild_loop {
       $iterator->inc ( -1 * ($args{workers}-1) )  if  $args{workers}>1;
       $doc = $iterator->prev_read();
     }; if ( $@ ) {
-      XML::Comma::Log->warn ( "error while in rebuild loop " .
-                              $iterator->doc_id() . ": $@" );
+      my $err = $@;
+      my $err_str = "error while in rebuild loop (" .
+                              $iterator->doc_id() . "): $err";
+      print STDERR $err_str;
+      XML::Comma::Log->warn ( $err_str );
       # try again to read, even after error, so we can keep
       # looping.
     RESET_FOR_LOOP: eval {
@@ -765,11 +779,26 @@ sub _do_collection {
     my $table_name =
       sql_get_bcollection_table ( $self, $cname ) ||
         die "bad collection table fetch for $cname\n";
-    foreach my $col_str ( $cref->{code}->($doc) ) {
+
+    my $extra_name;
+    if ( my ( $field ) = @{$cref->{el}->elements('field')} ) {
+      $extra_name = $field->name;
+    }
+
+    foreach my $col ( $cref->{code}->($doc) ) {
+      my $col_str;
+      my $extra = '';
+      if ( ref $col ) {
+        $col_str = $col->{_};
+        $extra   = $col->{$extra_name};
+      } else {
+        $col_str = $col;
+      }
+      # dbg 'col:', $col, $col_str, $extra;
       unless ( $seen{$col_str}++ ) {
         eval {
           sql_insert_into_bcollection
-            ( $self, $table_name, $qdoc_id, $col_str );
+            ( $self, $table_name, $qdoc_id, $col_str, $extra );
         }; if ( $@ ) {
           # ignore unless debugging?
           XML::Comma::Log->warn ( "collection (binary) error: $@" );
@@ -962,6 +991,8 @@ sub sync_deferred_textsearches {
     # get the defers_table name
     my ( $i_table_name, $d_table_name ) = sql_get_textsearch_tables
     ( $self, $textsearch->element('name')->get() );
+
+    # dbg ( "textsearch tables", $i_table_name, $d_table_name );
     # group
     my $sth = sql_get_textsearch_defers_sth ( $self, $d_table_name );
     while ( my $row = $sth->fetchrow_arrayref() ) {
@@ -1200,12 +1231,20 @@ sub _check_collections {
          $old_def->elements('sort'));
   }
   # drop any old collections that aren't in the new def or that have
-  # changed their type
+  # changed their type or fields
   while ( my ($name,$el) = each %old_collections ) {
     my $type = $el->element('type')->get();
     next  if  $type eq 'many tables';
-    unless ( defined $new_collections{$name} and
-             $type eq $new_collections{$name}->element('type')->get() ) {
+    my $new_field_hash =
+      ( @{$new_collections{$name}->elements('field')} ?
+        $new_collections{$name}->element('field')->comma_hash : 0 );
+    my $el_field_hash =
+      ( @{$el->elements('field')} ?
+        $el->element('field')->comma_hash : 0 );
+
+    unless ( (defined $new_collections{$name} and
+              $type eq $new_collections{$name}->element('type')->get()) and
+             $new_field_hash eq $el_field_hash ) {
       #dbg 'dropping old collection', $name, $type, $sql_type;
       if ( $type eq 'stringified' ) {
         sql_alter_data_table_drop_or_modify ( $self, $name );
@@ -1219,9 +1258,17 @@ sub _check_collections {
   while ( my ($name,$el) = each %new_collections ) {
     my $type = $el->element('type')->get();
     next  if  $type eq 'many tables';
-    unless ( defined $old_collections{$name} and
-             $type eq $old_collections{$name}->element('type')->get() ) {
-      #dbg 'adding new collection', $name, $type, $sql_type;
+    my $old_field_hash =
+      ( @{$old_collections{$name}->elements('field')} ?
+        $old_collections{$name}->element('field')->comma_hash : 0 );
+    my $el_field_hash =
+      ( @{$el->elements('field')} ?
+        $el->element('field')->comma_hash : 0 );
+
+    unless ( (defined $old_collections{$name} and
+              $type eq $old_collections{$name}->element('type')->get()) and
+             $old_field_hash eq $el_field_hash ) {
+      #dbg 'adding new collection', $name, $type, $el_field_hash;
       if ( $type eq 'stringified' ) {
         sql_alter_data_table_add_collection ( $self, $name );
       } elsif ( $type eq 'binary table' ) {

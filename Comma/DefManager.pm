@@ -23,7 +23,13 @@
 package XML::Comma::DefManager;
 use strict;
 
-use PAR;
+if ( XML::Comma->defs_from_PARs() ) {
+  eval {
+    require PAR;
+  }; if ( $@ ) {
+    die "Comma is configured to use PAR.pm, but it's not loadable.\n";
+  }
+}
 use File::Spec;
 use XML::Comma::Util qw( dbg );
 
@@ -128,13 +134,22 @@ sub _modified_since {
 
 sub _make_def {
   my $doc_type = shift();
-  my $def_source = _find_source ( $doc_type, XML::Comma->defs_extension() );
-  die "cannot find definition file for '$doc_type'\n"  unless  $def_source;
+  my $def_source = _find_source ( $doc_type,
+  XML::Comma->defs_extension() );
+  die "cannot find definition file for '$doc_type'\n"  unless
+  $def_source;
 
-  return XML::Comma::Def->new ( file => $def_source )
-     unless  ref $def_source;
-
-  return XML::Comma::Def->new ( block => $def_source->{source} );
+  my $def;
+  if ( ref $def_source ) {
+    $def = XML::Comma::Def->new ( block => $def_source->{source} );
+  } else {
+    $def = XML::Comma::Def->new ( file => $def_source )
+  }
+  # make a "symbolic link" to this def from the requested def name, if
+  # the requested name is different from the loaded top-level tag
+  if ( $def  and  $doc_type ne $def->element('name')->get() ) {
+    $defs{$doc_type} = $defs{$def->element('name')->get()};
+  }
 }
 
 
