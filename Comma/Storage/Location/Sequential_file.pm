@@ -25,16 +25,21 @@ package XML::Comma::Storage::Location::Sequential_file;
 @ISA = ( 'XML::Comma::Storage::Location::Abstract_file' );
 
 use strict;
+use Math::BaseCalc;
 use XML::Comma::Storage::Location::Abstract_file;
 use XML::Comma::Util qw( dbg );
 
-# _Sf_max       :
-# _Sf_width     :
+# _Sf_basecalc    : Math::BaseCalc object for formatting next id
+# _Sf_max         :
+# _Sf_width       :
 
 sub _init {
   my ( $self, %arg ) = @_;
+  $self->{_Sf_basecalc} =
+    Math::BaseCalc->new ( digits => $arg{digits} || [0..9] );
   $self->{_Sf_max} = $arg{max} || 9999;
-  $self->{_Sf_width} = length ( $self->{_Sf_max} );
+  my $formatted_max = $self->{_Sf_basecalc}->to_base ( $self->{_Sf_max} );
+  $self->{_Sf_width} = length ( $formatted_max );
   return ( 'extension' );
 }
 
@@ -47,7 +52,8 @@ sub make_id {
       $self->{_extension},
       $self->{_Sf_max} );
   return undef  if  ! defined $next_id;
-  $next_id = sprintf ( "%0*s", $self->{_Sf_width}, $next_id );
+  $next_id = sprintf ( "%0*s", $self->{_Sf_width}, 
+                       $self->{_Sf_basecalc}->to_base($next_id) );
   return ( join('',@{$struct->{ids}},$next_id),
            File::Spec->catfile($location, $next_id.$self->{_extension}) );
 }

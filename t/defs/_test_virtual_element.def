@@ -78,7 +78,7 @@
 
   <def_hook>
     <![CDATA[ 
-      $self->def_pnotes()->{test} = 'ok'; 
+      $self->def_pnotes()->{test} = 'ok';
     ]]>
   </def_hook>
 

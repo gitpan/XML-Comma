@@ -61,26 +61,39 @@ sub next_sequential_id {
 }
 
 # for symmetry and convenience, takes the same args as
-# next_sequential_id
+# next_sequential_id 
+#
+# FIX: do we need to worry about locking, here, to avoid over-filling
+# some subdirectory down the chain? Or does locking need to happen at
+# a level above this routine?
 sub current_sequential_id {
   my ( $class, $store, $dir, $extension, $max ) = @_;
   # does directory exist -- if not return undef
   return  if  ! (-r $dir);
-  # glob and take last one
-  my @files = glob ( File::Spec->catfile($dir,"*".$extension) );
-  if ( @files ) {
-    my ( $volume, $directories, $file ) = File::Spec->splitpath ( $files[-1] );
-    if ( $file ) {
-      $file =~ m:(.*)($extension):;
-      return $1;
-    } else {
-      @dirs = File::Spec->splitdir ( $directories );
-      return $dirs[-1];
-    }
-  } else {
-    return;
+  my $lfn = File::Spec->catfile ( $dir, $lockfilename );
+  if ( ! open(LOCK, "< $lfn") ) {
+    die "can't open lockfile '$lfn': $!\n";
   }
+  my $id = <LOCK>;
+  close  ( LOCK );
+  return $id;
 }
+
+# glob and take last one
+#    my @files = glob ( File::Spec->catfile($dir,"*".$extension) );
+#    if ( @files ) {
+#      my ( $volume, $directories, $file ) = File::Spec->splitpath ( $files[-1] );
+#      if ( $file ) {
+#        $file =~ m:(.*)($extension):;
+#        return $1;
+#      } else {
+#        @dirs = File::Spec->splitdir ( $directories );
+#        return $dirs[-1];
+#      }
+#    } else {
+#      return;
+#    }
+#  }
 
 # returns a list of 'id-fragments' in this directory (lopping off
 # extensions, etc.) acts almost exactly like current_sequential_id,

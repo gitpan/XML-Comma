@@ -23,6 +23,8 @@
 package XML::Comma::DefManager;
 use strict;
 
+use PAR;
+use File::Spec;
 use XML::Comma::Util qw( dbg );
 
 ## hash for def references. $def->name_up_path() => $def
@@ -39,12 +41,62 @@ sub for_path {
 
 sub macro_string {
   my ( $class, $name ) = @_;
-  open ( MACRO, _find_macro_file($name) ) || die "can't open macro file: $!\n";
+  my $macro_source = _find_source ( $name, XML::Comma->macro_extension() );
+  die "cannot find macro file for '$name'\n"  unless  $macro_source;
+
+  if ( ref $macro_source ) {
+    return $macro_source->{source};
+  }
+
+  open ( MACRO, $macro_source ) || die "can't open macro file: $!\n";
   my @lines = <MACRO>;
   close MACRO;
   return join ( '', @lines );
 }
 
+sub include_string {
+  my ( $class, $name, $args_string ) = @_;
+  my $eval = 0;
+  if ( $name =~ m|\{\s*(.*)\s*\}| ) {
+    $name = $1;
+    $eval++;
+  }
+
+  my $incl_source = _find_source ( $name, XML::Comma->include_extension() );
+  die "cannot find include file for '$name'\n"  unless  $incl_source;
+
+  my $content;
+  my $filename = $name;
+
+  if ( ref $incl_source ) {
+    $content = $incl_source->{source};
+  } else {
+    $filename = $incl_source;
+    open ( INCL, $incl_source ) || die "can't open include file: $!\n";
+    my @lines = <INCL>;
+    close INCL;
+    $content = join ( '', @lines );
+  }
+
+  if ( $eval ) {
+    $args_string ||= "()";
+    my $code_ref = eval $content;
+    if ( $@ ) {
+      die "error while evaling '$filename' code-include: $@\n";
+    }
+    my @args_list = eval $args_string;
+    if ( $@ ) {
+      die "error while evaling args list for '$filename' code-include: $@\n";
+    }
+    eval {
+      $content = $code_ref->( @args_list );
+    }; if ( $@ ) {
+      die "error while executing '$filename' code-include: $@\n";
+    }
+  }
+  # dbg 'include', $filename, $content;
+  return ( $content, $filename );
+}
 
 sub add_def {
   my ( $class, $def ) = @_;
@@ -76,18 +128,39 @@ sub _modified_since {
 
 sub _make_def {
   my $doc_type = shift();
-  XML::Comma::Def->new ( file => _find_def_file($doc_type) );
+  my $def_source = _find_source ( $doc_type, XML::Comma->defs_extension() );
+  die "cannot find definition file for '$doc_type'\n"  unless  $def_source;
+
+  return XML::Comma::Def->new ( file => $def_source )
+     unless  ref $def_source;
+
+  return XML::Comma::Def->new ( block => $def_source->{source} );
 }
 
-sub _find_def_file {
-  my $name = shift();
+
+# we return either a simple filename, or a hashref with a "source"
+# value that holds the block to be turned into a
+# def/macro/include. this is an evolutionary kludge, and we should
+# centralize all *read* logic here (ie, no more file opens in the
+# parsers) at some not-too-distant remove.
+sub _find_source {
+  my ( $name, $extension ) = @_;
   # try each defs_directory in turn
   foreach my $dir ( @{XML::Comma->defs_directories()} ) {
-    my $filename = $dir . '/' . $name . XML::Comma->defs_extension();
+    my $filename = File::Spec->canonpath
+      ( File::Spec->catfile($dir, $name . $extension) );
     return $filename  if  -r $filename;
   }
-  die "cannot find definition file for def '$name'\n";
+  # if we're allowed to, try a generic PAR load
+  if ( XML::Comma->defs_from_PARs() ) {
+    my $source = PAR::read_file 
+   ( File::Spec->canonpath(File::Spec->catfile('comma', $name . $extension)) );
+    return { source => $source }  if  $source;
+  }
+  # well, no luck
+  return;
 }
+
 
 sub _find_macro_file {
   my $name = shift();
@@ -98,6 +171,17 @@ sub _find_macro_file {
   }
   die "cannot find macro file for macro '$name'\n";
 }
+
+sub _find_include_file {
+  my $name = shift();
+  # try each defs_directory in turn
+  foreach my $dir ( @{XML::Comma->defs_directories()} ) {
+    my $filename = $dir . '/' . $name . XML::Comma->include_extension();
+    return $filename  if  -r $filename;
+  }
+  die "cannot find include file for include '$name'\n";
+}
+
 
 sub get_pnotes {
   my ( $class, $def ) = @_;

@@ -21,7 +21,7 @@ decl_pos()
 sections. (without this, there would be an unintuitive, rather than
 intuitive, error if two _file sections are specified)
 
-new ( $class, parsed %args )
+new ( $class, $store, $decl_pos, parsed %args )
  three responsibilities: 1) create a blessed object, 2) setup whatever
 fields are needed to keep track of this particular configuration --
 presumably using parsed args from def section, and 3) return a list of
@@ -41,16 +41,30 @@ overflow - a flag indicating whether we are being called in the context of an
            "overflow" from a further-right compatriot (this will never
            be true for _file sections)
 
-the job of this method is to put the pieces of the location and id
+ the job of this method is to put the pieces of the location and id
 together in a appropriate ways, adding to them to create new
 (presumably unique) location and id strings, and to return those
 complete strings.
 
-write ( $self, $store, $location, $id, $block )
- write out to permanent store - given both location and id for convenience
+ make_id may return a special value -- the string
+'COMMA_DB_SEQUENCE_SET' -- if this location module is actually going
+to depend on the database/indexing code to generate a unique
+doc_id. ugly hacks in the SQL layers handle id generation, in this
+case. and the write() method is responsibly for doing some cleanup and
+setting the doc's storage_info fields. see the source of the
+Index_Only module.
+
+write ( $self, $store, $location, $id, $output_text_block, $doc )
+ write out to permanent store - given both location and id for
+ convenience, also given a reference to the doc object itself, for
+ unusual cases. normally a locattion module woul just write out the
+ text block that has been produced by the filter stages.
 
 read ( $self, $store, $location, $id )
  read from permanent store
+
+erase ( $self, $location, $doc )
+ erase from permanent store
 
 location_from_id ( $self, $store, $id, $location )
  as with make_id, this is called at the tail end of a chain. the $id
@@ -80,19 +94,29 @@ last_location ( $self, $store )
 next_location() returns undef when called with this location and a
 positive direction.
 
-write_blob ( $self, $store, $store_location, $store_id, $blob, $content )
- write the given blob/content in the permanent store. create a new
-blob_location if necessary, and return that.
+write_blob ( $self, $store, $store_location, $store_id, $blob, 
+             $content, $new_location )
+ write the given blob/content in the permanent store. last argument is
+a boolean: if true, create a new blob_location. if false, use the
+blob's current location if possible, or create a new location if
+not. return the blob_location used.
 
 read_blob ( $self, $store, $blob )
  read and return the content from the given blob.
 
-copy_to_blob ( $self, $store, $store_location, $store_id, $blob, $filename )
+copy_to_blob ( $self, $store, $store_location, $store_id, $blob, 
+               $from_filename, $to_location )
  almost the same as write_blob: write the content contained in the
-given $filename to the permanent store. return the blob_location.
+given $filename to the permanent store. return the blob_location to
+which the blob was written. the last argument is optional. if given a
+to_location, this method must use that as the place to copy the blob
+to, otherwise this method must make its own decision (presumably make
+a new) location.
 
-erase_blob ( $self, $store, $blob )
- remove the blob from the permanent store
+erase_blob ( $self, $store, $blob, $blob_location )
+ remove the blob from the permanent store. the last argument is
+optional, the routine should use $blob->get_location() if one isn't
+given, and should use the passed blob_location if its available.
 
 touch ( $self, $store, $location )
  update the mod time of the given $location. return the updated mod

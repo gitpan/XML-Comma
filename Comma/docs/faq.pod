@@ -41,7 +41,6 @@ directory of the distribution, or at:
   http://xml-comma.org/guide-filter.html
   http://xml-comma.org/guide.pdf
 
-
 =head1 CONFIGURATION QUESTIONS
 
 =head2 Some indexing.t tests are failing on a new XML::Comma install using MySQL; what's going on?
@@ -54,6 +53,35 @@ functionality. Or mysqld can be started with the argument
 "--local-infile=1". See the following piece of MySQL documentation:
 
   http://www.mysql.com/doc/en/LOAD_DATA_LOCAL.html
+
+=head2 I'm trying to use the SimpleC parser.  Why am I getting all of these "BEGIN failed--compilation aborted" error messages when I try to start Apache?
+
+As stated in mod_perl documentation at
+http://perl.apache.org/docs/1.0/guide/troubleshooting.html#foo_____at__dev_null_line_0,
+there is no file associated with a handler from mod_perl's
+perspective, so $0 is set to C</dev/null>.
+
+If a pre-compiled version of the SimpleC parser is not found by
+Inline, Inline tries (using the FindBin module) to figure out its
+"current working directory." FindBin croaks when $0 is set to
+C</dev/null>, which causes Apache to abort the startup process.
+
+You can get a compiled version of the parser in the right spot by
+simply invoking
+
+  perl -MXML::Comma -e ''
+
+from a command line. Comma asks Inline to install its compiled files
+below C<XML::Comma-E<gt>tmp_directory>.
+
+If you are worried about your pre-compiled parser being clobbered
+between apache restarts (for example because your tmp_directory is
+C</tmp>), you can add a
+
+  BEGIN { $0 = "/path/to/handler" }
+
+block to your handler script, which will prevent FindBin from
+croaking, and allow Inline's compilation step to proceed normally.
 
 
 =head1 CODE QUESTIONS

@@ -1,8 +1,5 @@
 use strict;
-use FindBin;
 use File::Path;
-
-my $test_dir = $FindBin::Bin . "/test-docs";
 
 print "1..7\n";
 

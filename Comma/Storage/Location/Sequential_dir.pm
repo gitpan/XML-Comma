@@ -23,13 +23,14 @@
 package XML::Comma::Storage::Location::Sequential_dir;
 
 use strict;
+use Math::BaseCalc;
 use XML::Comma::Util qw( dbg );
 use File::Spec;
 
-
-# _Sd_max       :
-# _Sd_width     :
-# _decl_pos                  :
+# _Sd_basecalc    : Math::BaseCalc object for formatting next id
+# _Sd_max         :
+# _Sd_width       :
+# _decl_pos       :
 
 sub MAJOR_NUMBER {
   400;
@@ -41,11 +42,15 @@ sub decl_pos {
 
 
 sub new {
-  my ( $class, %args ) = @_;
+  my ( $class, %arg ) = @_;
   my $self = {}; bless ( $self, $class );
-  $self->{_Sd_max} = $args{max} || 9999;
-  $self->{_Sd_width} = length ( $self->{_Sd_max} );
-  $self->{_decl_pos} = $args{decl_pos};
+  $self->{_Sd_basecalc} =
+    Math::BaseCalc->new ( digits => $arg{digits} || [0..9] );
+  $self->{_Sd_max} = $arg{max} || 9999;
+  #dbg 'max', $self->{_Sd_max};
+  my $formatted_max = $self->{_Sd_basecalc}->to_base ( $self->{_Sd_max} );
+  $self->{_Sd_width} = length ( $formatted_max );
+  $self->{_decl_pos} = $arg{decl_pos};
   return ( $self );
 }
 
@@ -67,7 +72,9 @@ sub make_id {
     }
   }
   return  undef  if   ! defined $next_id;
-  $next_id = sprintf ( "%0*s", $self->{_Sd_width}, $next_id );
+  #dbg 'next_id', $next_id;
+  $next_id = sprintf ( "%0*s", $self->{_Sd_width},
+                       $self->{_Sd_basecalc}->to_base($next_id) );
   return ( $next_id, # id piece
            $next_id  # location piece
          );

@@ -31,6 +31,19 @@
     <plural>'nested_plu'</plural>
   </nested_element>
 
+  <? dummy preprocessor directive ?>
+
+  <? #include _test_parser_include ?>
+
+  <? #include {_test_parser_dyn_inc_1} ?>
+
+  <? #include {_test_parser_dyn_inc_2} 'dyn_arg_el_one', 'dyn_arg_el_two' ?>
+
+  <!-- <? #include {_test_parser_di_eval_err} "blue", "red ?> -->
+
+  <!-- <? #include {_test_parser_di_eval_err} "blue", "red" ?> -->
+
+  <!-- <? #include {_test_parser_di_exe_err} "blue", "red" ?> -->
 
   <plural>'plu'</plural>
 </DocumentDefinition>

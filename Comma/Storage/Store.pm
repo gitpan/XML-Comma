@@ -100,17 +100,22 @@ sub write {
   # do the store -- making a new id/location pair if we're called as 'anew'
   my ( $id, $location, $key );
   if ( $arg{anew} ) {
-     ( $id, $location ) = $self->_make_id ( %arg );
-    $key = XML::Comma::Storage::Util->concat_key
-      ( type => $self->{_Store_doctype},
-        store => $self->name(),
-        id => $id );
-    my $locked = XML::Comma->lock_singlet()->lock ( $key );
-    if ( ! $locked ) {
-      XML::Comma::Log->err ( 'STORE_ERROR',
-                             "fatal, could not lock new key ($key)" );
+    ( $id, $location ) = $self->_make_id ( %arg );
+    if ( $id eq 'COMMA_DB_SEQUENCE_SET' ) {
+      $arg{doc}->set_storage_info ( undef, undef, $id );
     } else {
-      $arg{doc}->force_lock_flag_set();
+      $key = XML::Comma::Storage::Util->concat_key
+        ( type => $self->{_Store_doctype},
+          store => $self->name(),
+          id => $id );
+      my $locked = XML::Comma->lock_singlet()->lock ( $key );
+      if ( ! $locked ) {
+        XML::Comma::Log->err ( 'STORE_ERROR',
+                               "fatal, could not lock new key ($key)" );
+      } else {
+        $arg{doc}->set_storage_info ( $self, $location, $id, $key, 1 );
+        $arg{doc}->force_lock_flag_set();
+      }
     }
   } else {
     $id = $arg{doc}->doc_id();
@@ -124,26 +129,26 @@ sub write {
   $self->{_Store_locations}->[0]->write ( $self,
                                           $location,
                                           $id,
-                                          $output_str );
-  # set storage info and copy each blob (if anew)
-  if ( $arg{anew} ) {
-    $arg{doc}->set_storage_info ( $self, $location, $id, $key, 1 );
-    my $blobs_flag;
-    unless ( $arg{no_blobs} ) {
-      foreach my $blob ( $arg{doc}->get_all_blobs() ) {
-        $blobs_flag = 1;
-        $blob->re_store();
-      }
+                                          $output_str,
+                                          $arg{doc} );
+  # copy each blob from tmp filesystem into place -- blobs know
+  # whether they've been updated or not, and only copy themselves if
+  # needed.
+  my $blobs_flag = 0;
+  unless ( $arg{no_blobs} ) {
+    foreach my $blob ( $arg{doc}->get_all_blobs_and_ghosts() ) {
+      $blobs_flag += $blob->store ( copy => $arg{anew} );
     }
-    # and now we need to store again, if we've copied some blobs,
-    # because the locations will have changed. what an ugly hack,
-    # can't you come up with something better?
-    if ( $blobs_flag ) {
-      $self->{_Store_locations}->[0]->write ( $self,
-                                              $location,
-                                              $id,
-                                              $arg{doc}->to_string() );
-    }
+    $arg{doc}->clear_ghosts_list();
+  }
+  # and now we need to store again, if we've copied some blobs,
+  # because the locations will have changed. this is a bit of a hack
+  # -- is there a way to handle this "second store" more elegantly?
+  if ( $blobs_flag ) {
+    $self->{_Store_locations}->[0]->write ( $self,
+                                            $location,
+                                            $id,
+                                            $arg{doc}->to_string() );
   }
   # post-store hooks -- same as pre_store except we need to catch
   # errors and hold onto them, so that all hooks run and the doc gets
@@ -279,11 +284,12 @@ sub erase {
   foreach my $sub ( @{$self->get_hooks_arrayref('erase_hook')} ) {
     $sub->( $doc, $self, $location );
   }
-  $self->{_Store_locations}->[0]->erase ( $location );
+  $self->{_Store_locations}->[0]->erase ( $location, $doc );
   # erase all blob files.
-  foreach my $blob ( $doc->get_all_blobs() ) {
-    $blob->set();
+  foreach my $blob ( $doc->get_all_blobs_and_ghosts() ) {
+    $blob->scrub();
   }
+  $doc->clear_ghosts_list();
 }
 
 sub read_blob {
@@ -465,6 +471,7 @@ sub _config__location {
     # secondary sort criterion.
     my ( $object, @method_names ) =
       $class->new ( %args,
+                    store    => $self,
                     decl_pos => scalar(@{$self->{_Store_locations}}) );
     push @{$self->{_Store_locations}}, $object;
     foreach ( @method_names ) {

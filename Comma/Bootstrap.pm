@@ -49,7 +49,7 @@ sub new {
   my ( $class, %arg ) = @_;
   if ( $arg{block} ) {
     my $bootstrap = eval {
-      XML::Comma::parser()->new ( block => $arg{block},
+      XML::Comma->parser()->new ( block => $arg{block},
                                   top_level_class => $class );
     }; if ( $@ ) {
       die "Error while defining bootstrap definition: $@";
@@ -179,6 +179,12 @@ sub bootstrap_block {
     <element><name>macro</name></element>
     <element><name>defname</name></element>
     <element><name>sort_sub</name></element>
+    <nested_element>
+      <name>escapes</name>
+      <element><name>escape_code</name></element>
+      <element><name>unescape_code</name></element>
+      <element><name>auto</name></element>
+    </nested_element>
     <plural>'def_hook',
             'read_hook',
             'method',

@@ -1,8 +1,7 @@
 use strict;
-use FindBin;
 use File::Path;
 
-print "1..88\n";
+print "1..102\n";
 
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -146,85 +145,123 @@ print "ok 55\n"  if  $doc->element('sing')->get() eq "&amp; that's simple";
 print "ok 56\n"  if  $doc->element('sing')->get(unescape=>1) 
   eq "& that's simple";
 
+# escape configs
+$doc->all_basic_escaped ( "<foo>" );
+print "ok 57\n"  if
+  $doc->element('all_basic_escaped')->get_without_default() eq '&lt;foo&gt;';
+print "ok 58\n"  if
+  $doc->element('all_basic_escaped')->get(unescape=>0) eq '&lt;foo&gt;';
+print "ok 59\n"  if
+  $doc->element('all_basic_escaped')->get() eq '<foo>';
+print "ok 60\n"  if
+  $doc->element('all_basic_escaped')->get(unescape=>1) eq '<foo>';
+
+eval { $doc->all_basic_escaped ( "<foo>", escape => 0 ); };
+print "ok 61\n"  if  $@ and $@ =~ /BAD_CONTENT/;
+$doc->all_basic_escaped ( "<foo>", escape => 1 );
+print "ok 62\n"  if
+  $doc->element('all_basic_escaped')->get(unescape=>0) eq '&lt;foo&gt;';
+
+$doc->esc_basic_escaped ( "<foo>" );
+print "ok 63\n"  if
+  $doc->element('esc_basic_escaped')->get() eq '&lt;foo&gt;';
+print "ok 64\n"  if
+  $doc->element('esc_basic_escaped')->get(unescape=>0) eq '&lt;foo&gt;';
+print "ok 65\n"  if
+  $doc->element('esc_basic_escaped')->get(unescape=>1) eq '<foo>';
+
+$doc->unesc_basic_escaped ( "&lt;foo&gt;" );
+print "ok 66\n"  if
+  $doc->element('unesc_basic_escaped')->get() eq '<foo>';
+print "ok 67\n"  if
+  $doc->element('unesc_basic_escaped')->get(unescape=>0) eq '&lt;foo&gt;';
+print "ok 68\n"  if
+  $doc->element('unesc_basic_escaped')->get(unescape=>1) eq '<foo>';
+
+$doc->all_specify_escaped ( "X hello X" );
+print "ok 69\n"  if
+  $doc->element('all_specify_escaped')->get(unescape=>0) eq '--x-- hello --x--';
+print "ok 70\n"  if
+  $doc->element('all_specify_escaped')->get() eq 'X hello X';
 
 ## structure validate hook
 $doc->element('sing')->set( "innocuous" );
-print "ok 57\n";
+print "ok 71\n";
 $doc->element('sing')->set( "un-typical test" );
 eval { $doc->validate(); };
-print "ok 58\n" if $@;
+print "ok 72\n" if $@;
 
 my $d2 = XML::Comma::Doc->new ( type=>'_test_validation' );
 # should fail because of plu (and nested, and nested_sing inside nested)
 eval { $doc->validate(); };
-print "ok 59\n" if $@;
+print "ok 73\n" if $@;
 $d2->element('plu')->set('foo');
 # should fail because of nested (and nested_sing inside it)
 eval { $doc->validate(); };
-print "ok 60\n" if $@;
+print "ok 74\n" if $@;
 $d2->element('nested');
 # should fail because of nested_sing inside nested
 eval { $doc->validate(); };
-print "ok 61\n" if $@;
+print "ok 75\n" if $@;
 # now fill nested_sing, and the validate should work
 $d2->element('nested')->element('nested_sing')->set('foo');
 $d2->validate_structure();
-print "ok 62\n";
+print "ok 76\n";
 
 # default value
-print "ok 63\n"  if  $doc->element('with_default')->get eq 'default stuff';
+print "ok 77\n"  if  $doc->element('with_default')->get eq 'default stuff';
 $doc->element('with_default')->set ( 'something different' );
-print "ok 64\n"  if  $doc->element('with_default')->get eq 
+print "ok 78\n"  if  $doc->element('with_default')->get eq 
   'something different';
 # and the empty string, too?
 $doc->element('with_default')->set ( '' );
-print "ok 65\n"  if  $doc->element('with_default')->get eq '';
+print "ok 79\n"  if  $doc->element('with_default')->get eq '';
 # and re-undef to get back where we started;
 $doc->element('with_default')->set ( undef );
-print "ok 66\n"  if  $doc->element('with_default')->get eq 'default stuff';
+print "ok 80\n"  if  $doc->element('with_default')->get eq 'default stuff';
 
 # hash test -- take a few hashes, while changing one of the elements,
 # and make sure they match or not as expected
 $doc->element('sing')->set ( 'hash test value 1' );
-print "ok 67\n"  if  my $hash1 = $doc->comma_hash();
-print "ok 68\n"  if  my $hash2 = $doc->comma_hash();
+print "ok 81\n"  if  my $hash1 = $doc->comma_hash();
+print "ok 82\n"  if  my $hash2 = $doc->comma_hash();
 $doc->element('sing')->set ( 'hash test value 2' );
-print "ok 69\n"  if  my $hash3 = $doc->comma_hash();
+print "ok 83\n"  if  my $hash3 = $doc->comma_hash();
 $doc->element('sing')->set ( 'hash test value 1' );
-print "ok 70\n"  if  my $hash4 = $doc->comma_hash();
-print "ok 71\n"  if  $hash1 eq $hash2;
-print "ok 72\n"  if  $hash1 ne $hash3;
-print "ok 73\n"  if  $hash1 eq $hash4;
+print "ok 84\n"  if  my $hash4 = $doc->comma_hash();
+print "ok 85\n"  if  $hash1 eq $hash2;
+print "ok 86\n"  if  $hash1 ne $hash3;
+print "ok 87\n"  if  $hash1 eq $hash4;
 # now change the one that the hash isn't supposed to take into account
 $doc->element('not_hashificated')->set ( 'not hashed test value 1' );
-print "ok 74\n"  if  my $hash5 = $doc->comma_hash();
-print "ok 75\n"  if  $hash5 eq $hash4;
+print "ok 88\n"  if  my $hash5 = $doc->comma_hash();
+print "ok 89\n"  if  $hash5 eq $hash4;
 
 # check is_required
-print "ok 76\n"  if  $doc->element_is_required ( 'plu' );
-print "ok 77\n"  if  $doc->element_is_required ( 'nested' );
-print "ok 78\n"  if  ! $doc->element_is_required ( 'with_default' );
+print "ok 90\n"  if  $doc->element_is_required ( 'plu' );
+print "ok 91\n"  if  $doc->element_is_required ( 'nested' );
+print "ok 92\n"  if  ! $doc->element_is_required ( 'with_default' );
 
 # boolean macro
-print "ok 79\n"  if $doc->bool() == 0; # default 0
+print "ok 93\n"  if $doc->bool() == 0; # default 0
 
 $doc->bool ( 1 );
-print "ok 80\n"  if  $doc->bool() == 1;
+print "ok 94\n"  if  $doc->bool() == 1;
 $doc->bool ( 'true' );
-print "ok 81\n"  if  $doc->bool() == 1;
+print "ok 95\n"  if  $doc->bool() == 1;
 $doc->bool ( 'TRUE' );
-print "ok 82\n"  if  $doc->bool() == 1;
+print "ok 96\n"  if  $doc->bool() == 1;
 
 $doc->bool ( 0 );
-print "ok 83\n"  if  $doc->bool() == 0 and $doc->bool() eq '0';
+print "ok 97\n"  if  $doc->bool() == 0 and $doc->bool() eq '0';
 $doc->bool ( 'false' );
-print "ok 84\n"  unless  $doc->bool();
+print "ok 98\n"  unless  $doc->bool();
 $doc->bool ( 'FALSE' );
-print "ok 85\n"  unless $doc->bool();
+print "ok 99\n"  unless $doc->bool();
 
-print "ok 86\n"  if $doc->bool_default_true();
+print "ok 100\n"  if $doc->bool_default_true();
 $doc->bool_default_true ( 'false' );
-print "ok 87\n"  unless  $doc->bool_default_true();
+print "ok 101\n"  unless  $doc->bool_default_true();
 $doc->bool_default_true ( 1 );
-print "ok 88\n"  if  $doc->bool_default_true();
+print "ok 102\n"  if  $doc->bool_default_true();
 

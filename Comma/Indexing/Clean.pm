@@ -78,7 +78,19 @@ sub clean {
   my $order_by = $self->{_Clean_order_by};
   my $data_table_name = $self->{_Clean_data_table_name};
   my $table_name = $self->{_Clean_table_name};
-  my $erase_where_clause = eval { $self->element('erase_where_clause')->get() };
+
+  # prepare the erase where clause. we want to eval it if the first
+  # character is a '{', otherwise, leave it alone
+  my $ewc = $self->element('erase_where_clause')->get();
+  my $erase_where_clause;
+  if ( $ewc and $ewc =~ m|^\s*\{| ) {
+    $erase_where_clause = eval $ewc;
+    if ( $@ ) { die "error preparing erase_where_clause '$ewc': $@\n" }
+  } else {
+    $erase_where_clause = $ewc;
+  }
+  #dbg 'erase_wc', $erase_where_clause || "<undef>";
+
   # don't clean if table _comma flag is set
   if ( sql_get_table_comma_flag($dbh, $table_name) ) {
     print "skipping clean on $table_name...";

@@ -71,28 +71,82 @@ other databases available whenever someone asks for it. </p>
 
 <p> Comma installs in the usual <code>make</code>, <code>make
 test</code> and <code>make install</code> fashion. The tests, however,
-won't run until the <code>Comma.pm</code> file has been edited to
-configure a number of standard variables to values that are
-appropriate for your system. <code>Comma.pm</code> controls the
-overall system configuration, and the version that is in the build
-directory will be copied to the appropriate location on your machine
-during the <code>make install</code> operation.</p>
+won't run until the <code>Comma/Configuration.pm</code> file has been
+edited to configure a number of standard variables to values that are
+appropriate for your system. <code>Comma/Configuration.pm</code>
+controls the overall system configuration, and the version that is in
+the build directory will be copied to the appropriate location on your
+machine during the <code>make install</code> operation.</p>
 
-<p> <code>Comma.pm</code> contains a hash named <code>$config</code>,
-the keys of which are used by the Comma internals to access the system
-configuration variables. Here is a list of those variables and a short
-description of each: </p>
+<p> <code>Comma/Configuration.pm</code> contains a package declaration
+and then a <code>__DATA__ </code> section divider. Everything after
+the <code>__DATA__</code> line is configuration information, in the
+form of a big list of eval'able key/value pairs. Each key specifies
+the name of a configuration variable, and each value is accessible as
+a top-level Comma method, for example: </p>
 
-<h2>Comma.pm $config Variables</h2>
+<pre>
+# the top of my Configuration.pm looks like this:
+
+package XML::Comma::Configuration;
+use base 'XML::Comma::Pkg::ModuleConfiguration'; 1;
+__DATA__
+
+comma_root          =&gt;     '/usr/local/comma',
+log_file            =&gt;     '/usr/local/comma/log.comma', 
+document_root       =&gt;     '/usr/local/comma/docs',
+sys_directory       =&gt;     '/usr/local/comma/sys',
+tmp_directory       =&gt;     '/tmp',
+
+defs_directories    =&gt;
+  [
+   '/allafrica/comma/defs',
+   '/usr/local/comma/defs',
+   '/usr/local/comma/defs/macros',
+   '/usr/local/comma/defs/standard',
+   '/usr/local/comma/defs/test'
+  ],
+
+###
+###
+
+# so, on my system, this assigns '/usr/local/comma' to $str 
+my $str = XML::Comma-&gt;comma_root();
+
+# and, similarly
+my $first_defs_directory = XML::Comma-&gt;defs_directories()-&gt;[0];
+</pre>
+
+<p> The <code>Configuration.pm</code> file that comes with the
+distribution fully specifies all of the possible configuration
+variables, and includes reasonable defaults for all those for which
+reasonable defaults are likely. Just think of the configuration block
+as a big hash assignment -- so pretty much any Perl code is, at least
+theoretically, allowed. </p>
+
+<h2>Configuration Variables</h2>
 
 <ul>
 
+<li> <b>comma_root</b> -- The base for Comma's directory tree. Comma
+stores information down various subdirectories under its root, all of
+which are also independently specifiable. </li>
+
+<li> <b>log_file</b> -- The file to which Comma will write its error
+and warning log messages. This is usually a file under
+<b>comma_root</b>. </li>
+
 <li> <b>document_root</b> -- This is the default directory below which
 Comma documents will be found. This can actually be overridden in each
-store definition, but you will usually rely on this to be the base
-directory for document storage. The permissions on this directory must
-be set so that each user of the system has the read or write access
-that they will need to retrieve or store documents. </li>
+store definition, but you will usually rely on the configuration
+default to be the base directory for document storage. The permissions
+on this directory must be set so that each user of the system has the
+read or write access that they will need to retrieve or store
+documents. </li>
+
+<li> <b>sys_directory</b> -- This directory is available to the Comma
+system for internal storage of long-term data. All of Comma's modules
+that use Inline::C, for example, use this as a build directory. </li>
 
 <li> <b>tmp_directory</b> -- This directory is available to the Comma
 system, and to any Comma code, for temporary storage. Most folks use
@@ -106,20 +160,28 @@ in the order that they occur in this list (which is relevant only if
 you are worrying about naming collisions; definition loading happens
 infrequently enough that speed is not a concern). </li>
 
+<li> <b>defs_from_PARs</b> -- This is a boolean value ("1" or "0" is
+strongly preferred), that specifies whether Defs may be loaded from
+PAR files. Normally "1". </li>
+
 <li> <b>defs_extension</b> -- The extension that Comma expects
 definition files to have. The convention is <code>.def</code>, which
 means that the <i>Foo</i> def will be found in a file called
 <code>Foo.def</code>. </li>
 
 <li> <b>macro_extension</b> -- Like <b>defs_extension</b>, only for
-macros. The convention is <code>.macro</code>. </li>
+macros. Normally <code>.macro</code>. </li>
+
+<li> <b>include_extension</b> -- Like <b>defs_extension</b>, only for
+includes. The convention is <code>.include</code>. </li>
 
 <li> <b>parser</b> -- The parser module that Comma will use. The two
-best choices are <code>PurePerl</code> and <code>SimpleC</code>. The
-PurePerl module is written entirely in Perl, so should work on any
-system and without any installation headaches. The SimpleC module is
-faster, uses Brian Ingerson's really nifty Inline framework, and like
-all such things May Not Work for You. See the notes below. </li>
+standard choices are <code>PurePerl</code> and
+<code>SimpleC</code>. The PurePerl module is written entirely in Perl,
+so should work on any system and without any installation
+headaches. The SimpleC module is faster, uses Brian Ingerson's really
+nifty Inline framework, and like all such things May Not Work For
+You. See the notes below. </li>
 
 <li> <b>hash_module</b> -- Comma generates checksums for
 documents. These checksums are used internally by the system, and are
@@ -127,27 +189,15 @@ also available via the Doc <b>get_hash()</b> method. You can use any
 module that adheres to the CPAN "Digest"
 interface. <code>Digest::MD5</code> is a good choice. </li>
 
-<li> <b>sql_syntax</b> -- Comma needs to know which database you're
-using. The currently-supported options are <code>mysql</code> and
-<code>Pg</code>. </li>
+<li> <b>system_db</b> -- Comma needs to know which database you're
+using, and how to connect to it. Normally, <b>system_db</b> is
+specified through one layer of indirection, as a string pointing to
+another configuration entry that holds a hashref. There are examples
+in the distribution file for both MySQL and Postgres
+connections. </li>
 
-<li> <b>dbi_connect_info</b> -- This is an anonymous array containing
-the list of values that should be passed to the <b>DBI-&gt;connect()</b>
-method when Comma attempts to open a connection to your relational
-database. Here is an example that could be used with mySQL:
-<pre>
-dbi_connect_info =&gt; [ 'DBI:mysql:comma:localhost',
-                       'user',
-                       'password',
-                        { RaiseError =&gt; 1,
-                          PrintError =&gt; 0 } ],
-</pre>
-</li>
-
-<li> <b>log_file</b> -- This is the file that Comma will log errors
-and warnings to. Comma logging is relatively simple, and a value like
-<code>/tmp/comma.log</code> isn't a bad choice. </li>
 </ul>
+
 
 <h2>Using the SimpleC Parser</h2>
 
@@ -941,6 +991,94 @@ produce output that looks something like this: </p>
 and &lt;a href="http://www.motorola.com/mcu"&gt;6812&lt;/a&gt;
 assembly language.]]&gt;&lt;/bio&gt;
 </pre>
+
+<h2>Flexible and Automatic Escape/Unescape</h2>
+
+<p> Escaping and unescaping element content is common enough to
+warrant specific configurability for each Element in a Def of: </p>
+
+<ol>
+<li> The code that performs the <b>escape</b> operation</li>
+<li> The code that performs the <b>unescape</b> operation</li>
+<li> Whether to automatically escape element content on a <b>set()</b></li>
+<li> Whether to automatically unescape element content on a <b>get()</b></li>
+</ol>
+
+<p> Here is a (silly) example of a custom escape/unescape pair as part
+of an Element's definition: </p>
+
+<pre>
+&lt;element&gt;
+  &lt;name&gt;Xs_are_dangerous&lt;/name&gt;
+  &lt;escapes&gt;
+    &lt;escape_code&gt; 
+      sub { my $str=shift; $str =~ s:X:--x--:g; return $str; }
+    &lt;/escape_code&gt;
+    &lt;unescape_code&gt;
+      sub { my $str=shift; $str =~ s:--x--:X:g; return $str; }
+    &lt;/unescape_code&gt;
+    &lt;auto&gt;1&lt;/auto&gt;
+  &lt;/escapes&gt;
+&lt;/element&gt;
+</pre>
+
+<p>Within the <b>escapes</b> section, <b>escape_code</b> specifies
+some code that performs the ecape, and <b>unescape_code</b> specifies
+some code that performs the unescape. They default, respectively, to: </p>
+
+<pre>
+   \&amp;XML::Comma::Util::XML_basic_escape
+   \&amp;XML::Comma::Util::XML_basic_unescape
+</pre>
+
+<p> The <b>auto</b> element controls behaviors 3 and 4, from the list
+above. The content of <b>auto</b> is eval'ed at Def load time, and if
+<b>auto</b> contains a scalar value, that value sets the default for
+both escaping and unescaping. If <b>auto</b> contains a listref, the
+first value in the list controls escaping, and the second
+unescaping. <b>auto</b> defaults to "0". </p>
+
+<p> In the example above, <b>auto</b> is "1", so content is silently
+escaped by the element's <b>set()</b> method and silently unescaped by
+its <b>get()</b> method. Of course, explicitly passing
+<b>escape=>0</b> to <b>set()</b> or <b>unescape=>0</b> to <b>get()</b>
+overrides this behavior: </p>
+
+<pre>
+# if $el is an Xs_are_dangerous element...
+
+# set $el content to "TE--x-- ME--x--"
+$el-&gt;set ( "TEX MEX" );
+
+# get back our string TEX MEX
+$str = $el-&gt;get();
+
+# get back the literal "TE--x-- ME--x--" stored in $el
+$str = $el-&gt;get ( unescape =&gt; 0 );
+
+# set $el content to literal "TEX MEX" -- no escape
+$el-&gt;set ( "TEX MEX", escape =&gt; 0 );
+</pre>
+
+<p>Three more element Def examples: </p>
+
+<pre>
+&lt;element&gt;
+  &lt;name&gt;all_basic_escaped&lt;/name&gt;
+  &lt;escapes&gt;&lt;auto&gt;1&lt;/auto&gt;&lt;/escapes&gt;
+&lt;/element&gt;
+
+&lt;element&gt;
+  &lt;name&gt;esc_basic_escaped&lt;/name&gt;
+  &lt;escapes&gt;&lt;auto&gt;[1,0]&lt;/auto&gt;&lt;/escapes&gt;
+&lt;/element&gt;
+
+&lt;element&gt;
+  &lt;name&gt;unesc_basic_escaped&lt;/name&gt;
+  &lt;escapes&gt;&lt;auto&gt;[0,1]&lt;/auto&gt;&lt;/escapes&gt;
+&lt;/element&gt;
+</pre>
+
 
 <h2>Automatic Content: &lt;default&gt;</h2>
 
@@ -1918,6 +2056,95 @@ might use the <i>range</i> macro. </p>
   &lt;macro&gt;range:1,10&lt;/macro&gt;
 &lt;/element&gt;
 </pre>
+
+<h2>#include: Defs From Components</h2>
+
+<p> Defs that are part of a single system or application usually share
+common element definitions, hooks, and methods. These common
+components can be abstracted out, placed into separate files, and
+<b>#include</b>'ed into as many defs as necessary. </p>
+
+<pre>
+&lt;!-- file 'simple_el.include' -- anywhere in the defs_directories --&gt;
+&lt;element&gt;&lt;name&gt;included_el&lt;/name&gt;&lt;/element&gt;
+
+
+&lt;!-- and a 'simple_def.def' that uses the above include --&gt;
+&lt;DocumentDefinition&gt;
+  &lt;name&gt;simple_def&lt;/name&gt;
+  &lt;element&gt;&lt;name&gt;el_one&lt;/name&gt;&lt;/element&gt;
+  &lt;element&gt;&lt;name&gt;el_two&lt;/name&gt;&lt;/element&gt;
+
+  &lt;? #include simple_el ?&gt;
+&lt;/DocumentDefinition&gt;
+</pre>
+
+<p> The <b>#include</b> syntax is quite different from most everything
+else that Comma defines for defs. XML afficionados will recognize it
+as a <code>preprocessor declaration</code>, a special part of an XML
+document that is intended for the consumption of a particular parser
+or tool-chain and should be ignored by everyone else. Using the
+preprocessor declaration syntax makes it possible to exempt
+<b>#include</b> directives from the normal rules governing what can go
+where in a def. </p>
+
+<p> When a Comma parser encounters an <b>#include</b> statement, it
+looks at the word immediately following <code>#include</code> and
+tries to find an <code>.include</code> file of that name somewhere in
+the system's def directories. If it succeeds, the parser continues
+reading in the def from that file. When the parser reaches the end of
+the <code>.include</code> file, it returns to the original file and
+continues on. Except for adjusting the filename and line numbers that
+are reported if the parser encounters an error, this switch between
+files is completely transparent -- using an <b>#include</b> is the
+same as cutting and pasting the content of the <b>#include</b> into
+the def. </p>
+
+<p> Of course, this wouldn't be Comma if you couldn't gussy up your
+<b>#include</b>s with perl code. For many purposes, the simple include
+behavior described above is perfectly sufficient. But sometimes the
+content of the <b>#include</b> needs to be customized for the def at
+hand. Here is an example, an include that takes two arguments and
+generates a customized method: </p>
+
+<pre>
+&lt;!-- file 'first_word_method.include' --&gt;
+
+sub {
+  my ( $method_name, $el_name ) = @_;
+  return &lt;&lt;END;
+
+&lt;method&gt;
+  &lt;name&gt;$method_name&lt;/name&gt;
+  &lt;code&gt;&lt;![CDATA[
+    sub {
+      my \$self = shift;
+      my \$content = \$self-&gt;get($el_name);
+      \$content =~ m|^(\w+)|;
+      return \$1 || '';
+    } ]]&gt;&lt;/code&gt;
+ &lt;/method&gt;
+END
+}
+
+
+&lt;!-- and a def that uses 'first_word_method.include' --&gt;
+&lt;DocumentDefinition&gt;
+  &lt;name&gt;another_include_example&lt;/name&gt;
+
+  &lt;element&gt;&lt;name&gt;paragraph&lt;/name&gt;&lt;/element&gt;
+  &lt;? #include {first_word_method} 'fw_paragraph', 'paragraph' ?&gt;
+&lt;/DocumentDefinition&gt;
+</pre>
+
+<p> Wrapping the name of the include in curly brackets indicates that
+this is a dynamic, rather than a static include. Comma expects a
+dynamic <code>.include</code> file to return a code reference that,
+when executed, will return the content to be folded into the def. Any
+text that follows the curly-bracketed include name will be treated as
+a list to be eval'ed, then passed to the code reference as its
+arguments. </p>
+
 
 <h1>Indexing</h1>
 
@@ -2989,9 +3216,25 @@ records that haven't been "used" in 30 days: </p>
   &lt;field&gt;email&lt;/field&gt;
   &lt;field&gt;last_used&lt;/field&gt;
   &lt;clean&gt;
-    &lt;erase_where_clause&gt;last_used &gt; 60*60*24*30&lt;/erase_where_clause&gt;
+    &lt;erase_where_clause&gt;last_used &amp;gt; 60*60*24*30&lt;/erase_where_clause&gt;
   &lt;/clean&gt;
 &lt;/index&gt;
+</pre>
+
+<p> The <b>erase_where_clause</b> contains a bit of SQL that will be
+passed to the database. Any doc record that satisfies the
+<b>erase_where_clause</b> will be removed from the index. Sometimes
+it's useful to construct the <b>erase_where_clause</b> using a bit of
+perl. If the first character is a <b>{</b>, the content of the
+<b>erase_where_clause</b> specifier is eval'ed before being passed to
+the database: </p>
+
+<pre>
+  &lt;clean&gt;
+    &lt;erase_where_clause&gt;&lt;![CDATA[
+      { 'record_last_modified &lt; ' . (time() - 80*80*24) }
+    ]]&gt;&lt;/erase_where_clause&gt;
+  &lt;/clean&gt;
 </pre>
 
 <p> The <b>clean</b> method can, of course, be called just like any
@@ -3160,15 +3403,37 @@ only be used as the final link in a chain. </p>
 <h3>Standard _dir Modules</h3>
 
 <p> <b>Sequential_dir</b> creates sequentially-numbered
-directories. It takes one argument, which is optional: <b>max</b>
-specifies the highest legal number in the sequence, and defaults to
-9999. Once the <b>Sequential_dir</b> becomes "full" -- the <b>max</b>
-number has been reached -- all subsequent store attempts throw an
-error. The directory name will be padded with leading zeros to make
-alpha-numeric sorting possible (note that if the <b>max</b> specifier
-is changed the width of subsequently-created directory names could
-change, possibly ruining the sort). The id fragment generated by the
-<b>Sequential_dir</b> module is simply the directory name.</p>
+directories. It takes two arguments, both of which are optional:
+<b>max</b> specifies the highest legal number in the sequence, and
+defaults to 9999; <b>digits</b> specifies how the number will be
+formatted, and defaults to normal decimal notation. The <b>max</b>
+number determines how many entries the <b>Sequential_dir</b> can
+hold. Once the <b>max</b> number has been reached, all subsequent
+store attempts throw an error. The directory name will be created by
+formatting the current sequence number according to the <b>digits</b>
+specifier, and padding the formatted string with leading zeros, so
+that alpha-numeric sorting is possible. (Note that if the <b>max</b>
+or <b>digits</b> specifier is changed, the width or format of
+subsequently-created directory names could change, possibly ruining
+the sort.) Behind the scenes, <b>Sequential_dir</b> uses the
+<b>Math::BaseCalc</b> module to do the formatting, and the
+<b>digits</b> argument accepts any digit set that
+<b>Math::BaseCalc</b> understands. For example: </p>
+
+<pre>
+&lt;store&gt;
+  &lt;name&gt;hex_directory_plus_abc_filenames&lt;/name&gt;
+  &lt;base&gt;strange/storage/base&lt;/base&gt;
+  &lt;location&gt;Sequential_dir: hex, 'max', 999&lt;/location&gt;
+  &lt;location&gt;Sequential_file: 'digits', ['a','b', 'c'], 'max', 4&lt;/location&gt;
+&lt;/store&gt;
+</pre>
+
+<p> Note that some (one is tempted to qualify them as perverse)
+digit-set choices will render alpha-numeric sorting useless for
+reconstructing the order in which the directories were created. The id
+fragment generated by the <b>Sequential_dir</b> module is simply the
+directory name.</p>
 
 <p> <b>GMT_3layer_dir</b> creates a directory structure derived from
 the current date. As the name implies, three directory layers are
@@ -3190,18 +3455,14 @@ truncated if it is longer. The id fragment generated by
 <h3>Standard _file Modules</h3>
 
 <p> <b>Sequential_file</b> creates unique, sequentially-numbered
-files. It takes two arguments, which are both optional. The <b>max</b>
-argument specifies the highest legal number in the sequence, and
-defaults to 9999. Once the <b>Sequential_file</b> becomes "full" all
-subsequent store attempts throw an error. The filenames are padded
-with leading zeros up to the width of the <b>max</b> number. (As is
-apparent, <b>Sequential_file</b> operates very much along the same
-lines as <b>Sequential_dir</b>.) An additional argument,
-<b>extension</b>, specifies what extension should be added to the
-filename. The extension should include the separator character (a
-period is the most common separator), and defaults to
-<code>.comma</code>. The id fragment that <b>Sequential_file</b>
-generates is the filename, stripped of its extension. </p>
+files. It takes three arguments, all of which are both optional. The
+<b>max</b> and <b>digits</b> arguments operate as described above for
+<b>Sequential_dir</b>. An additional argument, <b>extension</b>,
+specifies what extension should be added to the filename. The
+extension should include the separator character (a period is the most
+common separator), and defaults to <code>.comma</code>. The id
+fragment that <b>Sequential_file</b> generates is the filename,
+stripped of its extension. </p>
 
 <p> <b>Derived_file</b> creates a filename from the contents of a doc
 element or the return value of a method. The <b>derive_from</b>
@@ -3235,6 +3496,53 @@ package: </p>
   &lt;location&gt;Read_only_file:'extension','.config'&lt;/location&gt;
 &lt;/store&gt;
 </pre>
+
+<h2>Index_Only Storage</h2>
+
+<p> A special location module exists for documents that should only be
+indexed, not stored. </p>
+
+<p> It can be convenient to use the Comma API to manipulate data that
+doesn't need to have the longevity or additional features that come
+with file-system storage. The development of this functionality was
+motivated by a desire for what might be called "sortable short-term
+log files."  For example, say you're tracking web page accesses by
+registered users, and the questions your code needs to ask mostly look
+something like "how many pages has this user visited in the last 10
+minutes?"  Updating a traditional, full-fledged Doc on each page view
+is pretty heavy-weight. It would be better to have a way to perform a
+simple mapping between Doc objects and database rows. Here's a simple
+example Def: </p>
+
+<pre>
+&lt;DocumentDefinition&gt;
+  &lt;name&gt;test_index_only&lt;/name&gt;
+
+  &lt;element&gt;&lt;name&gt;time&lt;/name&gt;&lt;/element&gt;
+  &lt;element&gt;&lt;name&gt;string&lt;/name&gt;&lt;/element&gt;
+
+  &lt;store&gt;
+    &lt;name&gt;main&lt;/name&gt;
+    &lt;location&gt;Index_Only:'index_name','main'&lt;/location&gt;
+  &lt;/store&gt;
+
+  &lt;index&gt;
+    &lt;name&gt;main&lt;/name&gt;
+    &lt;field&gt;&lt;name&gt;time&lt;/name&gt;&lt;/field&gt;
+    &lt;field&gt;&lt;name&gt;string&lt;/name&gt;&lt;/field&gt;
+  &lt;/index&gt;
+&lt;/DocumentDefinition&gt;
+</pre>
+
+<p> Mostly, this works as one would expect. Normal Comma method calls
+are used to create Doc objects and <b>store()</b> them. You can
+<b>read()</b> an individual Doc, or use index <b>iterator()</b> and
+<b>count()</b> methods to get at collections and totals. Doc
+<b>read()</b> does come with a few caveats. Only have access to simple
+index fields -- no collections or code-constructed fields -- is
+available. And it's not possible to store Blobs or to use storage
+iterators. </p>
+
 
 <h2>Output Filters</h2>
 
@@ -3349,6 +3657,117 @@ key on the command line when the def is loaded: </p>
 <p> Hmmm. See the text file: Storage/Location/location_modules.doc for
 basic location module theory and practice. Output filters are much
 simpler -- use the source, Luke. </p>
+
+<h1>Blob Elements</h1>
+
+<p> A <i>blob</i> is an element that is stored separately from the
+rest of a Doc's content. Comma borrows the term (and to some extent
+the concept) of blobs from the database world, where <i>BLOB</i>
+originated as an acronym for "Binary Large Object." A blob element is
+conceptually part of a Doc, but -- as a matter of implementation -- is
+stored so that it does not need to be parsed when a doc is read and
+does not need to have its content escaped/unescaped on <b>set()</b>
+and <b>get()</b>. In addition, blobs are often stored transparently in
+individual files, so that their content can be directly accessed by
+non-comma, filesystem-centric tools. </p>
+
+<p> The API for manipulating blob elements is the same as that for
+manipulating normal elements, with a few additions. Here is a simple
+document with a regular and a blob element defined: </p>
+
+<pre>
+&lt;DocumentDefinition&gt;
+  &lt;name&gt;two_easy_elements&lt;/name&gt;
+
+  &lt;element&gt;&lt;name&gt;regular_el&lt;/name&gt;&lt;/element&gt;
+  &lt;blob_element&gt;&lt;name&gt;blob_el&lt;/name&gt;&lt;/blob_element&gt;
+
+  &lt;store&gt;
+    &lt;base&gt;te&lt;/base&gt;
+    &lt;location&gt;Sequential_file&lt;/location&gt;
+  &lt;/store&gt;
+&lt;/DocumentDefinition&gt;
+</pre>
+
+<p> Our <code>blob_el</code> can be treated just like our
+<code>regular_el</code>: <b>set()</b> and <b>get()</b> work exactly as
+one would expect. When a <code>two_easy_elements</code> doc is stored,
+It will look something like this: </p>
+
+<pre>
+&lt;two_easy_elements&gt;
+&lt;regular_el&gt;whatever&lt;/regular_el&gt;
+&lt;blob_el&gt;&lt;_comma_blob&gt;/usr/local/comma/docs/te/0001-cuPhU10z&lt;/_comma_blob&gt;&lt;/blob_el&gt;
+&lt;/two_easy_elements&gt;
+</pre>
+
+<p> Where a <b>to_string()</b>'ed normal element has content, a blob
+element has a pointer. What the pointer means (hence, how and where
+the content is actually stored) is dependent on the particular
+location module that did the storing. In most cases blob content is
+stored in a file in the same directory as the doc, with a filename
+consisting of the doc's id as a leading string, then a dash, then a
+randomly generated alphanumeric string, then an optional
+extension. </p>
+
+<p> In addition to being <b>set()</b>, a blob element can be handed
+content using <b>set_from_file()</b>. This makes using a blob to store
+information that is already available on disk quite simple: </p>
+
+<pre>
+my $filename = '~/pictures/snowy_day.jpg';
+$blob_el-&gt;set_from_file ( $filename );
+</pre>
+
+<p> The <b>get_location()</b> method returns the pointer information
+for the blob. Note that <b>get_location</b> will return an empty
+string if the blob is unset, and that because comma jumps through some
+hoops to store blob content in temporary files between a <b>set()</b>
+and a <b>store()</b>, the pointer returned by <b>get_location()</b>
+may not be what you expect in all situations, and shouldn't be treated
+as a persistent piece of data. </p>
+
+<pre>
+# display our jpg to the screen
+my $filename = $blob_el-&gt;get_location() ||
+  die "no pretty picture available";
+
+`display $filename`;
+</pre>
+
+<p> Blob elements can be <b>validate()</b>'ed, and have hooks of type
+<b>set_hook</b>, <b>read_hook</b> and <b>validate_hook</b> attached to
+them. They also accept a unique <b>set_from_file</b> hook, which is
+like a <b>set_hook</b> but is triggered by the <b>set_from_file()</b>
+method. </p>
+
+<p> The extension that is appended to a blob element's filename during
+storage is specified with an <b>extension</b> def element: </p>
+
+<pre>
+&lt;DocumentDefinition&gt;
+  &lt;name&gt;two_easy_elements&lt;/name&gt;
+
+  &lt;element&gt;&lt;name&gt;regular_el&lt;/name&gt;&lt;/element&gt;
+  &lt;blob_element&gt;
+    &lt;name&gt;blob_el&lt;/name&gt;
+    &lt;extension&gt;'.jpg'&lt;/extension&gt;
+  &lt;/blob_element&gt;
+
+  &lt;store&gt;
+    &lt;base&gt;te&lt;/base&gt;
+    &lt;location&gt;Sequential_file&lt;/location&gt;
+  &lt;/store&gt;
+&lt;/DocumentDefinition&gt;
+</pre>
+
+<p> The extension itself is produced by eval'ing the <b>extension</b>
+specifier each time the element is stored. This makes it possible to
+have the extension vary depending on the content of the blob. For a
+(complex) example of this -- as well as for a generally useful element
+that can be defname'ed into any context -- see the file
+t/defs/Comma_Standard_Image.def in the comma distribution. </p>
+
 
 <h1>Grouping and Sorting Elements</h1>
 

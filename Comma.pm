@@ -22,77 +22,38 @@
 
 package XML::Comma;
 
+$XML::Comma::VERSION = '1.17';
+
 use strict;
 use vars '$AUTOLOAD';
 
+# pull in Config and define some global XML::Comma methods
+use XML::Comma::Configuration;
+
 BEGIN {
+  # make sure we have our basic systems directories
+  make_system_directories ( qw[ comma_root
+                                document_root
+                                sys_directory
+                                tmp_directory ] );
 
-  my $config =
-  {
+  # pull in hash module
+  my $hash_module = XML::Comma->hash_module();
+  eval "use $hash_module";
+  die "can't use hash_module class: $@\n" if $@;
 
-  comma_root          =>     '/usr/local/comma',
-  document_root       =>     '/usr/local/comma/docs',
-  tmp_directory       =>     '/tmp',
-
-  defs_directories    =>
-    [
-#     '/u/khkramer/src/perl/XML-Comma/XML/t/defs',
-     '/allafrica/comma/defs',
-     '/usr/local/comma/defs',
-     '/usr/local/comma/defs/macros',
-     '/usr/local/comma/defs/standard',
-     '/usr/local/comma/defs/test'
-    ],
-
-  defs_extension    =>     '.def',
-  macro_extension   =>     '.macro',
-
-  #parser => 'PurePerl',
-  parser => 'SimpleC',
-
-  hash_module       =>     'Digest::MD5',
-
-  mysql            =>      {
-                            sql_syntax  =>  'mysql',
-                            dbi_connect_info => [
-                                                 'DBI:mysql:comma:localhost',
-#                                                 'DBI:mysql:comma:homes',
-                                                 'root',
-                                                 'test',
-                                                 { RaiseError => 1,
-                                                   PrintError => 0,
-                                                   ShowErrorStatement => 1,
-                                                   AutoCommit => 1,
-                                                 } ],
-                           },
-
-   postgres         =>      {
-                            sql_syntax  =>  'Pg',
-                            dbi_connect_info => [
-                                                 'DBI:Pg:dbname=comma',
-                                                 'root',
-                                                 'test',
-                                                 { RaiseError => 1,
-                                                   PrintError => 0,
-                                                   ShowErrorStatement => 1,
-                                                   AutoCommit => 1,
-                                                 } ],
-                           },
-
-  system_db        => 'mysql',
-  #system_db        => 'postgres',
-
-  log_file => '/tmp/log.comma',
-  };
-
-#  XML::Comma::BSD = XML::Comma
+  # pull in parser
+  my $parser = XML::Comma->parser();
+  eval "use $parser";
+  die "can't use parser class: $@\n" if $@;
 
   sub parser {
-    return 'XML::Comma::Parsing::' . $config->{parser};
+    return 'XML::Comma::Parsing::' .XML::Comma::Configuration->get ( 'parser' );
   }
 
+  my $lock_singlet;
   sub lock_singlet {
-    return $config->{_lock_singlet} ||= XML::Comma::SQL::Lock->new();
+    return $lock_singlet ||= XML::Comma::SQL::Lock->new();
   }
 
   sub pnotes {
@@ -104,26 +65,30 @@ BEGIN {
     # strip out local method name and stick into $m
     $AUTOLOAD =~ /::(\w+)$/;  my $m = $1;
     # check that this configuration variable exists
-    if ( ! exists $$config{$m} ) {
+    my $value = XML::Comma::Configuration->get ( $m );
+    unless ( defined $value ) {
       XML::Comma::Log->err
           ( 'UNKNOWN_CONFIG_VAR',
-            "no such config variable '$m'" );
+            "no such config variable as '$m' for XML::Comma\n" );
     }
-    #die "no such config variable $m\n"  if  ! exists $$config{$m};
-    # call holder's dispatch figure-outer
-    return $config->{$m};
+    return $value;
   }
 
-  # use the parser class given above
-  eval "use ${ \( XML::Comma::parser() ) }";
-  die "can't use parser class: $@\n" if $@;
+  use File::Path qw();
+  sub make_system_directories {
+    foreach my $var ( @_ ) {
+      my $dirname = XML::Comma::Configuration->get ( $var ) ||
+        die "Comma can't function without a '$var' configuration value";
+      File::Path::mkpath ( $dirname );
+    }
+  }
 
 }
 
-# externally-required modules
-use Proc::ProcessTable;
 
-# comma modules
+# comma modules that need to be pulled in in a given order or that
+# should have their APIs automatically available to anyone who does a
+# 'use XML::Comma'
 use XML::Comma::Log;
 use XML::Comma::SQL::Lock;
 use XML::Comma::Configable;
@@ -141,11 +106,6 @@ use XML::Comma::Storage::Store;
 use XML::Comma::Indexing::Index;
 use XML::Comma::Bootstrap;
 use XML::Comma::DefManager;
-my $hash_module = XML::Comma->hash_module();
-eval "use $hash_module";
-if ( $@ ) {
-  die "startup error while trying to use hash module '$hash_module': $@\n";
-}
 
 
 1;

@@ -25,6 +25,7 @@ package XML::Comma::Storage::Location::Abstract_file;
 use strict;
 use File::Spec;
 use File::Copy;
+use XML::Comma::Util qw( dbg );
 
 # _extension :
 # _decl_pos  :
@@ -100,14 +101,23 @@ sub last_location {
 }
 
 sub write_blob {
-  my ( $self, $store, $store_location, $store_id, $blob, $content ) = @_;
-  my $blocation = $blob->get_location() ||
-    XML::Comma::Storage::FileUtil->create_randnamed_file
-        ( (File::Spec->splitpath($store_location))[1],
-          $store_id . '-',
-          #$blob->def()->element('extension')->get(),
-          $blob->get_extension(),
-          $store->file_permissions() );
+  my ( $self, $store, $store_location, $store_id, $blob,
+       $content, $new_location ) = @_;
+  my $blocation;
+  if ( $new_location ) {
+    $blocation = XML::Comma::Storage::FileUtil->create_randnamed_file
+      ( (File::Spec->splitpath($store_location))[1],
+        $store_id . '-',
+        $blob->get_extension(),
+        $store->file_permissions() );
+  } else {
+    $blocation = $blob->get_location() ||
+      XML::Comma::Storage::FileUtil->create_randnamed_file
+          ( (File::Spec->splitpath($store_location))[1],
+            $store_id . '-',
+            $blob->get_extension(),
+            $store->file_permissions() );
+  }
   XML::Comma::Storage::FileUtil->write_file ( $blocation,
                                               $content,
                                               $store->file_permissions() );
@@ -120,22 +130,29 @@ sub read_blob {
 }
 
 sub copy_to_blob {
-  my ( $self, $store, $store_location, $store_id, $blob, $filename ) = @_;
-  my $blocation = $blob->get_location() ||
+  my ( $self, $store, $store_location, $store_id, $blob, 
+       $from_filename, $to_filename ) = @_;
+  my $blocation = $to_filename ||
     XML::Comma::Storage::FileUtil->create_randnamed_file
         ( (File::Spec->splitpath($store_location))[1],
           $store_id . '-',
           #$blob->def()->element('extension')->get(),
           $blob->get_extension(),
           $store->file_permissions() );
-  copy ( $filename, $blocation ) ||
-    die "could not copy to blob file '$filename': $!\n";
+  copy ( $from_filename, $blocation ) ||
+    die "could not copy to blob file '$from_filename': $!\n";
   return $blocation;
 }
 
 sub erase_blob {
-  my ( $self, $store, $blob ) = @_;
-  unlink $blob->get_location();
+  my ( $self, $store, $blob, $blob_location ) = @_;
+  # dbg 'trying to unlink', $blob_location || $blob || '<none>';
+  if ( $blob_location ) {
+    unlink $blob_location;
+  } else {
+    unlink $blob->get_location();
+  }
+  # dbg 'done unlinking';
 }
 
 sub touch {

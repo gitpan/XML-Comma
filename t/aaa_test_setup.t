@@ -4,6 +4,7 @@
 use strict;
 use File::Spec;
 use File::Copy;
+use File::Path;
 use FindBin;
 
 use XML::Comma;
@@ -24,7 +25,8 @@ foreach my $dir ( @directories ) {
   }
 }
 
-my $macro_extension = XML::Comma->macro_extension;
+my $macro_extension =   XML::Comma->macro_extension();
+my $include_extension = XML::Comma->include_extension();
 my $t_macros_directory = File::Spec->catdir ( $FindBin::Bin, 'defs', 'macros' );
 my $macros_directory;
 foreach my $dir ( @directories ) {
@@ -54,7 +56,7 @@ die "Couldn't find a macros directory in Comma.pm\n"  if  ! $macros_directory;
 die "Couldn't find a standard defs directory in Comma.pm\n"  if  ! $standard_directory;
 print "ok 1\n";
 
-mkdir ( $test_directory );
+mkpath ( $test_directory );
 opendir ( DIR, $t_defs_directory ) || die "can't open test defs dir: $!\n";
 while ( my $filename = readdir(DIR) ) {
   if ( $filename =~ /$defs_extension$/ ) {
@@ -66,10 +68,12 @@ while ( my $filename = readdir(DIR) ) {
 }
 print "ok 2\n";
 
-mkdir ( $macros_directory );
+mkpath ( $macros_directory );
 opendir ( DIR, $t_macros_directory ) || die "can't open test macros dir: $!\n";
 while ( my $filename = readdir(DIR) ) {
-  if ( $filename =~ /$macro_extension$/ ) {
+  #print "ie - $include_extension -- $filename\n";
+  if ( $filename =~ /$macro_extension$/  or
+       $filename =~ /$include_extension$/ ) {
     print "copying $filename to $macros_directory\n";
     copy ( File::Spec->catfile($t_macros_directory, $filename),
            File::Spec->catfile($macros_directory,$filename) )
@@ -78,7 +82,7 @@ while ( my $filename = readdir(DIR) ) {
 }
 print "ok 3\n";
 
-mkdir ( $standard_directory );
+mkpath ( $standard_directory );
 opendir ( DIR, $t_st_directory ) || die "can't open test standard dir: $!\n";
 while ( my $filename = readdir(DIR) ) {
   if ( $filename =~ /$defs_extension$/ ) {

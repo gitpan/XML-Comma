@@ -23,6 +23,7 @@
 package XML::Comma::SQL::DBH_User;
 
 use strict;
+use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
 ###

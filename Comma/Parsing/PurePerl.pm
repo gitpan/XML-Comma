@@ -24,7 +24,7 @@ package XML::Comma::Parsing::PurePerl;
 use strict;
 
 use XML::Comma;
-use XML::Comma::Util qw( dbg );
+use XML::Comma::Util qw( dbg trim );
 
 my $OPEN_TAG               = 1;
 my $CLOSE_TAG              = 2;
@@ -65,6 +65,33 @@ sub new {
   return $self->handle_document ( $arg{read_args} );
 }
 
+# create a "child" of this parser to process include directives 
+# args: 
+#
+# name        -- name of include for DefManager to find
+# handle_args -- bundle of arguments to pass directly to handle_element
+#
+sub includes_parser {
+  my ( $parent, %arg ) = @_; my $self = {}; bless ( $self, ref($parent) );
+  ( $self->{_string}, $self->{_from_file} ) =
+    XML::Comma::DefManager->include_string ( $arg{name},  $arg{args_string} );
+  $self->{_pos} = $self->{_wpos} = 0;
+  $self->{_el_stack} = [];
+  $self->{_in_include} = 1;
+  # dbg 'str', $self->{_string};
+  eval {
+    $self->handle_element ( @{$arg{handle_args}} );
+  }; if ( $@ ) {
+    # otherwise, we should construct a pretty error string
+    my $context = join '/', map { $_->tag() } $self->down_tree_branch();
+    $context = ($self->{_from_file}.':'.$context) if $self->{_from_file};
+    $self->{_el_stack} = undef;
+    chop $@;
+    die "$@ (in '$context' at " . $self->pos_line_and_column . ")\n";
+  }
+  $self->{_el_stack} = undef;
+}
+
 sub parse {
   my ( $class, %arg ) = @_; my $self = {}; bless ( $self, $class );
   $self->{_pos} = $self->{_wpos} = 0;
@@ -79,7 +106,8 @@ sub parse {
     $self->eat_whitespace();
     ( $type, $string, $tag ) = $self->next_token();
     while ( $type != $DONE ) {
-      if ( $type != $COMMENT and $type != $PROCESSING_INSTRUCTION ) {
+      if ( $string            and
+           $type != $COMMENT  and  $type != $PROCESSING_INSTRUCTION ) {
         die "more content found after root element: '$string'\n";
       }
       $self->eat_whitespace();
@@ -93,6 +121,7 @@ sub parse {
   }
   $self->{_el_stack} = undef;
 }
+
 
 sub raw_append {}
 sub cdata_wrap {}
@@ -128,11 +157,6 @@ sub handle_document {
     ( $type, $string, $tag ) = $self->next_token();
     }
   }; if ( $@ ) {
-    # we could have gotten an object error back from some method in
-    # the Comma classes that is too big for its britches, if so, just
-    # throw it clean:
-    die $@  if  ref($@);
-    # otherwise, we should construct a pretty error string
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
     $context = ($self->{_from_file}.':'.$context) if $self->{_from_file};
     $self->{_el_stack} = undef;
@@ -219,10 +243,25 @@ sub handle_element {
       # doctype -- throw an error
       die "doctype after prolog\n";
     } elsif ( $type == $DONE ) {
-      # finished prematurely
-      die "reached end of document unexpectedly\n";
+      unless ( $self->{_in_include} ) {
+        # finished prematurely
+        die "reached end of document unexpectedly\n";
+      }
+      return; # putatively ok
+    } elsif ( $type == $PROCESSING_INSTRUCTION ) {
+      my $content = trim ( substr $string, 2, length($string) - 4 );
+      my ( $directive, $first_word, $rest ) = split ( /\s+/, $content, 3 );
+      if ( $directive  and  $directive eq '#include' ) {
+        die "#include directive with no include name given\n"
+          unless $first_word;
+        $self->includes_parser ( name        => $first_word,
+                                 args_string => $rest,
+                                 handle_args => [ $el, $tag,
+                                                  $nested, $comma_level ] );
+      }
+      ## ignore other processing instructions
     }
-    ## ignore comments and processing instructions
+    ## ignore comments
   }
 }
 
@@ -241,8 +280,9 @@ sub pos_line_and_column {
   return "line $line, column $col";
 }
 
+
 ####
-# token-level routined
+# token-level routines
 ####
 
 sub eat_whitespace {
@@ -441,9 +481,11 @@ sub text {
       return ( $TEXT, $token_string, undef );
     }
   }
-  # if we get here, we've exited the while loop by overrunning the
-  # end of our string
-  die "reached end of document while inside a text block\n";
+  # if we get here, we've exited the while loop by overrunning the end
+  # of our string. but we need to let someone higher up handle this
+  # problem, so just return what we've gotten up to this point...
+  return ( $TEXT, substr($self->{_string}, $self->{_pos},
+                         $self->{_wpos} - $self->{_pos}), undef );
 }
 
 # gets the next character. unless $ignore_amps is set, skips over
@@ -488,6 +530,7 @@ sub get_chars {
 sub pushback_c {
   $_[0]->{_wpos}--;
 }
+
 
 1;
 

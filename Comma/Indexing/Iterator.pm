@@ -501,8 +501,7 @@ sub _get_textsearch_preprocessor {
         die "textsearch '$ts_name' died during eval: $@\n";
       }
       my $preprocessor = eval {
-        $ts_el->{_comma_compiled_which_preprocessor}
-          ->( undef, $self->{_Iterator_index}, $ts_el, $ts_attribute );
+        $code_ref->( undef, $self->{_Iterator_index}, $ts_el, $ts_attribute );
       }; if ( $@ ) {
         die "textsearch '$ts_name' died during 'which_preprocessor': $@\n";
       }

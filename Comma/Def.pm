@@ -45,11 +45,16 @@ use strict;
 #
 # _Def_is_nested              : a cached scalar to avoid re-checking nested-ness
 # _Def_is_blob                : a cached scalar to avoid re-checking blob-ness
+#
+# _Def_auto_escape
+# _Def_auto_unescape
+# _Def_escape_code
+# _Def_unescape_code
 
 
 # file ||
 # block  ||
-# tag_up_path  [def]file:///allafrica/docs/perl-bookshelf/cookbook/ch13_01.htm
+# tag_up_path 
 #
 # last_mod_time
 # from_file
@@ -78,6 +83,10 @@ sub _init {
   $self->{_Def_plural} = {};
   $self->{_Def_required} = {};
   $self->{_Def_macro_names} = [];
+  $self->{_Def_auto_escape} = 0;
+  $self->{_Def_auto_unescape} = 0;
+  $self->{_Def_escape_code} =   eval '\&XML::Comma::Util::XML_basic_escape';
+  $self->{_Def_unescape_code} = eval '\&XML::Comma::Util::XML_basic_unescape';
   $self->allow_hook_type ( 'read_hook',
                            'document_write_hook',
                            'validate_hook',
@@ -102,7 +111,7 @@ sub read {
   my ( $class, %arg ) = @_;
   my $def;
   eval {
-    my $name = $arg{name} ||  die  "no name given to Def->retrieve()";
+    my $name = $arg{name} ||  die  "no name given to Def->read()";
     $def = XML::Comma::DefManager->for_path ( $name );
   }; if ( $@ ) {
     XML::Comma::Log->err ( 'DEF_READ_ERROR', $@ );
@@ -419,6 +428,36 @@ sub _config__sort_sub {
   my ( $self, $el ) = @_;
   $self->{_Def_sort_sub} = eval $el->get();
   if ( $@ ) { XML::Comma::Log->err ( 'SORT_SUB_EVAL_ERR', $@ ); }
+}
+
+sub _config__escapes {
+  my ( $self, $el ) = @_;
+  # escape code ref
+  if ( my $str = $el->element('escape_code')->get() ) {
+    $self->{_Def_escape_code} = eval $str;
+    if ( $@ ) { XML::Comma::Log->err ( 'ESCAPE_CODE_ERR', $@ ) }
+    unless ( ref($self->{_Def_escape_code}) eq 'CODE' ) {
+      XML::Comma::Log->err ( 'ESCAPE_CODE_ERR', 'not a code ref: ' .
+                             $self->{_Def_escape_code} );
+    }
+  }
+  # unescape code ref
+  if ( my $str = $el->element('unescape_code')->get() ) {
+    $self->{_Def_unescape_code} = eval $str;
+    if ( $@ ) { XML::Comma::Log->err ( 'UNESCAPE_CODE_ERR', $@ ) }
+    unless ( ref($self->{_Def_unescape_code}) eq 'CODE' ) {
+      XML::Comma::Log->err ( 'UNESCAPE_CODE_ERR', 'not a code ref: ' .
+                             $self->{_Def_unescape_code} );
+    }
+  }
+  # auto escape directive
+  my $val = eval $el->element('auto')->get();
+  if ( $@ ) { XML::Comma::Log->err ( 'AUTO_ESCAPE_ERR', $@ ); }
+  if ( ref($val) eq 'ARRAY' ) {
+    ( $self->{_Def_auto_escape}, $self->{_Def_auto_unescape} ) = @$val;
+  } else {
+    $self->{_Def_auto_escape} = $self->{_Def_auto_unescape} = $val;
+  }
 }
 
 sub def_pnotes {

@@ -30,6 +30,8 @@ use XML::Comma::Util qw( dbg );
 use XML::Comma::SQL::DBH_User;
 use XML::Comma::SQL::Base;
 
+use Proc::ProcessTable;
+
 my $LOCK_LOOP_WAIT_SECONDS = 3;
 
 BEGIN {
@@ -85,6 +87,11 @@ sub lock {
   }
   my $waited = 0;
   my $lr = sql_get_lock_record ( $dbh, $key );
+  # recurse if the doc was unlocked out from under this routine
+  unless ( $lr ) {
+    $self->lock ( $key, $no_block, $timeout );
+  }
+  # okay, now our real try-again-to-lock loop
   while ( ! defined $timeout or $waited < $timeout ) {
     # check to see if we're allowed to treat this lock as expired
     $self->maybe_unlock ( $lr->{pid}, $key );

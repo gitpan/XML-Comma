@@ -295,10 +295,10 @@ sub doc_last_modified {
 #
 # args: ( $store, $filename, $id, $key, $locked )
 sub set_storage_info {
-  $_[0]->{Doc_storage}->{store} = $_[1];
-  $_[0]->{Doc_storage}->{location} = $_[2];
-  $_[0]->{Doc_storage}->{id} = $_[3];
-  $_[0]->{Doc_storage}->{key} = $_[4];
+  $_[0]->{Doc_storage}->{store} = $_[1]      if $_[1];
+  $_[0]->{Doc_storage}->{location} = $_[2]   if $_[2];
+  $_[0]->{Doc_storage}->{id} = $_[3]         if $_[3];
+  $_[0]->{Doc_storage}->{key} = $_[4]        if $_[4];
   $_[0]->{_Doc_locked} = $_[5];
 }
 sub clear_storage_info {
@@ -313,7 +313,7 @@ sub clear_storage_info {
 # FIX: make sure that we're locked before we try to unlock (or have
 # store info, or something)
 sub doc_unlock {
-  #dbg 'unlo', $_[0];
+  #dbg 'unlo', $_[0], $_[1] || 'undef', $_[0]->doc_key();
   XML::Comma->lock_singlet()->unlock ( $_[1] || $_[0]->doc_key() );
   $_[0]->{_Doc_locked} = undef  if  ref $_[0];
   $_[0]->set_read_only()  if  ref $_[0];

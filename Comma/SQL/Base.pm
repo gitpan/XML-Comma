@@ -374,27 +374,60 @@ sub sql_alter_data_table_drop_index {
   }
 }
 
+
 # FIX: is always dbh-quoting the doc_id the right thing?
 sub sql_insert_into_data {
   my ( $index, $doc, $comma_flag ) = @_;
   $comma_flag ||= 0;
+
+  # the normal case is to treat the doc's doc_id as a nearly-normal
+  # field, getting its value straight from the doc. but there is a
+  # special case where we want the doc_id to get its value here,
+  # during the write, from the _sq number.
+  my ( $doc_make_id_flag, $doc_id ) = ( undef, $doc->doc_id() );
+  if ( $doc->doc_id() eq 'COMMA_DB_SEQUENCE_SET' ) {
+    $doc_id = 0;
+    $doc_make_id_flag = 1;
+  };
+
+  # the core logic -- insert the row into the data table with all
+  # columns properly filled
   my $dbh = $index->get_dbh();
+  my $dtn = $index->data_table_name();
+  my $qdoc_id = $dbh->quote ( $doc_id );
 
   my @columns = $index->columns();
   my $columns_list = join ( ',', 'doc_id', @columns );
-  my $columns_values = 
-    join ( ',', $dbh->quote($doc->doc_id()),
+  my $columns_values =
+    join ( ',', $qdoc_id,
            map {
              $dbh->quote ( $index->column_value($_, $doc,) )
            } @columns );
 
-  my $string = 'INSERT INTO ' . $index->data_table_name() .
+  my $string = 'INSERT INTO ' . $dtn .
     " ( _comma_flag, record_last_modified, $columns_list ) VALUES ( $comma_flag, ${\( time() )}, $columns_values )";
-
   #dbg 'sql', $string;
   my $sth = $dbh->prepare ( $string );
   $sth->execute();
   $sth->finish();
+
+  # and, finally set the id field correctly, both in the db and in the
+  # doc, if we're responsible for generating the id. CAVEAT: we only
+  # set the 'id' info in the doc -- some caller up the chain should
+  # take responsibility for making all of the doc's storage_info stuff
+  # right.
+  if ( $doc_make_id_flag ) {
+    my $sth = $dbh->prepare ( "SELECT _sq from $dtn WHERE doc_id = $qdoc_id" );
+    $sth->execute();
+    $doc_id = $sth->fetchrow_arrayref->[0];
+    $qdoc_id = $dbh->quote ( $doc_id );
+    $sth->finish();
+    $sth = $dbh->prepare
+      ( "UPDATE $dtn SET doc_id = $qdoc_id WHERE _sq = $doc_id" );
+    $sth->execute();
+    $sth->finish();
+    $doc->set_storage_info ( undef, undef, $doc_id );
+  }
 }
 
 sub sql_update_in_data {

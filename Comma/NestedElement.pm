@@ -37,6 +37,7 @@ use XML::Comma::Util qw( dbg trim array_includes arrayref_remove );
 #                        lookup_table is managed by _add_elements and
 #                        _delete_elements routines.
 #
+# _ne_blob_ghosts      : an arrayref containing blobs that have been deleted
 # Doc_storage          : a storage reference passed down from the original doc
 #
 #
@@ -44,6 +45,7 @@ use XML::Comma::Util qw( dbg trim array_includes arrayref_remove );
 sub _init {
   my ( $self, %arg ) = @_;
   # nested elements and content holders
+  $self->{_ne_blob_ghosts}  = [];
   $self->{_nested_elements} = [];
   $self->{_nested_lookup_table} = {};
   $self->SUPER::_init ( %arg );
@@ -191,6 +193,8 @@ sub _delete_elements {
     $el->call_on_delete();
     arrayref_remove ( $self->{_nested_lookup_table}->{$el->tag()}, $el );
   }
+  push @{$self->{_ne_blob_ghosts}},
+    grep { $_->isa('XML::Comma::BlobElement') } @elements;
 }
 
 ##
@@ -390,6 +394,33 @@ sub get_all_blobs {
     }
   }
   return @blobs;
+}
+
+# when a blob is delete_element'ed, it goes onto the ghosts list, so
+# that its backing store can be removed when/if the doc is stored
+sub get_all_blobs_and_ghosts {
+  my $self = shift();
+  my @blobs = @{$self->{_ne_blob_ghosts}};
+  foreach my $el ( $self->elements() ) {
+    # push a blob directly, recurse-push on a nested element
+    if ( $el->def()->is_blob() ) {
+      push @blobs, $el;
+    } elsif ( $el->def()->is_nested() ) {
+      push @blobs, $el->get_all_blobs_and_ghosts();
+    }
+  }
+  return @blobs;
+}
+
+# recursively clear ghost blobs list (after store or erase, presumably)
+sub clear_ghosts_list {
+  my $self = shift();
+  $self->{_ne_blob_ghosts} = [];
+  foreach my $el ( $self->elements() ) {
+    if ( $el->def()->is_nested() ) {
+      $self->{_ne_blob_ghosts} = [];
+    }
+  }
 }
 
 # we need to do two things, here. 1) set the _init_index field of each

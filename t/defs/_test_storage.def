@@ -149,6 +149,13 @@
     <location>Derived_file:'derive_from','el2'</location>
   </store>
 
+  <store>
+    <name>twelve</name>
+    <base>test/twelve</base>
+    <location>Sequential_dir: 'digits', ['x','y', 'z'], 'max', 2</location>
+    <location>Sequential_file: 'digits', ['a','b', 'c'], 'max', 4</location>
+  </store>
+
 
 </DocumentDefinition>
 

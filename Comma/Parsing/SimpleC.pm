@@ -20,13 +20,26 @@
 #
 ##
 
+##
+#
+# This parser and the PurePerl parser share very similar top_level
+# code (all the stuff in perl, here). The main difference are 1) this
+# module needs to do special _c_new stuff to create an object, and 2)
+# the resulting objects aren't hashrefs and use accessor methods where
+# the PurePerl version sometimes uses private hash slots. 
+#
+# It would be nice to refactor the code so that both of these inherit
+# from a common abstract parent. On the other hand, it's probably not
+# worth doing all that refactoring unless the architecture needs to
+# change substantially, as the code here is stable and well-tested.
+#
+##
+
 package XML::Comma::Parsing::SimpleC;
 use strict;
 
 use XML::Comma;
-use XML::Comma::Util qw( dbg );
-
-#----------------------------------------
+use XML::Comma::Util qw( dbg trim );
 
 my $OPEN_TAG               = 1;
 my $CLOSE_TAG              = 2;
@@ -38,8 +51,15 @@ my $TEXT                   = 7;
 my $DONE                   = 8;
 my $EMPTY_ELEMENT          = 9;
 
+# _top_level_class
+# _from_file
+# _string
+# _pos
+# _wpos
+# _el_stack : [] for reporting context
+
 sub new {
-  my ( $class, %arg ) = @_;
+  my ( $class, %arg ) = @_; 
   my $string;
   my $filename;
 
@@ -53,21 +73,51 @@ sub new {
     $string = <FILE>;
     close ( FILE );
   } else {
-    die "need a block or a filename to PurePerl::new\n";
+    die "no block or filename to parse";
   }
 
   my $self = _c_new ( 'XML::Comma::Parsing::SimpleC',
                       $string,
                       $filename || '',
-                      $arg{top_level_class} || 'XML::Comma::Doc' );
+                      $arg{top_level_class} || 'XML::Comma::Doc',
+                      0 );
   return $self->handle_document ( $arg{read_args} );
+}
+
+# create a "child" of this parser to process include directives 
+# args: 
+#
+# name        -- name of include for DefManager to find
+# handle_args -- bundle of arguments to pass directly to handle_element
+#
+sub includes_parser {
+  my ( $parent, %arg ) = @_; 
+
+  my ( $string, $file ) =
+    XML::Comma::DefManager->include_string ( $arg{name}, $arg{args_string} );
+  my $self = _c_new ( 'XML::Comma::Parsing::SimpleC',
+                      $string,
+                      $file,
+                      $parent->top_level_class(),
+                      1 );
+  #$self->{_in_include} = 1;
+
+  eval {
+    $self->handle_element ( @{$arg{handle_args}} );
+  }; if ( $@ ) {
+    # otherwise, we should construct a pretty error string
+    my $context = join '/', map { $_->tag() } $self->down_tree_branch();
+    $context = ( $file . ':' . $context) if  $file;
+    chop $@;
+    die "$@ (in '$context' at " . $self->pos_line_and_column() . ")\n";
+  }
 }
 
 sub parse {
   my ( $class, %arg ) = @_;
 
   my $string = $arg{block} || die "need a block to SimpleC::parse";
-  my $self = _c_new ( 'XML::Comma::Parsing::SimpleC', $string, '', '' );
+  my $self = _c_new ( 'XML::Comma::Parsing::SimpleC', $string, '', '', 0 );
 
   eval {
     # prolog
@@ -78,7 +128,8 @@ sub parse {
     $self->eat_whitespace();
     ( $type, $string, $tag ) = $self->next_token();
     while ( $type != $DONE ) {
-      if ( $type != $COMMENT and $type != $PROCESSING_INSTRUCTION ) {
+      if ( $string            and
+           $type != $COMMENT  and  $type != $PROCESSING_INSTRUCTION ) {
         die "more content found after root element: '$string'\n";
       }
       $self->eat_whitespace();
@@ -86,10 +137,12 @@ sub parse {
     }
   }; if ( $@ ) {
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
+    $self->{_el_stack} = undef;
     chop $@;
     die "$@ in '$context' at " . $self->pos_line_and_column . "\n";
   }
 }
+
 
 sub raw_append {}
 sub cdata_wrap {}
@@ -101,23 +154,19 @@ sub cdata_wrap {}
 sub handle_document {
   my ( $self, $read_args ) = @_;
   my $doc;
+  my $file = $self->from_file();
   eval {
     # prolog and outermost envelope
     my ( $type, $string, $tag ) = $self->skip_prolog();
-
     # create document
-    my $from_file = $self->from_file();
     $doc = $self->top_level_class()
       ->new ( type => $tag,
-              from_file => $from_file,
-              last_mod_time => $from_file ? (stat($from_file))[9] : 0,
+              from_file => $file,
+              last_mod_time => ($file ? (stat($file))[9] : 0),
               read_args => $read_args );
-
     push @{$self->_el_stack()}, $doc;
-
     # recursively handle elements
     $self->handle_element ( $doc, $tag, 1, 1 );
-
     # nothing else except comments and whitespace
     $self->eat_whitespace();
     ( $type, $string, $tag ) = $self->next_token();
@@ -129,15 +178,10 @@ sub handle_document {
     ( $type, $string, $tag ) = $self->next_token();
     }
   }; if ( $@ ) {
-    # we could have gotten an object error back from some method in
-    # the Comma classes that is too big for its britches, if so, just
-    # throw it clean:
-    die $@  if  ref($@);
-    # otherwise, we should construct a pretty error string
     my $context = join '/', map { $_->tag() } $self->down_tree_branch();
-    $context = ($self->from_file().':'.$context) if $self->from_file();
+    $context = ($file . ':' . $context) if $file;
     chop $@;
-    die "$@ in '$context' (at " . $self->pos_line_and_column . ")\n";
+    die "$@ (in '$context' at " . $self->pos_line_and_column . ")\n";
   }
   return $doc;
 }
@@ -152,19 +196,17 @@ sub skip_prolog {
   # let's be overly forgiving and accept docs with leading whitespace
   $self->eat_whitespace();
   my ( $type, $string, $special ) = $self->next_token();
-  #dbg 'tss', $type||"''", $string||"''", $special||"''";
   while ( $type != $OPEN_TAG ) {
     if ( $type == $CDATA ) {
       die "unexpected CDATA\n";
     } elsif ( $type == $TEXT ) {
-      die "text outside of root element: '$string'\n";
+      die "text outside of root element\n";
     } elsif ( $type == $DONE ) {
       die "no document content\n";
     }
     $self->eat_whitespace();
     ( $type, $string, $special ) = $self->next_token();
   }
-  #dbg 'tss', $type, $string, $special;
   return ( $type, $string, $special );
 }
 
@@ -172,7 +214,6 @@ sub handle_element {
   my ( $self, $el, $tag, $nested, $comma_level ) = @_;
   while ( 1 ) {
     my ( $type, $string, $special ) = $self->next_token();
-
     if ( $type == $TEXT ) {
       # text -- append (let el do its own checking)
       $el->raw_append ( $string );
@@ -181,13 +222,16 @@ sub handle_element {
       if ( $nested ) {
         my $new = $el->add_element ( $special, $string );
         push @{$self->_el_stack()}, $new;
-        $self->handle_element ( $new, $special,
-                                $new->def() ? $new->def()->is_nested() : 1, 1 );
+        $self->handle_element
+          ( $new,
+            $special,
+            ($new->def() ? $new->def()->is_nested() : 1),
+            1 );
       } else {
         $el->raw_append ( $string );
-        $self->handle_element ( $el, $special, $nested, 0 );
+        $self->handle_element ( $el, $special, 0, 0 );
       }
-    }  elsif ( $type == $EMPTY_ELEMENT ) {
+    } elsif ( $type == $EMPTY_ELEMENT ) {
       if ( $nested ) {
         $el->add_element ( $special );
       } else {
@@ -218,10 +262,25 @@ sub handle_element {
       # doctype -- throw an error
       die "doctype after prolog\n";
     } elsif ( $type == $DONE ) {
-      # finished prematurely
-      die "reached end of document unexpectedly\n";
+      unless ( $self->_in_include() ) {
+        # finished prematurely
+        die "reached end of document unexpectedly\n";
+      }
+      return; # putatively ok
+    } elsif ( $type == $PROCESSING_INSTRUCTION ) {
+      my $content = trim ( substr $string, 2, length($string) - 4 );
+      my ( $directive, $first_word, $rest ) = split ( /\s+/, $content, 3 );
+      if ( $directive  and  $directive eq '#include' ) {
+        die "#include directive with no include name given\n"
+          unless $first_word;
+        $self->includes_parser ( name        => $first_word,
+                                 args_string => $rest,
+                                 handle_args => [ $el, $tag,
+                                                  $nested, $comma_level ] );
+      }
+      ## ignore other processing instructions
     }
-    ## ignore comments and processing instructions
+    ## ignore comments
   }
 }
 
@@ -241,9 +300,6 @@ sub pos_line_and_column {
 }
 
 
-1;
-
-
 # ------------------------------------------------------------------------------
 # C code follows
 # ------------------------------------------------------------------------------
@@ -261,14 +317,16 @@ typedef struct {
   char* from_file;
   char* doc_class;
   AV*   el_stack;
+  int  in_include;
 } Cobj;
 
-SV* _c_new ( char* class, char* string, char* from_file, char* doc_class );
+SV* _c_new ( char* class, char* string, char* from_file, char* doc_class, int in_include );
 void DESTROY ( SV* self );
 
 char* from_file ( SV* obj );
 char* top_level_class ( SV* obj );
 int pos ( SV* obj );
+int _in_include ( SV* obj );
 char* string ( SV* obj );
 AV* _el_stack ( SV* obj );
 
@@ -288,7 +346,7 @@ char t_get_c ( Cobj* cobj );
 
 //----------------------------------------
 
-SV* _c_new ( char* class, char* string, char* from_file, char* doc_class ) {
+SV* _c_new ( char* class, char* string, char* from_file, char* doc_class, int in_include ) {
   Cobj*   cobj = malloc ( sizeof(Cobj) );
   SV*     obj_ref = newSViv(0);
   SV*     obj = newSVrv ( obj_ref, class );
@@ -299,6 +357,7 @@ SV* _c_new ( char* class, char* string, char* from_file, char* doc_class ) {
   cobj->from_file = strdup ( from_file );
   cobj->doc_class = strdup ( doc_class );
   cobj->el_stack = newAV();
+  cobj->in_include = in_include;
 
   sv_setiv ( obj, (IV)cobj );
   SvREADONLY_on ( obj );
@@ -329,6 +388,12 @@ char* top_level_class ( SV* obj ) {
 int pos ( SV* obj ) {
   return (((Cobj*)SvIV(SvRV(obj)))->pos) - (((Cobj*)SvIV(SvRV(obj)))->string);
 }
+
+// get boolean indicating whether we're processing an include file or not
+int _in_include ( SV* obj ) {
+  return (((Cobj*)SvIV(SvRV(obj)))->in_include);
+}
+
 
 char* string ( SV* obj ) {
   return ((Cobj*)SvIV(SvRV(obj)))->string;
@@ -547,13 +612,15 @@ void cdata ( Cobj* cobj ) {
 
 void text ( Cobj* cobj ) {
   char c;
-  char* index;
+  //char* index;
   Inline_Stack_Vars;
   cobj->wpos = strchr ( cobj->pos, '<' );
 
-  // make sure we haven't overrun our document end
+  // make sure we haven't overrun our document end. if we have, return
+  // what we've got so far and let someone higher up the stack worry
+  // about it
   if ( cobj->wpos == NULL ) {
-    croak ( "reached end of document while inside a text block\n" );
+    cobj->wpos = index ( cobj->pos, '\0' );
   }
   // make sure all the entities in this text chunk look legal
   check_entities ( cobj, cobj->pos, cobj->wpos );
@@ -597,6 +664,6 @@ END
 }
 
 use Inline C => $code,
-  DIRECTORY => XML::Comma->tmp_directory();
+  DIRECTORY => XML::Comma->sys_directory();
 
 1;

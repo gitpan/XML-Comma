@@ -81,12 +81,18 @@ sub get {
     $content = $self->{_content};
   } else {
     $content = $self->def()->element('default')->get();
-    return (defined $content) ? $content : '';
+    return ''  unless  defined $content;
   }
-  if ( $args{unescape} ) {
-    $content = XML::Comma::Util::XML_basic_unescape($content);
+  if ( defined $args{unescape} ) {
+    if ( $args{unescape} ) {
+      $content = $self->def()->{_Def_unescape_code}->($content);
+    }
+  } else {
+    if ( $self->def()->{_Def_auto_unescape} ) {
+      $content = $self->def()->{_Def_unescape_code}->($content);
+    }
   }
-  # run get hooks, passing content and args -- FIX
+  # run get hooks, passing content and args -- FIX (add get hook)
   # ...
   return $content;
 }
@@ -102,9 +108,15 @@ sub set {
   if ( defined $content ) {
     # trim
     $content = trim ( $content );
-    # special arg -- escape
-    if ( $args{escape} ) {
-      $content = XML::Comma::Util::XML_basic_escape($content);
+    # escape arg/config handling
+    if ( defined $args{escape} ) {
+      if ( $args{escape} ) {
+        $content = $self->def()->{_Def_escape_code}->($content);
+      }
+    } else {
+      if ( $self->def()->{_Def_auto_escape} ) {
+        $content = $self->def()->{_Def_escape_code}->($content);
+      }
     }
   }
   # validate

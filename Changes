@@ -163,5 +163,60 @@ Revision history for XML::Comma modules:
     indexes are created, and to stop errors that are caught with eval
     from going to the log.
 
+-------------------------
+1.10  
+-------------------------
 
+  - Fixed bug in textsearch code that prevented processes that hadn't
+    already "indexed" to "retrieve" based on textsearch stuff
+
+  - Added 'digits' argument to Sequential_file and
+    Sequential_dir. Modified FileUtil::current_sequential_id to use
+    the lockfile rather than listing the files in the directory (which
+    fixes the odd behavior Sherrard was complaining about that arises
+    if you drop unexpected stuff into directories). New dependency:
+    Math::BaseCalc.
+
+  - Made some changes to the core to support the new Index_Only
+    storage location module. This is the first location module that is
+    truly decoupled from the filesystem. There are some performance
+    and feature improvements still to be made, but it seems quite
+    usable.
+
+  - Added new <escapes> syntax to allow Def-defined escape/unescape
+    behavior
+
+  - Moved Configuration stuff into Comma/Configuration.pm -- a
+    separate file. This makes more sense from an architectural point
+    of view, and could make it easier to run more than one Comma
+    instance on a given machine, in the future.
+
+  - Added a "sys_directory" configuration variable; changed the
+    SimpleC parser to do its build in the sys directory. Changed
+    Comma.pm to create the comma_root, document_root, sys_directory
+    and tmp_directory dirs on startup, if they don't already exist.
+
+  - Rewrote BlobElement framework so that BlobElements act like other
+    elements: they are not written to permanent storage until a
+    store() is called, and there is no extra store() fanciness
+    required to make sure that the pointers are in sync. Under the
+    covers, blob elements are saved in files under the tmp_directory
+    until the doc they belong to is store()d.
+
+  - The content of an <erase_where_clause> now gets eval'ed before
+    being passed to the database *if* it begins with a '{'
+    character. This is useful for doing perl-ish calculations before
+    having to drop down into SQL.
+
+  - NON-BACKWARDS-COMPATIBLE CHANGE -- XML::Comma::Configuration.pm
+    now uses a much simpler syntax and a future-flexible approach,
+    inheriting from XML::Comma::Pkg::ModuleConfiguration.pm
+
+  - Added #include foo and #include {foo} <args list> to parsers
+
+  - Added PAR resolving functionality to DefManager
+
+
+
+ 
 
