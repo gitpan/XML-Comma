@@ -27,7 +27,7 @@ use vars '$AUTOLOAD';
 
 BEGIN {
 
-  $XML::Comma::VERSION = '1.00';
+  $XML::Comma::VERSION = '1.08';
 
   my $config =
   {
@@ -83,6 +83,8 @@ BEGIN {
 
   log_file => '/tmp/log.comma',
   };
+
+#  XML::Comma::BSD = XML::Comma
 
   sub parser {
     return 'XML::Comma::Parsing::' . $config->{parser};
@@ -160,15 +162,15 @@ XML::Comma - A framework for structured document manipulation
 
 =head1 DESCRIPTION
 
-  This is the "entry point" for using the XML::Comma modules. 
+  This is the "entry point" for using the XML::Comma modules.
 
 =head1 AUTHOR
 
-  comma@xymbollab.com
+  comma@xml-comma.org
 
 =head1 SEE ALSO
 
-  http://xymbollab.com/tools/comma/guide.html
+  http://xml-comma.org
 
 =cut
 

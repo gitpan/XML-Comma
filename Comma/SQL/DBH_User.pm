@@ -15,8 +15,8 @@
 #    GNU General Public License for more details.
 #
 #    For more information about XML::Comma, point a web browser at
-#    http://xymbollab.com/tools/comma/, or read the tutorial included
-#    with the XML::Comma distribution at docs/guide.html
+#    http://xml-comma.org/, or read the tutorial included with the
+#    XML::Comma distribution at docs/guide.html
 #
 ##
 
@@ -36,10 +36,11 @@ use XML::Comma::Util qw( dbg );
 # class's DESTROY -- you have to do that by hand.
 ###
 
-# _DBH_which_db : holds the 'name' of the Comma config variable that
-#                 specifies how to connect and talk to the db. if
-#                 there isn't a value set for this, it defaults to
-#                 'system_db'
+# _DBH_which_db_reader
+# _DBH_which_db_writer : hold the 'names' of the Comma config variable
+#                        that specifies how to connect and talk to the
+#                        db. if there isn't a value set for this, it
+#                        defaults to 'system_db'
 #
 # _DBH       : handle reference
 # _DBH_pid   : pid of process on last connect -- used to re-init
@@ -50,6 +51,9 @@ use XML::Comma::Util qw( dbg );
 #                       sure db schemas are still what we think they
 #                       are, et.
 
+sub ping_writer {}
+sub ping_reader {}
+
 sub ping {
   my $self = shift();
   # if not pingable, do a connect
@@ -59,15 +63,21 @@ sub ping {
   return 1;
 }
 
+sub get_dbh_writer {}
+sub get_dbh_reader {}
+
 sub get_dbh {
   if ( $_[0]->{_DBH} and $_[0]->{_DBH_pid} == $$ ) {
     return $_[0]->{_DBH};
   } else {
+    #dbg 'connecting', $$, $_[0]->{_DBH}||'', $_[0]->{_DBH_pid}||'';
     return $_[0]->_connect();
   }
 }
 
+# BOTH
 sub disconnect {
+  # dbg 'disconnecting', $$, $_[0];
   if  ( $_[0]->{_DBH} ) {
     $_[0]->{_DBH}->disconnect();
   }
@@ -80,13 +90,13 @@ sub _connect {
   my $self = shift();
   # try to deal nicely with a currently-connected handle (which we may
   # have inherited from a fork, etc.
-  eval { $self->{_DBH}->disconnect(); };
+  eval { $self->{_DBH}->disconnect(); sleep 1; };
   my $db_struct = $self->db_struct();
   my @connect_array = @{ $db_struct->{dbi_connect_info} };
   $self->{_DBH} = DBI->connect( @connect_array ) ||
     XML::Comma::Log->err ( 'DB_CONNECTION_ERROR', $@ );
   $self->{_DBH_pid} = $$;
-  # dbg 'setting pid to', $self->{_DBH_pid};
+  #dbg 'setting pid to', $self->{_DBH_pid};
   my $check_method = $self->{DBH_connect_check};
   $self->$check_method()  if  $check_method;
   return $self->{_DBH};

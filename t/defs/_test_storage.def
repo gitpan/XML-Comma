@@ -1,6 +1,7 @@
 <DocumentDefinition>
   <name>_test_storage</name>
   <element><name>el</name></element>  
+  <element><name>el2</name></element>  
   <element><name>flagged</name></element>
 
   <blob_element>
@@ -139,6 +140,15 @@
     $self->def_pnotes->{key2} = "something else !";
     ]]>
   </def_hook>
+
+  <store>
+    <name>eleven</name>
+    <base>test/eleven</base>
+    <location>Sequential_dir:'max',2</location>
+    <location>Derived_GMT_3layer_dir:'derive_from','el'</location>
+    <location>Derived_file:'derive_from','el2'</location>
+  </store>
+
 
 </DocumentDefinition>
 

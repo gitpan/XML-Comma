@@ -89,14 +89,14 @@ sub read {
 
 sub write {
   my ( $self, %arg ) = @_;
-  # validate structure
-  $arg{doc}->validate_structure();
   # pre-store hooks
   unless ( $arg{no_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('pre_store_hook')} ) {
       $sub->( $arg{doc}, $self );
     }
   }
+  # validate structure
+  $arg{doc}->validate();
   # do the store -- making a new id/location pair if we're called as 'anew'
   my ( $id, $location, $key );
   if ( $arg{anew} ) {
@@ -167,6 +167,7 @@ sub write {
 # id => doc id
 # type => doc type
 # store => name of store
+# no_hooks => don't run store_hooks if true
 # doc_string => string block that is the new doc
 # blobs => { blob_location_from_doc_string => blob_content }
 sub force_store {
@@ -207,11 +208,11 @@ sub force_store {
     $blob->set();
     $blob->set ( $args{blobs}->{$send_side_filename} );
   }
-  $doc->store();
+  $doc->store ( no_hooks => $args{no_hooks} );
   return $doc->doc_id();
 }
 
-## FIX -- make this prettier, neater, cleaner and give it a better toupee
+## FIX -- remove this when the deprecated HTTP_Upload stuff finally goes away
 sub put_store {
   my ( $self, %arg ) = @_;
   my $id = $arg{id};
@@ -329,6 +330,7 @@ sub location_from_id {
 
 sub id_from_location {
   my ( $self, $lstring ) = @_;
+  #dbg 'ls', $lstring || '', 'bd', $self->base_directory() || '';
   $lstring =~ /^${ \($self->base_directory()) }/ ||
     die "bad location '$lstring'\n";
   $lstring = File::Spec->abs2rel ( $lstring, $self->base_directory() );
@@ -501,8 +503,6 @@ sub AUTOLOAD {
     $self->auto_dispatch ( $m, @args );
   }
 }
-
-sub DESTROY {};
 
 
 1;

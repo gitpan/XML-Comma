@@ -35,6 +35,7 @@ Comma/Storage/FileUtil.pm
 Comma/Storage/Location/Abstract_file.pm
 Comma/Storage/Location/Derived_file.pm
 Comma/Storage/Location/Derived_dir.pm
+Comma/Storage/Location/Derived_GMT_3layer_dir.pm
 Comma/Storage/Location/GMT_3layer_dir.pm
 Comma/Storage/Location/Read_only_file.pm
 Comma/Storage/Location/Sequential_dir.pm
@@ -47,6 +48,10 @@ Comma/Storage/Store.pm
 Comma/Storage/Util.pm
 Comma/Util.pm
 Comma/docs/guide.html
+Comma/docs/guide.pdf
+Comma/docs/faq.pod
+Comma/docs/faq.html
+Comma/docs/html-and-pdf.txt
 Comma/docs/public-api.doc
 Comma/docs/todo.kwin
 INSTALL

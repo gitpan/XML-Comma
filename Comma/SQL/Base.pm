@@ -63,6 +63,13 @@ require Exporter;
   sql_insert_into_sort
   sql_delete_from_sort
 
+  sql_create_bcollection_table
+  sql_bcollection_table_definition
+  sql_drop_bcollection_table
+  sql_get_bcollection_table
+  sql_insert_into_bcollection
+  sql_delete_from_bcollection
+
   sql_create_textsearch_tables
   sql_textsearch_index_table_definition
   sql_textsearch_defers_table_definition
@@ -99,7 +106,8 @@ require Exporter;
   sql_unset_all_table_comma_flags
   sql_unset_table_comma_flag
   sql_clean_find_orphans
-  sql_set_comma_flags_for_clean
+  sql_set_comma_flags_for_clean_first_pass
+  sql_set_comma_flags_for_clean_second_pass
   sql_set_all_comma_flags
   sql_clear_all_comma_flags
   sql_delete_where_not_comma_flags
@@ -119,13 +127,15 @@ use XML::Comma::Util qw( dbg );
 # object. string arguments vary depending on the statement.
 
 sub sql_create_lock_table {
-my $dbh = shift();
-$dbh->do (
+  my $dbh = shift();
+  $dbh->commit()  unless  $dbh->{AutoCommit};
+  $dbh->do (
 "CREATE TABLE comma_lock
         ( doc_key         VARCHAR(255) UNIQUE,
           pid             INT,
           info            VARCHAR(255),
           time            INT )" );
+  $dbh->commit()  unless  $dbh->{AutoCommit};
 }
 
 sub sql_create_hold_table {
@@ -205,6 +215,7 @@ $index->get_dbh()->do (
     last_modified  INT,
     sort_spec      VARCHAR(255),
     textsearch     VARCHAR(255),
+    collection     VARCHAR(255),
     index_def      TEXT )"
 );
 }
@@ -215,6 +226,7 @@ $index->get_dbh()->do (
 #  index_def => string for index_def column (if any)
 #  sort_spec => string for sort_spec column (if any)
 #  textsearch => string for text_search column (if any)
+#  collection => name of collection being binary indexed (if any)
 sub sql_create_a_table {
   my ( $index, %arg ) = @_;
   my $dbh = $index->get_dbh();
@@ -225,14 +237,15 @@ sub sql_create_a_table {
   my $index_def = $dbh->quote ( $arg{index_def} || '' );
   my $sort_spec = $dbh->quote ( $arg{sort_spec} || '' );
   my $textsearch = $dbh->quote ( $arg{textsearch} || '' );
+  my $collection = $dbh->quote ( $arg{collection} || '' );
 
   if ( ! $arg{existing_table_name} ) {
     # add an appropriate line to the index table
-    $dbh->do ( "INSERT INTO index_tables ( doctype, index_name, last_modified, _comma_flag, index_def, sort_spec, textsearch, table_type ) VALUES ( $q_doctype, $q_index_name, ${ \( time() ) }, 0, $index_def, $sort_spec, $textsearch, $arg{table_type} )" );
+    $dbh->do ( "INSERT INTO index_tables ( doctype, index_name, last_modified, _comma_flag, index_def, sort_spec, textsearch, collection, table_type ) VALUES ( $q_doctype, $q_index_name, ${ \( time() ) }, 0, $index_def, $sort_spec, $textsearch, $collection, $arg{table_type} )" );
 
     # make a name for that table
     my $stub = substr ( $index->doctype(), 0, 8 );
-    my $sth = $dbh->prepare( "SELECT _sq FROM index_tables WHERE doctype=$q_doctype AND index_name=$q_index_name AND table_type=$arg{table_type} AND index_def=$index_def AND sort_spec=$sort_spec AND textsearch=$textsearch" );
+    my $sth = $dbh->prepare( "SELECT _sq FROM index_tables WHERE doctype=$q_doctype AND index_name=$q_index_name AND table_type=$arg{table_type} AND index_def=$index_def AND sort_spec=$sort_spec AND textsearch=$textsearch AND collection=$collection" );
     $sth->execute();
     my $s = $sth->fetchrow_arrayref()->[0];
     $name = $stub . '_' . sprintf ( "%04s", $s );
@@ -243,6 +256,7 @@ sub sql_create_a_table {
   }
 
   # now make the table
+  # dbg 'create table command', $index->$table_def_sub($name);
   $dbh->do ( $index->$table_def_sub($name) );
   return $name;
 }
@@ -299,6 +313,7 @@ $dbh->do ( "UPDATE index_tables SET index_def=${ \( $dbh->quote($index->to_strin
 # column type, and this is a modify.
 sub sql_alter_data_table_drop_or_modify {
   my ( $index, $field_name, $field_type ) = @_;
+#  dbg 'dropping/modifying', $field_type, $field_type || '';
   if ( $field_type ) {
     $index->get_dbh()->do ( "ALTER TABLE " . $index->data_table_name() .
                             " MODIFY $field_name $field_type" );
@@ -310,8 +325,10 @@ sub sql_alter_data_table_drop_or_modify {
 
 sub sql_alter_data_table_add {
 my ( $index, $field_name, $field_type ) = @_;
-$index->get_dbh()->do ( "ALTER TABLE ${ \($index->data_table_name()) } " .
-                        "ADD $field_name $field_type" );
+my $string = "ALTER TABLE ${ \($index->data_table_name()) } " .
+                        "ADD $field_name $field_type";
+# dbg 'alter/add command', $string;
+$index->get_dbh()->do ( $string );
 }
 
 sub sql_alter_data_table_add_collection {
@@ -355,7 +372,7 @@ sub sql_insert_into_data {
 my $string = 'INSERT INTO ' . $index->data_table_name() .
 " ( _comma_flag, record_last_modified, $columns_list ) VALUES ( $comma_flag, ${\( time() )}, $columns_values )";
 
-  #print "sql: $string\n";
+  #dbg 'sql', $string;
   $dbh->do ( $string );
 }
 
@@ -396,6 +413,7 @@ sub sql_sort_table_definition {
   doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) } PRIMARY KEY )";
 }
 
+
 sub sql_get_sort_table_for_spec {
 my ( $index, $sort_spec ) = @_;
 my $dbh = $index->get_dbh();
@@ -431,17 +449,79 @@ return  map { $_->[0] } @{$sth->fetchall_arrayref()};
 
 
 sub sql_insert_into_sort {
-  my ( $index, $doc, $sort_table_name ) = @_;
-  $index->get_dbh()->do ( "INSERT INTO $sort_table_name ( _comma_flag, doc_id ) VALUES ( 0, '${ \( $doc->doc_id() ) }' )" );
+  my ( $index, $qdoc_id, $sort_table_name ) = @_;
+  $index->get_dbh()->do ( "INSERT INTO $sort_table_name ( _comma_flag, doc_id ) VALUES ( 0, $qdoc_id )" );
 }
 
 # returns the number of rows deleted
 sub sql_delete_from_sort {
-my ( $index, $doc, $sort_table_name ) = @_;
-return $index->get_dbh()->do (
-"DELETE FROM $sort_table_name WHERE doc_id = '${ \( $doc->doc_id() ) }'" );
+  my ( $index, $qdoc_id, $sort_table_name ) = @_;
+  my $dbh = $index->get_dbh();
+  $dbh->do ( "DELETE FROM $sort_table_name WHERE doc_id=$qdoc_id" );
 }
 
+
+sub sql_create_bcollection_table {
+  my ( $index, $collection_name ) = @_;
+  # dbg 'creating bcol', $collection_name;
+  return $index->sql_create_a_table
+    ( table_type    => XML::Comma::Indexing::Index->BCOLLECTION_TABLE_TYPE(),
+      table_def_sub => 'sql_bcollection_table_definition',
+      collection    => $collection_name );
+}
+
+sub sql_bcollection_table_definition {
+  return
+"CREATE TABLE $_[1] (
+  _comma_flag  TINYINT,
+  doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) },
+  value  VARCHAR(255),
+  INDEX(value),
+  UNIQUE INDEX(doc_id,value) )";
+}
+
+sub sql_drop_bcollection_table {
+  my ( $index, $collection_name ) = @_;
+  my $dbh = $index->get_dbh();
+  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE collection=${ \( $dbh->quote($collection_name) ) } AND doctype=${ \( $dbh->quote($index->doctype()) )}" );
+  $sth->execute();
+  while ( my $row = $sth->fetchrow_arrayref() ) {
+    my $table_name = $row->[0];
+    $dbh->do ( "DROP TABLE $table_name" );
+    $dbh->do ( "DELETE FROM index_tables WHERE table_name=${ \( $dbh->quote($table_name) ) }" );
+  }
+}
+
+# name is optional -- if not given, returns all bcollection table names
+sub sql_get_bcollection_table {
+  my ( $index, $name ) = @_;
+  my $dbh = $index->get_dbh();
+
+  my $sth = $dbh->prepare (
+"SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype()) ) } AND index_name=${ \( $dbh->quote($index->element('name')->get()) ) } AND table_type=${ \( $index->BCOLLECTION_TABLE_TYPE() ) } " .
+  ($name ? ('AND collection='.$dbh->quote($name)) : '') );
+
+  $sth->execute();
+  my $result = $sth->fetchall_arrayref();
+  if ( wantarray ) {
+    return map { $_->[0] } @{$result};
+  } else {
+    return $result->[0]->[0] || '';
+  }
+}
+
+sub sql_insert_into_bcollection {
+  my ( $index, $table_name, $qdoc_id, $col_str ) = @_;
+  my $dbh = $index->get_dbh();
+  my $qvalue = $dbh->quote ( $col_str );
+  $dbh->do ( "INSERT INTO $table_name ( _comma_flag, doc_id, value ) VALUES ( 0, $qdoc_id, $qvalue )" );
+}
+
+sub sql_delete_from_bcollection {
+  my ( $index, $qdoc_id, $table_name ) = @_;
+  my $dbh = $index->get_dbh();
+  $dbh->do ( "DELETE FROM $table_name WHERE doc_id=$qdoc_id" );
+}
 
 sub sql_create_textsearch_tables {
   my ( $index, $textsearch ) = @_;
@@ -723,16 +803,18 @@ sub sql_set_all_table_comma_flags_politely {
 my ( $index, $flag_value ) = @_;
 my $dbh = $index->get_dbh();
 my $index_name = $dbh->quote( $index->element('name')->get() );
+my $doctype = $dbh->quote ( $index->doctype() );
 $dbh->do (
-"UPDATE index_tables SET _comma_flag=$flag_value WHERE index_name=$index_name AND _comma_flag=0" );
+"UPDATE index_tables SET _comma_flag=$flag_value WHERE index_name=$index_name AND doctype=$doctype AND _comma_flag=0" );
 }
 
 sub sql_get_all_tables_with_comma_flags_set {
 my ( $index, $ignore_flag ) = @_;
 my $dbh = $index->get_dbh();
 my $index_name = $dbh->quote( $index->element('name')->get() );
+my $doctype = $dbh->quote ( $index->doctype() );
 my $sth = $dbh->prepare (
-"SELECT table_name FROM index_tables WHERE index_name=$index_name AND ((_comma_flag != 0) AND (_comma_flag != $ignore_flag))" );
+"SELECT table_name FROM index_tables WHERE index_name=$index_name AND doctype=$doctype AND ((_comma_flag != 0) AND (_comma_flag != $ignore_flag))" );
 $sth->execute();
 return  map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
@@ -741,8 +823,9 @@ sub sql_unset_all_table_comma_flags {
 my ( $index ) = @_;
 my $dbh = $index->get_dbh();
 my $index_name = $dbh->quote( $index->element('name')->get() );
+my $doctype = $dbh->quote ( $index->doctype() );
 $dbh->do (
-"UPDATE index_tables SET _comma_flag=0 WHERE index_name=$index_name" );
+"UPDATE index_tables SET _comma_flag=0 WHERE index_name=$index_name AND doctype=$doctype" );
 }
 
 sub sql_unset_table_comma_flag {
@@ -765,18 +848,17 @@ sub sql_clean_find_orphans {
   return "SELECT $table_name.doc_id from $table_name LEFT JOIN $data_table_name ON $table_name.doc_id = $data_table_name.doc_id WHERE $data_table_name.doc_id is NULL";
 }
 
-sub sql_set_comma_flags_for_clean {
-  my ( $index, $table_name, $sort_name, $sort_string, $order_by,
-       $size_limit, $erase_where_clause, $flag_value ) = @_;
+sub sql_set_comma_flags_for_clean_first_pass {
+  my ( $index, $table_name, $erase_where_clause, $flag_value ) = @_;
 
   my $dbh = $index->get_dbh();
-
-  ## first we want to deal with orphan rows in the sort tables. these
-  ## can be created in small numbers by the normal fact of entries
-  ## being cleaned from the data table before they are removed from
-  ## the sort tables. orphans can be created in large numbers by an
-  ## aborted rebuild() or other large operation.
   my $data_table_name = $index->data_table_name();
+
+  ## orphan rows in the sort tables. these can be created in small
+  ## numbers by the normal fact of entries being cleaned from the data
+  ## table before they are removed from the sort tables. orphans can
+  ## be created in large numbers by an aborted rebuild() or other
+  ## large operation.
   if ( $table_name ne $data_table_name ) {
     my $sth = $dbh->prepare
       ( $index->sql_clean_find_orphans ($table_name,
@@ -790,27 +872,32 @@ sub sql_set_comma_flags_for_clean {
     }
   }
 
-  my $sort_spec = '';
-  if ( $sort_name && $sort_string ) {
-    $sort_spec = "$sort_name:$sort_string";
-  }
-
-  # first set the clean flag for an erase_where_clause, if there is one
+  ## rows matching the erase_where_clause
   if ( $erase_where_clause ) {
     $dbh->do
  ("UPDATE $table_name SET _comma_flag=$flag_value WHERE $erase_where_clause");
   }
+}
+
+sub sql_set_comma_flags_for_clean_second_pass {
+  my ( $index, $table_name, $order_by, $sort_name, $sort_string,
+       $size_limit, $flag_value ) = @_;
+
+  my $dbh = $index->get_dbh();
+  my $sort_spec = '';
+  if ( $sort_name && $sort_string ) {
+    $sort_spec =
+      $dbh->quote ( $index->make_sort_spec($sort_name,$sort_string) );
+  }
 
   # now set the flag for everything after the first size_limit entries
-  if ( $size_limit ) {
-    my $i = $index->iterator ( order_by => $order_by,
-                               sort_spec => $sort_spec );
-    $i->iterator_refresh ( 0xffffff, $size_limit ); # blech, hack
-    while ( $i->iterator_next() ) {
-      my $id = $i->doc_id();
-      $dbh->do
-        ("UPDATE $table_name SET _comma_flag=$flag_value WHERE doc_id='$id'");
-    }
+  my $i = $index->iterator ( order_by => $order_by,
+                             sort_spec => $sort_spec );
+  $i->iterator_refresh ( 0xffffff, $size_limit ); # blech, hack
+  while ( $i->iterator_next() ) {
+    my $id = $i->doc_id();
+    $dbh->do
+      ("UPDATE $table_name SET _comma_flag=$flag_value WHERE doc_id='$id'");
   }
 }
 
@@ -842,9 +929,22 @@ return $result ? $result->[0]->[0] : '';
 #
 sub sql_select_from_data {
   my ( $self, $order_by_expressions, $from_tables, $where_clause,
-       $sort_spec, $order_by, $limit_number, $limit_offset, $collection_spec,
+       $distinct, $order_by, $limit_number, $limit_offset,
+       $columns_list,
+       $collection_spec,
        $textsearch_spec,
-       $do_count_only, $aggregate_function ) = @_;
+       $do_count_only,
+       $aggregate_function ) = @_;
+
+  my $data_table_name = $self->data_table_name();
+  my $dbh = $self->get_dbh();
+
+  my $distinct_string;
+  if ( $distinct ) {
+    $distinct_string = 'DISTINCT ';
+  } else {
+    $distinct_string = '';
+  }
 
   # the core part of the statement
   my $select;
@@ -853,13 +953,14 @@ sub sql_select_from_data {
   } else {
     if ( $do_count_only ) {
       $select = 
-        "SELECT COUNT(${ \( $self->data_table_name() ) }.doc_id)";
+        'SELECT ' . $distinct_string . 'COUNT(*)';
     } else {
-      $select = join
+      $select = "SELECT $distinct_string";
+      $select .= join
         ( ',',
-          "SELECT " . $self->data_table_name() . '.doc_id',
-          $self->columns(),
-          "${ \( $self->data_table_name() ) }.record_last_modified" );
+          "$data_table_name.doc_id",
+          (map { "$data_table_name.$_ " } @$columns_list),
+          "$data_table_name.record_last_modified" );
     }
   }
 
@@ -884,10 +985,12 @@ sub sql_select_from_data {
 
   # where clause
   my $where = ' WHERE 1=1';
-  $where .= " AND ($sort_spec)"        if  $sort_spec;
   $where .= " AND ($where_clause)"     if  $where_clause;
-  $where .= " AND ($collection_spec)"  if  $collection_spec;
+  $where .= " AND $collection_spec"  if  $collection_spec;
   $where .= " AND ($textsearch_spec)"  if  $textsearch_spec;
+
+  # group by clause
+  my $group_by = '';
 
   # order by clause
   my $order = '';
@@ -905,11 +1008,12 @@ sub sql_select_from_data {
     return $select . $from . $where;
   } elsif ( $do_count_only ) {
     # count_only ignores limit stuff
-    return $select. $from . $where;
+    return $select . $from . $where . $group_by;
   } else {
     # my ( $package, $filename, $line ) = caller(2);
     #print $select.$extra_order_by.$from.$where.$order.$limit . "\n";
-    return $select . $extra_order_by . $from . $where . $order . $limit;
+    return $select . $extra_order_by . $from . $where .
+      $group_by. $order . $limit;
   }
 }
 #

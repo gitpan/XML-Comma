@@ -139,7 +139,8 @@ possible. which brings us to an additional responsibility that the
 _dir modules have here -- to check and handle the "overflow" case as
 indicated by the $struct->{overflow} flag. if this location is able to
 create additional capacity in response to an overflow down the chain,
-it should do so. if not, it should return undef.
+it should do so. if not, it should return undef (or die??? FIX this
+note).
 
 location_from_id ( $self, $store, $id, $location )
  handles a part of the id->location transformation. should consume the

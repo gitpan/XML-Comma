@@ -45,6 +45,17 @@ process. These frameworks include structuring and validation;
 long-term storage; programmatic manipulation; and indexing for fast
 sorting, categorization and retrieval. </p>
 
+<p> This document, the XML::Comma User's Guide, is available in both
+HTML and PDF form. The PDF is generated from the HTML by
+<a href="http://www.easysw.com/htmldoc/software.php">HTMLDOC</a>.
+
+<ul>
+  <li> HTML:  <a href="http://xml-comma.org/guide-filter.html">http://xml-comma.org/guide-filter.html</a> </li>
+  <li> PDF:  <a href="http://xml-comma.org/guide.pdf">http://xml-comma.org/guide.pdf</a> </li>
+</ul>
+
+</p>
+
 <h1>Installation</h1>
 
 <h2>Dependencies</h2>
@@ -81,7 +92,7 @@ Comma documents will be found. This can actually be overridden in each
 store definition, but you will usually rely on this to be the base
 directory for document storage. The permissions on this directory must
 be set so that each user of the system has the read or write access
-that they will need to retreive or store documents. </li>
+that they will need to retrieve or store documents. </li>
 
 <li> <b>tmp_directory</b> -- This directory is available to the Comma
 system, and to any Comma code, for temporary storage. Most folks use
@@ -1210,7 +1221,7 @@ simultaneously attempt to modify a file. </p>
 
 <p> The <b>retrieve()</b> method automatically acquires a <b>lock</b>
 on the requested Doc. As long as this lock is held, the Doc cannot be
-retreived again. The <b>store()</b> method automatically unlocks the
+retrieved again. The <b>store()</b> method automatically unlocks the
 stored Doc. </p>
 
 <p> Because of the automatic locking, <b>retrieve()</b> is a
@@ -1490,7 +1501,7 @@ of an element that isn't specified in a document's Def generates an
 error. This section describes Comma's mechanisms for "validating" the
 structure of documents and the content of elements. </p>
 
-<h2>Document Structure: Required Elements and validate_structure()</h2>
+<h2>Document Structure: Required Elements and validate()</h2>
 
 <p> Section Three introduced the <b>plural</b> tag. This tag
 determines which elements may exist multiple times in the given
@@ -1529,9 +1540,9 @@ validity constraint: </p>
 <p> To be "valid," a <code>User</code> Doc must now have content in
 its <i>username</i>, <i>email</i> and <i>full_name</i> elements. A
 document that is not valid cannot be stored -- the storage routines
-all call the method <b>validate_structure()</b>, which throws an error
+all call the method <b>validate()</b>, which throws an error
 if all required elements are not present. The
-<b>validate_structure()</b> method can also be called directly. It
+<b>validate()</b> method can also be called directly. It
 takes no arguments and returns the emtpy string; it's only function is
 to throw an error if the Doc doesn't pass all validity tests. Here are
 two simple code snippets, for more information see the section on
@@ -1540,7 +1551,7 @@ errors and error handling:</p>
 <pre>
 # check whether a Doc passes validity tests
 eval {
-  $doc->validate_structure();
+  $doc->validate();
 }; if ( $@ ) {
   print "doc didn't validate: $@\n";
 }
@@ -1558,12 +1569,12 @@ eval {
 
 <p> Our example use of <b>required</b> is not very complicated. As
 with all things to do with nested elements, <b>required</b> and
-<b>validate_structure</b> are just as applicable deep inside a nested
+<b>validate()</b> are just as applicable deep inside a nested
 structure as at the very top level. Any nested element can specify a
 <b>required</b> list, and can be checked with a call to
-<b>validate_structure()</b>. More interestingly, calls to
-<b>validate_structure()</b> automatically check the validity of all
-nested elements underneath the caller, so a Doc-level validity check
+<b>validate()</b>. More interestingly, calls to
+<b>validate()</b> automatically check the validity of all
+elements underneath the caller, so a Doc-level validity check
 walks the entire document tree. This is convenient and it makes good
 theoretical sense: no element can be valid that itself contains
 invalid parts.</p>
@@ -1612,11 +1623,11 @@ may have. Here is our <code>User</code> Def with macros added to its
 &lt;/DocumentDefinition&gt;
 </pre>
 
-<p> We can use the <b>validate_structure()</b> method to check whether
+<p> We can use the <b>validate_content()</b> method to check whether
 a string can be accepted as an element's content. The method takes a
 single argument -- the prospective content -- and throws an error if
 the content fails to pass the validity checks. It is not usually
-necessary to call <b>validate_structure()</b> directly, because
+necessary to call <b>validate_content()</b> directly, because
 <b>set()</b> calls the method at the very beginning of its operation,
 before doing anything else. Here is a typical bit of error-checked
 <b>set()</b> code: </p>
@@ -1631,6 +1642,14 @@ eval {
   handle_content_error ( $@ );
 }
 </pre>
+
+<p> The <b>validate()</b> method is also defined for non-nested
+elements. It is possible to use the unsafe <b>append()</b> method to
+construct invalid element content (and also possible to read invalid
+Docs out of storage). The <b>validate()</b> method checks an element's
+existing content for validity. Just as with nested elements, this
+method is called by all of the storage methods, so that an invalid
+document will not be written out to permanent storage. </p>
 
 <p> As with storage location specifiers, the <b>macro</b> tag should
 contain a name followed by an optional argument list (with a colon in
@@ -1757,7 +1776,7 @@ States. Here, then, is a definition for the
 <pre>
 &lt;element&gt;
   &lt;name&gt;delicate_sensibilities&lt;/name&gt;
-  &lt;validation_hook&gt;
+  &lt;validate_hook&gt;
   &lt;![CDATA[
     use Lingua::FCC_Check;
     sub {
@@ -1765,7 +1784,7 @@ States. Here, then, is a definition for the
         Lingua::FCC_Check::check ( $_[1] );
     }
   ]]&gt;
-  &lt;/validation_hook&gt;
+  &lt;/validate_hook&gt;
 &lt;/element&gt;
 </pre>
 
@@ -1779,7 +1798,7 @@ and nested elements and should take the form of anonymous
 subroutines. In the case of a nested element, the hook expects the
 element itself to be the sole argument. In the case of a non-nested
 element, the hook expects to be passed the element and a string
-containing the content to be checked. The <b>validate_structure()</b>
+containing the content to be checked. The <b>validate()</b>
 method calls any hooks that have been defined for an element; as does
 <b>validate_content()</b>. More hooks (called as part of storage,
 indexing, etc.) will be introduced as we go along, and documentation
@@ -1826,7 +1845,7 @@ $self-&gt;add_hook ( 'validate_hook',
 <p> The first line is just a comment that helps us remember what this
 code snippet does, if we run across it in an unexpected place. The
 <code>use</code> statement and the subroutine definition are familiar
-from the validation_hook version of this code. The only new thing here
+from the validation hook version of this code. The only new thing here
 is the <b>add_hook()</b> method. The syntax is a little hard to see,
 but <b>add_hook()</b> is quite simple: it expects a hook name as its
 first argument, and a subroutine reference or string (which will be
@@ -2174,7 +2193,8 @@ my $i = $index->iterator ( where_clause => 'email LIKE "%.edu"',
                            order_by => 'DESC LENGTH(email), username' );
 </pre>
 
-<h2>Plural Sorts</h2>
+
+<h2>Plural Items in Indexes</h2>
 
 <p> The <b>field</b> elements of an index hold values derived from a
 Doc's elements and methods. As we've seen, fields can be used to
@@ -2186,13 +2206,14 @@ for singular elements, but are not at all suited to dealing with
 plural elements. A field that corresponds to a plural element will
 always contain only the value of the first of those elements. </p>
 
-<p> Another type of index element, the <b>sort</b>, is designed to
-accomodate plural values, and to allow the kinds of "sorting"
+<p> Another type of index element, the <b>collection</b>, is designed
+to accomodate plural values, and to allow the kinds of "sorting"
 operations that are common to many kinds of documents. Unlike a field,
-a sort cannot be used in a where clause; sorts are a special-purpose
-tool. Let's add a sort to our <code>User</code> index that will allow
-us to select all of our records that include an address with a given
-zip-code -- any address this time, not just the first one. </p>
+a collection cannot be used in a where clause; collections are a
+special-purpose tool. Let's add a collection to our <code>User</code>
+index that will allow us to select all of our records that include an
+address with a given zip-code -- any address this time, not just the
+first one. </p>
 
 <pre>
 &lt;!-- a method to return the zip codes of each address, as an array --&gt;
@@ -2209,116 +2230,88 @@ zip-code -- any address this time, not just the first one. </p>
   &lt;/code&gt;
 &lt;/method&gt;
 
-&lt;!-- the expanded index definition, now including the zips sort
+&lt;!-- the expanded index definition, now including the zips info
 &lt;index&gt;
 &lt;name&gt;main&lt;/name&gt;
 &lt;field&gt;&lt;name&gt;email&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;username&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;first_zip&lt;/name&gt;&lt;/field&gt;
-&lt;sort&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/sort&gt;
+&lt;collection&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/collection&gt
 &lt;/index&gt;
 </pre>
 
-<p> We tied the zips sort to a method, but we could just as easily
-have tied it to a plural, non-nested element. The sort isn't
-particular, it just wants to be handed an array when the index is
-updated. </p>
+<p> We tied the zips collection to a method, but we could just as
+easily have tied it to a plural, non-nested element. The collection
+isn't particular, it just wants to be handed an array when the index
+is updated. </p>
 
 <p> To select all of the users with an address in a given zip code, we
-request an iterator qualified by a <b>sort_spec</b>. A
-<b>sort_spec</b> is a string of the form <b>&lt;sort
-name&gt;:&lt;value&gt;</b>. The <b>sort_spec</b> argument can be
-combined with the <b>where_clause</b> and <b>order_by</b> specifiers
-that we've already seen: </p>
+request an iterator qualified by a <b>collection_spec</b>. A
+<b>collection_spec</b> is a string of the form
+<b>&lt;collection_name&gt;:&lt;value&gt;</b>. The
+<b>collection_spec</b> argument can be combined with the
+<b>where_clause</b> and <b>order_by</b> specifiers that we've already
+seen: </p>
 
 <pre>
 # select all the users with an address in the 20003 zip code -- in any order
-my $i = $index-&gt;iterator ( sort_spec =&gt; 'zips:20003' );
+my $i = $index-&gt;iterator ( collection_spec =&gt; 'zips:20003' );
 
 # select the users as above, and order them alphabetically by username
-my $i = $index-&gt;iterator ( sort_spec =&gt; 'zips:20003',
+my $i = $index-&gt;iterator ( collection_spec =&gt; 'zips:20003',
                            order_by =&gt; 'username' );
 
 # select all of the users with an address in 20003 who also have a .edu
 #   email address, and order them alphabetically by username
-my $i = $index-&gt;iterator ( sort_spec =&gt; 'zips:20003',
+my $i = $index-&gt;iterator ( collection_spec =&gt; 'zips:20003',
                            where_clause =&gt; 'email LIKE "%.edu"',
                            order_by =&gt; 'username' );
 </pre>
 
-<p> It's worth noting again that a sort is a special-purpose tool,
-useful only for "sorting" documents into "categories." The values of a
-sort define a categorization for -- a set of groupings of -- the Docs
-in an index. Because of this, a sort should only be defined for an
-element or method with a specific set of values. In fact, the ideal
-sort is an element that has its content restricted by an enum (or
-something equally limiting). It's not very useful to have an
-open-ended set of categories, and (perhaps just as important) the
-database that does the heavy-lifting for the index needs to dedicate a
-table for each sort/value pair. </p>
+<h2>Complex Collection Selectors</h2>
 
-<h2>More Plurality: Collection Fields</h2>
+<p> It is possible to specify complex collection_spec arguments, when
+creating an Iterator.
 
-<p> A third content-holder that can be defined for an index is a
-<b>collection</b>. Like a <b>sort</b>, a <b>collection</b> should be
-tied to an element or method that returns more than one value. But
-like a <b>field</b>, a <b>collection</b> can hold an arbritrary number
-of different values (the system doesn't use a separate table to keep
-track of each new value it encounters). </p>
+<ul><li> The "pairs" in a spec can be strung together with
+<code>AND</code> and <code>OR</code>. </li>
 
-<p> We can use a <b>collection</b> instead of a <b>sort</b> to narrow
-down our searches by zip code: </p>
+<li> AND'ed and OR'ed phrases can be parenthesized. </li>
 
-<pre>
-&lt;!-- the index definition, now using a collection instead of a sort --&gt;
-&lt;index&gt;
-&lt;name&gt;main&lt;/name&gt;
-&lt;field&gt;&lt;name&gt;email&lt;/name&gt;&lt;/field&gt;
-&lt;field&gt;&lt;name&gt;username&lt;/name&gt;&lt;/field&gt;
-&lt;field&gt;&lt;name&gt;first_zip&lt;/name&gt;&lt;/field&gt;
-&lt;collection&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/collection&gt;
-&lt;/index&gt;
-</pre>
+<li> Any pair can be prefixed with a <code>NOT</code> to ask for Docs
+that do not match the pair. </li>
 
-<p> With the index structured in this way, we build iterators using
-the <b>collection_spec</b> argument. The <b>collection_spec</b>
-argument looks a lot like the <b>sort_spec</b> arguments that we saw
-above. In the following example, we'll take advantage of the fact that
-a <b>collection</b>'s values -- like those of a <b>field</b> -- can be
-specified as string fragments, using SQL's wildcard <b>%</b>
-character. </p>
+<li> A pair that includes spaces in its value part can be specified by
+surrounding the pair with single quotes. </li>
+
+<li> A pair that includes single quotes in its value part can be
+specified by surrounding the pair with single quotes and escaping the
+internal single quotes with a single backslash. </li></ul>
+
+For example: </p>
 
 <pre>
-# select all of the users with an address in any 2000x zip code
+# select all of the users with an address in any 2000x OR 0213x zip code
 # who also have a .edu email address, and order them alphabetically by
 # username
-my $i = $index->iterator ( collection_spec => 'zips:2000%',
+my $i = $index->iterator ( collection_spec => 'zips:2000% AND zips:0213%',
                            where_clause => 'email LIKE "%.edu"',
                            order_by => 'username' );
-# and print out the actual zip code(s)
-while ( $i++ ) {
-  print "zips: " . join ( ',', $i->zips() ) . "\n";
-}
+
+# select users with an address NOT in the 20003 zip code.
+my $i = $index->iterator ( collection_spec => 'NOT zips:20003' );
+
+# a hypothetical collection pair with spaces and single quotes. We use
+two backslashes here because the double quotes that surround the whole
+string treat a single backslash as part of an escape character!
+my $i = $index->iterator ( collection_spec => "'test:it\\'s easy' OR
+                                               'test:it\\'s hard'" );
 </pre>
 
-<p> So when should you use a <b>collection</b> for keeping track of
-plural values and when should you use a <b>sort</b>? Well, a
-<b>sort</b> is much more efficient than a <b>collection</b>, if you
-have a finite number of possible values and are willing to dedicate
-some extra database resources to creating a separate table for each
-sort/value pair (each <b>sort_spec</b>) that the system processes. A
-<b>collection</b> allows you to side-step the limitations of a
-<b>sort</b> -- any number of different values can be accomodated, and
-wildcard searches are allowed -- at some cost to speed. </p>
+<p> It is fairly easy to create complex specs that slow down database
+queries quite a lot. In particular, OR'ing together selections on
+large collections is very slow. </p>
 
-<p> One other advantage of a <b>collection</b> is that you can get
-<b>collection</b> values in an <b>Iterator</b> context just like you
-can get <b>field</b> values (as the example above demonstrates). In
-contrast, <b>sort</b> values can only be used to restrict the records
-that an Iterator contains. An Iterator exposes methods named-alike
-with each defined <b>collection</b>. The method returns a list of the
-collection's values for the current record, as an array in a list
-context and as an array ref in scalar context. </p>
 
 <h2>Full Text Search</h2>
 
@@ -2390,23 +2383,23 @@ and must return the name of the package that should be used. Here is a
 typical example: </p>
 
 <pre>
-  <textsearch>
-    <name>paragraph</name>
-    <which_preprocessor>
-      <![CDATA[ 
+  &lt;textsearch&gt;
+    &lt;name&gt;paragraph&lt;/name&gt;
+    &lt;which_preprocessor&gt;
+      &lt;![CDATA[ 
         use XML::Comma::Pkg::Textsearch::Preprocessor_En;
         use XML::Comma::Pkg::Textsearch::Preprocessor_Sp;
         sub {
           my ( $doc, $index, $ts ) = @_;
-          if ( $doc->lang_code() eq 'sp' ) {
+          if ( $doc-&gt;lang_code() eq 'sp' ) {
             return 'XML::Comma::Pkg::Textsearch::Preprocessor_Sp';
           } else {
             return 'XML::Comma::Pkg::Textsearch::Preprocessor_En';
           }
         }
-      ]]>
-    </which_preprocessor>
-  </textsearch>
+      ]]&gt;
+    &lt;/which_preprocessor&gt;
+  &lt;/textsearch&gt;
 </pre>
 
 <p> The back end of the <b>textsearch</b> facility is currently
@@ -2467,7 +2460,7 @@ that are returned. Here are some examples: </p>
 
 ## simple refresh of a once-used iterator
 #
-my $i = $index->iterator ( sort_spec => 'zips:20003' );
+my $i = $index->iterator ( collection_spec => 'zips:20003' );
 while ( $i++ ) {
   # ... do some stuff
 }
@@ -2502,8 +2495,9 @@ while ( $i++ ) {
 <p> Generally, an index should be designed so that its fields hold the
 most commonly-used pieces of information in a Doc. Of course, any
 criterion that will be used to select from an index must be available
-as a field or sort. Additionally, any part of a Doc that is regularly
-used during an iteration should also be defined as a field. </p>
+as a field or collection. Additionally, any part of a Doc that is
+regularly used during an iteration should also be defined as a
+field. </p>
 
 <p> But sometimes you actually need to get the Doc itself from an
 iterator -- perhaps to do some complex read operation, or to check the
@@ -2596,6 +2590,7 @@ the use of <b>single_read()</b>: </p>
 &lt;/pre_store_hook&gt;
 </pre>
 
+
 <h2>Getting a Total Rather Than an Iterator: count()</h2>
 
 <p> One more index method exists that, like <b>single()</b>,
@@ -2608,6 +2603,26 @@ criteria. </p>
 # how many Users have a .edu email address?
 my $total = $index-&gt;count ( where_clause =&gt; 'email LIKE "%.edu"' );
 </pre>
+
+
+<h2>Using SQL Aggregates: aggregate ( function =&gt; ... )</h2>
+
+<p> It is possible to get information from an Index using the
+"aggregate" functions provided by SQL. What functions are available
+(and how they work) are highly database-dependent. But, in general, it
+is possible to ask a Comma Index to create an <b>aggregate()</b>
+object in much the same way as an <b>iterator()</b> is created. </p>
+
+<pre>
+# ask for the sum of all the 'mailings_sent' columns in a
+# hypothetical index
+my $sum = $index-&gt;aggregate ( function =&gt; "SUM(mailings_sent)" );
+
+# ask for the average age of all users in the 20003 zip code
+my $avg_age = $index-&gt;aggregate ( function =&gt; "AVG(age)",
+                                  collection_spec-&gt;'zips:20003' );
+</pre>
+
 
 <h2>Actions at Index Time: index_hook</h2>
 
@@ -2629,7 +2644,7 @@ users from appearing in an index: </p>
 &lt;field&gt;&lt;name&gt;email&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;username&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;first_zip&lt;/name&gt;&lt;/field&gt;
-&lt;sort&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/sort&gt;
+&lt;collection&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/collection&gt;
 
 &lt;index_hook&gt;
   &lt;![CDATA[ sub {
@@ -2660,7 +2675,7 @@ hard-coded list: </p>
 &lt;field&gt;&lt;name&gt;email&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;username&lt;/name&gt;&lt;/field&gt;
 &lt;field&gt;&lt;name&gt;first_zip&lt;/name&gt;&lt;/field&gt;
-&lt;sort&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/sort&gt;
+&lt;collection&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/collection&gt;
 
 &lt;method&gt;
   &lt;name&gt;in_denied_list&lt;/name&gt;
@@ -2703,9 +2718,12 @@ are a few limitations that one should be aware of, and a few
 configuration directives that can make indexes more efficient and
 usable. </p>
 
+<h3>Configuring Fields</h3>
+
 <p> Each piece of information stored in a database must have a
 <i>type</i>. Every field in a Comma index defaults to the
-<b>VARCHAR(255)</b> type. It is necessary to specify a different type if a field needs to
+<b>VARCHAR(255)</b> type. It is necessary to specify a different type
+if a field needs to
 
 <ul>
 <li> accomodate values longer than 255 characters, or </li>
@@ -2733,7 +2751,7 @@ to type: </p>
   &lt;name&gt;first_zip&lt;/name&gt;
   &lt;sql_type&gt;CHAR(5)&lt;/sql_type&gt;
 &lt;/field&gt;
-&lt;sort&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/sort&gt;
+&lt;collection&gt;&lt;name&gt;zips&lt;/name&gt;&lt;/collection&gt;
 &lt;/index&gt;
 </pre>
 
@@ -2771,14 +2789,111 @@ adapters handle typing issues for the columns that are used internally
 as part of the abstraction layer, but when you start specifying SQL
 types for document ids and index fields, you're on your own. </p>
 
+<h3>Configuring Collections</h3>
+
+<p> Collection information can be stored in one of three ways: </p>
+
+<ul>
+<li>in a <b>stringified</b> form in the main Index table (the default)</li>
+<li>in a <b>binary table</b> containing a list of doc_id/value pairs</li>
+<li>in <b>many tables</b>, each containing a list of doc_ids </li>
+</ul>
+
+<p> Each of these has advantages and disadvantages. </p>
+
+<p> The <b>stringified</b> type is the simplest. No extra database
+tables are created, and the values of the collection are available
+directly from the Iterator. Partial matches (using the SQL wildcard
+character <b>%</b>) that are anchored at either the front or back of a
+string are allowed. </p>
+
+<p> The <b>binary table</b> type requires one additional table to be
+maintained in the database. This type of collection has the potential
+to provide the best mixture of flexibility and speed, although the
+current implementation is less advanced than it should be. A number of
+optimizations that would improve the speed of this type of storage are
+yet to be performed, and the MySQL database doesn't support some types
+of queries that would be particularly useful in this regard. Partial
+matches are allowed, but NOT pairs are not. And any given
+binary-table-typed collection may be used only once
+collection_spec. </p>
+
+<p> The <b>many tables</b> type requires a table to maintained in the
+database for each unique value that occurs in the
+collection. Collections of this type are usually tied to elements that
+are defined by an <b>enum</b> (or are similarly restricted in their
+allowed values). </p>
+
+<p> This type is not very flexible, but can provide the quickest
+select times for many applications. Because <b>many tables</b> data is
+spread across several database tables, it is often possible for the
+system to take shortcuts that are not possible for <b>stringified</b>
+or <b>binary table</b> collection. And each of the tables in a
+collection of this type can be <b>clean()</b>ed separately (see below
+for an explanation of <code>&lt;clean&gt;</code> clauses), further
+reducing the amount of data that must be sifted through to create each
+Iterator. Partial matches are not allowed for many-tables-typed
+collections, but NOT pairs are. </p>
+
+<p> Here are three collections that will hold the same data but store
+that data differently behind the scenes (with &lt;clean&gt; behavior
+specified for the <b>many tables</b> version, for good measure: </p>
+
+<pre>
+    &lt;collection&gt;
+      &lt;name&gt;zips_str&lt;/name&gt;
+      &lt;code&gt;&lt;![CDATA[ sub { $_[0]-&gt;zips() } ]]&gt;&lt;/code&gt;      
+    &lt;/collection&gt;
+
+    &lt;collection&gt;
+      &lt;name&gt;zips_bt&lt;/name&gt;
+      &lt;type&gt;binary table&lt;/type&gt;      
+      &lt;code&gt;&lt;![CDATA[ sub { $_[0]-&gt;zips() } ]]&gt;&lt;/code&gt;
+    &lt;/collection&gt;
+
+
+    &lt;collection&gt;
+      &lt;name&gt;zips_mt&lt;/name&gt;
+      &lt;type&gt;many tables&lt;/type&gt;
+      &lt;code&gt;&lt;![CDATA[ sub { $_[0]-&gt;zips() } ]]&gt;&lt;/code&gt; 
+      &lt;clean&gt;
+        &lt;to_size&gt;10_000&lt;/to_size&gt;
+        &lt;size_trigger&gt;10_500&lt;/size_trigger&gt;
+        &lt;order_by&gt;doc_id DESC&lt;/order_by&gt;
+      &lt;/clean&gt;
+    &lt;/collection&gt;
+</pre>
+
+<h3>The fields=&gt; Argument</h3>
+
+<p> One more way to increase the speed of Iterator creation is to ask for only a subset of the fields defined in the Index: </p>
+
+<pre>
+# we only need email addresses
+my $iterator = $index-&gt;iterator ( fields =&gt; [ 'email' ] );
+</pre>
+
+<p> This reduces the amount of data that the database must shuffle
+around when joining tables together. It generally only helps when used
+in conjunction with many-tables- and binary-table-type collections,
+and on Indexes that define many fields. But in some cases the speed
+increases can be dramatic: 20% or more. </p>
+
+<p> The <code>fields=&gt;</code> argument should take the form of a
+reference to an array of field names. The resulting Iterator will only
+have data for the <code>doc_id</code> and
+<code>record_last_modified</code> pseudo-fields, and for the fields
+named in the argument array ref. </p>
+
+
 <h2>Changes: Automatic Updating of Database Structure</h2>
 
 <p> Comma does its best to adjust the table structures of the database
 to match any changes that are made to an index definition. Mostly,
-this is possible. You can always add or remove a sort or field. You
-can usually change the SQL type of a field -- only the willingness of
-the database to convert already-stored information from the old type
-to the new limits this. </p>
+this is possible. You can always add or remove a collection or
+field. You can usually change the SQL type of a field -- only the
+willingness of the database to convert already-stored information from
+the old type to the new limits this. </p>
 
 <p> You <b>can not</b> change the <b>doc_id_sql_type</b> without
 dropping and rebuilding the database. </p>
@@ -2862,11 +2977,11 @@ the <b>size_trigger</b> specifier then a clean will be triggered. </p>
 &lt;/clean&gt;
 </pre>
 
-<p> A <b>clean</b> section can also apply to an individual sort,
+<p> A <b>clean</b> section can also apply to an individual collection,
 rather than to the entire index. In this case, the clean effects only
-a table of pointers holding sort information, not the main records
-themselves. Configuring an index so that its sort tables stay
-reasonably small can dramatically improve performance. </p>
+a table of pointers holding collection information, not the main
+records themselves. Configuring an index so that its collection tables
+stay reasonably small can dramatically improve performance. </p>
 
 <p> Sometimes, even a clean isn't clean enough. If several fields
 are added to an existing index, or the criteria for indexing changes
@@ -3751,9 +3866,10 @@ doc that -- if the process continues -- will next be added to the
 index and the index object itself as its two arguments. </p>
 
 <p> <b>validate_hook ( $element, [ $content ] )</b> -- any nested element,
-non-nested element, or doc. The element <b>validate_content()</b>,
+non-nested element, or doc. The element <b>validate()</b>,
+<b>validate_content()</b>,
 <b>set()</b>, and <b>append()</b> methods trigger the execution of
-these hooks, as does the nested element <b>validate_structure()</b>
+these hooks, as does the nested element <b>validate()</b>
 method. If any <b>validate_hook()</b> throws an error, the validate
 operation is halted and a <code>BAD_CONTENT</code> or
 <code>VALIDATE_ERROR</code> is propogated. The hook is passed one or
@@ -3848,6 +3964,7 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$string = $el-&gt;set( $string )</li>
     <li>$string = $el-&gt;get()</li>
     <li>'' = $el-&gt;set_from_file ( $filename )</li>
+    <li>'' = $el-&gt;validate()</li>
     <li>$string = $el-&gt;get_location()</li>
     </ul></li>
 
@@ -3857,6 +3974,7 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$string = $el-&gt;get_without_default()</li>
     <li>$string = $el-&gt;set ( $string, [escape=&gt;], [%args] )</li>
     <li>$string = $el-&gt;append ( $more_string )</li>
+    <li>$string = $el-&gt;validate()</li>
     <li>$string = $el-&gt;validate_content ( $string )</li>
     <li>1 = $el-&gt;cdata_wrap();</li>
     </ul></li>
@@ -3876,7 +3994,8 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$bool = $el-&gt;element_is_nested ( $tag )</li>
     <li>$bool = $el-&gt;element_is_blob ( $tag )</li>
     <li>$bool = $el-&gt;element_is_required ( $tag )</li>
-    <li>'' = $el-&gt;validate_structure()</li>
+    <li>'' = $el-&gt;validate()</li>
+    <li>[DEPRECATED] '' = $el-&gt;validate_structure()</li>
     <li>@els = $el-&gt;get_all_blobs()</li>
     <li>$el = $el-&gt;group_elements();</li>
     <li>@els/[] = $el-&gt;sort_elements ( [@tags] )</li>
@@ -3885,21 +4004,26 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
   <li>XML::Comma::Def
     <ul>
     <li>$def = XML::Comma::Def-&gt;read ( name =&gt; )</li>
+    <li>@names = $def-&gt;store_names();</li>
     <li>$store = $def-&gt;get_store ( $name );</li>
+    <li>@names = $def-&gt;index_names();</li>
+    <li>@names = $def-&gt;method_names();</li>
     <li>$store = $def-&gt;get_index ( $name );</li>
     <li>$hash_ref = $def-&gt;def_pnotes();</li>
     <li>$code_ref = $def-&gt;add_hook ( $hook_type, $string || $code_ref );</li>
     <li>$code_ref = $def-&gt;add_method ( $name, $string || $code_ref );</li>
     <li>$code_ref || undef = $def-&gt;get_method ( $name );</li>
+    <li>@els/[] = $def-&gt;def_sub_elements();</li>
     </ul></li>
 
   <li>XML::Comma::Indexing::Index
     <ul>
     <li>@names = $index-&gt;field_names();</li>
-    <li>@names = $index-&gt;sort_names();</li>
+    <li>@names = $index-&gt;sort_names(); [ DEPRECATED ]</li>
     <li>@names = $index-&gt;collection_names();</li>
     <li>@names = $index-&gt;textsearch_names();</li>
-    <li>@name = $index-&gt;column_type();</li>
+    <li>@names = $index-&gt;method_names();</li>
+    <li>$type_name = $index-&gt;collection_type ( $collection_name );</li>
     <li>$iterator = $index-&gt;iterator ( [%args] );</li>
     <li>$iterator/undef = $index-&gt;single ( [%args] );</li>
     <li>$doc/undef = $index-&gt;single_read ( [%args] );</li>
@@ -3907,8 +4031,10 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$int = $index-&gt;count ( [%args] );</li>
     <li>$int = $index-&gt;last_modified_time ( [$sort_name, $sort_string] );</li>
     <li>$val = $index-&gt;aggregate ( function=&gt; [%args] );</li>
-    <li>'' = $index-&gt;rebuild ( [verbose=&gt;] );</li>
+    <li>'' = $index-&gt;rebuild ( [verbose=&gt;'1'|'0',workers=&gt;$processes_num,size=&gt;$size_num] );</li>
     <li>'' = $index-&gt;clean();</li>
+    <li>'' = $index-&gt;get_dbh();</li>
+     
     </ul></li>
 
   <li>XML::Comma::Indexing::Iterator
@@ -3916,6 +4042,7 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$iterator = $iterator_refresh() ( [$limit_number], [$limit_offset] );</li>
     <li>$iterator/false = $iterator-&gt;iterator_next();</li>
     <li>$bool = $iterator-&gt;iterator_has_stuff();</li>
+    <li>$string = $iterator-&gt;iterator_select_returnval();</li>
     <li>$doc = $iterator-&gt;retrieve_doc();</li>
     <li>$doc = $iterator-&gt;read_doc();</li>
     <li>$string = $iterator-&gt;doc_key();</li>
@@ -3937,6 +4064,21 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$id_string = $store-&gt;next_id ( $id_string );</li>
     <li>$id_string = $store-&gt;prev_id ( $id_string );</li>
     <li>$directory = $store-&gt;base_directory();</li>
+    </ul></li>
+
+  <li>XML::Comma::Storage::Iterator
+    <ul>
+    <li>$iterator = XML::Comma::Storage::Iterator-&gt;new ( store=&gt;$store, size=&gt;$num, pos=&gt;&lt;'+' | '-'&gt;;</li>
+    <li>$num = $iterator-&gt;length();</li>
+    <li>$num = $iterator-&gt;index();</li>
+    <li>$num = $iterator-&gt;set( $num );</li>
+    <li>$num = $iterator-&gt;next_id();</li>
+    <li>$num = $iterator-&gt;prev_id();</li>
+    <li>$num = $iterator-&gt;next_retrieve();</li>
+    <li>$num = $iterator-&gt;prev_retrieve();</li>
+    <li>$num = $iterator-&gt;next_read();</li>
+    <li>$num = $iterator-&gt;prev_read();</li>
+    <li>$num = $iterator-&gt;doc_id();</li>
     </ul></li>
 
   <li>XML::Comma::Util
@@ -4028,18 +4170,17 @@ call. Collection columns hold a string consisting of all of the values
 returned by the element or method call, each blocked between two
 'pipe' characters, concatenated all together. </p>
 
-<h2> Table Type 2: The Sort Table </h2>
+<h2> Table Type 2: The 'many tables' Table </h2>
 
-<p> An index may have as many sort tables as the database
-permits. Each sort table is created on demand when an update
-encounters a new sort_spec. (A sort_spec, you will recall, is a string
-of the form <code>&lt;sort_name&gt;:&lt;value&gt;</code>.) </p>
+<p> An index may have as many 'many tables' collection tables as the
+database permits. Each table is created on demand when an update
+encounters a new value in the collection. </p>
 
-<p> Each sort table contains only two columns, the familiar
+<p> Each table contains only two columns, the familiar
 <code>_comma_flag</code> field used for coordintation and locking by
 various pieces of the indexing code, and a <code>doc_id</code>
-column. The sort table simply keeps track of the documents that belong
-in that sort; logical joins are used to select subsets of records that
+column. The table simply keeps track of the documents that belong in
+that sort; logical joins are used to select subsets of records that
 match sort criteria. </p>
 
 <h2> Table Types 3 and 4: Textsearch Index and Defers Tables </h2>
@@ -4051,6 +4192,16 @@ packed array containing data table _sq keys. The second table -- the
 textsearch_defers table -- contains a list of actions that have been
 performed on the index since the last
 <b>sync_deferred_textsearches()</b> call. </p>
+
+<h2> Table Type 5: The 'binary table' Table </h2>
+
+<p> A 'binary table' collection table is created for each
+binary-table-typed collection in each Index. Each of these tables
+contains three columns, the familiarl <code>_comma_flag</code> field,
+a <code>doc_id</code> field and a <code>value</code> field. The table
+maps doc_id/value pairs together, so that a where'd selection can be
+followed by a logical join to determine subsets of records that match
+sort criteria. </p>
 
 </body>
 </html>

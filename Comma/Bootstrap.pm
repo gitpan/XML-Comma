@@ -27,7 +27,6 @@ use XML::Comma::Util qw( dbg trim );
 @ISA = ( 'XML::Comma::Def' );
 use vars '$AUTOLOAD';
 
-use Carp;
 use strict;
 
 ##
@@ -51,7 +50,7 @@ sub new {
       XML::Comma::parser()->new ( block => $arg{block},
                                   top_level_class => $class );
     }; if ( $@ ) {
-      confess "Error while defining bootstrap definition: $@";
+      die "Error while defining bootstrap definition: $@";
     }
     return $bootstrap;
   }
@@ -137,10 +136,6 @@ sub AUTOLOAD {
   die "Bootstrap should never autoload -- '$m'\n";
 }
 
-sub DESTROY {}
-
-
-
 sub bootstrap_block {
   return <<'END';
 <DocumentDefinition>
@@ -193,6 +188,7 @@ sub bootstrap_block {
     <element><name>name</name></element>
     <element><name>extension</name></element>
     <element><name>def_hook</name></element>
+    <element><name>validate_hook</name></element>
     <nested_element>
       <name>method</name>
       <defname>DocumentDefinition:method</defname>
@@ -203,6 +199,7 @@ sub bootstrap_block {
     <element><name>set_from_file_hook</name></element>
     <element><name>defname</name></element>
     <plural>'def_hook',
+            'validate_hook',
             'read_hook',
             'method',
             'macro',
@@ -308,21 +305,42 @@ sub bootstrap_block {
       </element>
       <required>'name'</required>
     </nested_element>
+
     <nested_element>
       <name>collection</name>
       <element><name>name</name></element>
       <element><name>code</name></element>
+      <element>
+        <name>type</name>
+        <default>stringified</default>
+      </element>
+      <nested_element>
+        <name>clean</name>
+        <element><name>to_size</name></element>
+        <element><name>order_by</name></element>
+        <element><name>size_trigger</name></element>
+      </nested_element>
+      <required>'name'</required>
     </nested_element>
+
+    <!-- for backwards compatibility, we'll define <sort> elements
+    that are just like <collection> elements except for their <type>
+    default -->
     <nested_element>
       <name>sort</name>
       <element><name>name</name></element>
       <element><name>code</name></element>
+      <element>
+        <name>type</name>
+        <default>many tables</default>
+      </element>
       <nested_element>
         <name>clean</name>
-        <defname>DocumentDefinition:index:clean</defname>
+        <defname>DocumentDefinition:index:collection:clean</defname>
       </nested_element>
       <required>'name'</required>
     </nested_element>
+
     <nested_element>
       <name>textsearch</name>
       <element><name>name</name></element>
@@ -367,6 +385,7 @@ sub bootstrap_block {
     </nested_element>
     <plural>qw( field
                 collection
+                bcollection
                 sort
                 textsearch
                 sql_index

@@ -54,5 +54,8 @@ sub get_method {
   return $self->{_Methodable_methods}->{$name};
 }
 
+sub method_names {
+  return keys %{$_[0]->{_Methodable_methods}};
+}
 
 1;

@@ -117,5 +117,15 @@ my $bootstrap_def = XML::Comma::Bootstrap->new
 ####
 #
 
+# be paranoid about global destruction: undef the references that
+# we're holding to all Defs and pnotes objects...
+END {
+#  print "DefManager undefing...\n";
+  map { undef $defs{$_} } keys %defs;
+  map { undef $defs{$_} } keys %pnotes;
+#  print "done with DM end\n";
+}
 
 1;
+
+

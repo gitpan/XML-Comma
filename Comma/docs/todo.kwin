@@ -1,3 +1,49 @@
+-- note that init-and-casted Clean clements retain a pointer back to
+   the index. this could be one of the circular reference that's
+   causing global destruction to stumbledy-fall. Also, since
+   everything seems to segfault at the beginning of any -d:DProf
+   invocation, now, should we look to the DBH code as a possible
+   culprit?
+
+-- document "distinct" iterator arg
+
+- add the "test existence of element without creating" construction to
+  the FAQ (same as the "how many instances" construction.
+
+- check for multiply same-named stores (and indexes) in Defs
+
+- read-only errors should give a tiny bit of context, so they're not
+  so hard to track down.
+
+- Index.pm line 286. A die'ing index hook indicates to the system that
+  a Doc should not be indexed at all. The entirely reasonable action
+  of index_remove()ing the Doc is therefore taken. But that breaks on
+  any read_only Doc (as with rebuild()). What to do?
+
+- an $index->pre_store_check_for_duplicates($doc) method. requires
+  parsing sql_type and sql_index methods for UNIQUEosity, and figuring
+  out how to check whether fields (or combinations thereof) are
+  already present in the database. this method should be automatically
+  called in the pre_store_hook for any index_on_store'ing store.
+
+- quote() method to expose $dbh->quote() to DBH_User children
+
+- replace references in the source to xymbollab.com/tools/comma with
+  xml-comma.org
+
+- document the "aggregate" stuff in Iterator/Index
+
+- framework to handle translation between two related (but differently
+  Def'ed) document collections
+
+- sherrard found a bug in rebuild such that flags are set for all
+  tables that hve a given index_name (not just for all tables of a
+  certain doctype with a given index_name. It looks like the following
+  three methods need to have more specific where clauses:
+    sql_set_all_table_comma_flags_politely
+    sql_get_all_tables_with_comma_flags_set
+    sql_unset_all_table_comma_flags
+
 - sherrard notes that we should be tricky enough to spool blobs
   somewhere for documents that haven't been stored yet, and then save
   the blobs on eventual store.
@@ -76,8 +122,6 @@ code in Def.pm
   table, etc.
 
 - clean up the errors thrown by iterators a little more
-
-- write tests for index->aggregate()
 
 - throw an error if you try to keep_open a new-then-store()ed Doc?
 

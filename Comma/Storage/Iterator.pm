@@ -65,12 +65,13 @@ sub new {
   if ( $pos eq '-' ) {
     map { push @{$self->{_Iterator_cached_list}},reverse @{$temp_by_dir->{$_}} }
       sort keys %{$temp_by_dir};
-    $#{$self->{_Iterator_cached_list}} = $size-1  if  $size < 0xffffffff;
+    $#{$self->{_Iterator_cached_list}} = $size-1  if
+      ($size-1) < $#{$self->{_Iterator_cached_list}};
     $self->{_Iterator_index} = -1;
   } else {
     map { push @{$self->{_Iterator_cached_list}}, @{$temp_by_dir->{$_}} }
       sort keys %{$temp_by_dir};
-    if ( $size < 0xffffffff ) {
+    if ( ($size-1) < $#{$self->{_Iterator_cached_list}} ) {
       @{$self->{_Iterator_cached_list}} =
         reverse @{$self->{_Iterator_cached_list}};
       $#{$self->{_Iterator_cached_list}} = $size-1;
@@ -148,6 +149,10 @@ sub prev_read {
       id => $id );
 }
 
+sub doc_id {
+  return $_[0]->{_Iterator_Store}->id_from_location
+    ( $_[0]->{_Iterator_cached_list}->[$_[0]->{_Iterator_index}] );
+}
 
 1;
 

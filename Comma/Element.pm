@@ -132,6 +132,13 @@ sub raw_append {
   $_[0]->{_content} .= $_[1];
 }
 
+# generic validate() self implementation
+#
+sub validate {
+  my $self = shift();
+  $self->validate_content ( $self->get() );
+}
+
 # all callees (validate_content_hooks) should die with a message
 # string if they encounter an error
 sub validate_content {
@@ -161,11 +168,14 @@ sub _get_hash_add {
 
 sub to_string {
   my $self = shift();
-  return ''  if  ! $self->get_without_default(); # don't output if empty
+  my $content = $self->get_without_default();
+  # don't output if empty
+  return ''  unless defined $content and
+                            $content ne '';
   my $str;
   $str = '<' . $self->tag() . $self->attr_string() . '>';
   $str .= '<![CDATA['  if  $self->{_cdata};
-  $str .= $self->get_without_default();
+  $str .= $content;
   $str .= ']]>'  if $self->{_cdata};
   $str .= '</'. $self->tag() . '>';
   $str .= "\n";

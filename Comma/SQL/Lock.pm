@@ -51,15 +51,25 @@ sub new {
   my $self = {};
   bless $self, $class;
   my $dbh = $self->get_dbh();
-  eval { sql_get_lock_record($dbh,'++') };
-  if ( $@ ) { sql_create_lock_table($dbh); }
+  # check for hold table -- setup if necessary
   eval { sql_get_hold($self, '_startup_test_hold_');
          sql_release_hold($self, '_startup_test_hold_'); };
   if ( $@ ) {
     # dbg 'hold error', $@;
     # release hold to "commit" the aborted transaction
+    sql_create_hold_table($dbh);
     sql_release_hold($self,'_startup_test_hold_');
-    sql_create_hold_table($dbh); 
+  }
+  # check for lock table -- setup if necessary
+  eval { sql_get_lock_record($dbh,'++') };
+  if ( $@ ) {
+    sql_get_hold($self, '_startup_create_lock_');
+    # check again
+    eval { sql_get_lock_record($dbh,'++') };
+    if ( $@ ) {
+      sql_create_lock_table($dbh);
+    }
+    sql_release_hold($self, '_startup_create_lock_');
   }
   return $self;
 }
@@ -102,6 +112,8 @@ sub maybe_unlock {
   $self->unlock ( $key );
 }
 
+# generic, string-based "hold". this can be used to implement a
+# temporary lock without using the special doc lock table.
 sub wait_for_hold {
   sql_get_hold ( $_[0], $_[1] );
 }
@@ -116,6 +128,7 @@ sub release_all_my_locks {
 
 # FIX: make destroy unlock all locks held by this pid?
 sub DESTROY {
+  # print 'D: ' . $_[0] . "\n";
   $_[0]->disconnect();
 }
 

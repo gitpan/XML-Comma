@@ -3,15 +3,21 @@
 
   <element><name>foo</name></element>
   <element><name>bar</name></element>
-  <element><name>id_as_number</name></element>
-  <element><name>many</name></element>
+  <element><name>many1</name></element>
+  <element><name>many2</name></element>
   <element><name>extra1</name></element>
   <element><name>extra2</name></element>
   <element><name>paragraph</name></element>
+
   <nested_element>
     <name>nel</name>
     <element><name>buried</name></element>
   </nested_element>    
+
+  <method>
+    <name>id_as_number</name>
+    <code><![CDATA[ sub { return ($_[0]->doc_id + 0); } ]]></code>
+  </method>
 
   <store>
     <name>main</name>
@@ -52,30 +58,53 @@
       <code><![CDATA[ sub { $_[0]->nel()->buried() } ]]></code>
     </field>
 
-    <sort>
-      <name>many</name>
+    <collection>
+      <name>many1_s</name>
+      <type>many tables</type>      
+      <code><![CDATA[ sub { $_[0]->many1() } ]]></code>
       <clean>
         <to_size>3</to_size>
         <size_trigger>5</size_trigger>
-        <order_by>id_as_number DESC, doc_id DESC</order_by>
+        <order_by>id_as_number DESC</order_by>
       </clean>
-    </sort>
-
-    <collection><name>many</name></collection>
+    </collection>
 
     <collection>
-      <name>another_many</name>
-      <code><![CDATA[ sub { $_[0]->many() } ]]></code>
+      <name>many1_c</name>
+      <code><![CDATA[ sub { $_[0]->many1() } ]]></code>      
+    </collection>
+
+    <collection>
+      <name>many1_b</name>
+      <type>binary table</type>      
+      <code><![CDATA[ sub { $_[0]->many1() } ]]></code>
+    </collection>
+
+
+    <collection>
+      <name>many2_s</name>
+      <type>many tables</type>
+      <code><![CDATA[ sub { $_[0]->many2() } ]]></code> 
+      <clean>
+        <to_size>3</to_size>
+        <size_trigger>5</size_trigger>
+        <order_by>id_as_number DESC</order_by>
+      </clean>
+    </collection>
+
+    <collection>
+      <name>many2_c</name>
+      <code><![CDATA[ sub { $_[0]->many2() } ]]></code>      
+    </collection>
+
+    <collection>
+      <name>many2_b</name>
+      <type>binary table</type>      
+      <code><![CDATA[ sub { $_[0]->many2() } ]]></code>
     </collection>
 
     <textsearch>
       <name>paragraph</name>
-      <which_preprocessor>
-        <![CDATA[ 
-          use XML::Comma::Pkg::Textsearch::Preprocessor_En;
-          sub { 'XML::Comma::Pkg::Textsearch::Preprocessor_En'; }
-        ]]>
-      </which_preprocessor>
     </textsearch>
 
     <sql_index>
@@ -100,9 +129,9 @@
     </order_by_expression>
 
     <clean>
-      <to_size>5</to_size>
+      <to_size>6</to_size>
       <size_trigger>10</size_trigger>
-      <order_by>id_as_number DESC, doc_id DESC</order_by>
+      <order_by>id_as_number DESC</order_by>
       <erase_where_clause>foo = 'erase this one'</erase_where_clause>
     </clean>
 
@@ -126,7 +155,7 @@
   </index>
 
 
-
-  <plural>'many'</plural>
+  <plural>'many1'</plural>
+  <plural>'many2'</plural>
 
 </DocumentDefinition>

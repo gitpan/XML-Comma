@@ -1,5 +1,60 @@
-Revision history for Perl extension XML::Comma.
+Revision history for XML::Comma modules:
 
-0.01  Sun Dec  3 14:38:33 2000
-	- original version; created by h2xs 1.19
+-------------------------
+1.00  2002/01/28 03:46:15
+-------------------------
+  - boolean macro bugfix
 
+  - new features in HTTP_Transfer
+
+  - faster $index->count() SQL
+ 
+  - added iterator_select_returnval() method to Index Iterator class
+
+  - new boolean- (and grouping-) capable collection and sort
+    specs. implemented using Parse::RecDescent -- core code now
+    requires Parse::RecDescent to be available
+
+  - added validate() method to Element, NestedElement and BlobElement
+    classes. validate_structure() is now DEPRECATED. storage write
+    methods all call validate() and refuse to store Docs that fail to
+    pass all validity checks. it's now possible to define
+    validate_hooks for blob elements.
+
+-------------------------
+1.01  2002/04/10 12:05:32
+-------------------------
+
+  - Changed Comma_Standard_Image.def to use hex (rather than b64)
+    digests, to eliminate the +/= characters that could cause problems
+    in urls.
+
+  - Added doc_id() method to Storage::Iterator. Returns the doc_id of
+    the currently-pointed-at doc.
+
+  - Improved $index->rebuild() code. Fixed bug in stop_rebuild_hook
+    handler, added parallelization ('workers=>n' arg). Added sig
+    handler to catch Ctrl-C and try to clean up, so as to not leave db
+    tables in a "marked" state.
+
+  - Added Methodable::method_names() method so that Def and Index
+    objects can return the names of the methods they define.
+  
+  - Added $def->index_names() and $def->store_names() methods.
+
+  - Fixed Index::Iterator bug found by TIB that was triggered by
+    trying to access columns from an empty iterator.
+
+  - Rewrote Index plurals code. Added a new type of storage
+    ('bcollection table'), and integrated 'sort' and 'collection'
+    types together. Rewrote SQL code generation and all t/indexing.t
+    tests. Added more boolean/notting and partial match capabilities
+    into the new collections framework.
+
+  - Added some cleanup code to Index->DESTROY to resolve circular
+    references that were causing occasional problems with global
+    destruction.
+
+-------------------------
+1.08  2002/07/26 12:40:45
+-------------------------

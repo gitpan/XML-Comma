@@ -127,11 +127,33 @@ sub get_hash {
 # success. throws an error it encounters severe difficulties on the
 # network or remote server.
 sub put {
-  my ( $self, $doc ) = @_;
+  my ( $self, $doc, $no_hooks ) = @_;
   my $remote_id;
   eval {
     my $ua = LWP::UserAgent->new();
-    my $req = $self->_put_request ( 'put', $doc );
+    my $req = $self->_put_request ( 'put', $doc, $no_hooks );
+    my $response = $ua->request ( $req );
+    #print $response->content();
+    $remote_id = $response->content();
+  }; if ( $@ ) {
+    die "$@";
+  }
+  return $remote_id;
+}
+
+
+# takes a doc object as its argument. puts the doc on the remote
+# server, preserving its id but possibly changing its store. returns
+# the id of the doc on success. throws an error it encounters severe
+# difficulties on the network or remote server. (this is really an odd
+# species of "put", but since it's intended to be used for specific
+# kinds of things, we've given it a different method name.)
+sub put_archive {
+  my ( $self, $doc, $store_name, $no_hooks ) = @_;
+  my $remote_id;
+  eval {
+    my $ua = LWP::UserAgent->new();
+    my $req = $self->_put_request ( 'put', $doc, $store_name, $no_hooks );
     my $response = $ua->request ( $req );
     #print $response->content();
     $remote_id = $response->content();
@@ -271,11 +293,12 @@ sub _put_request {
 }
 
 sub _put_bundle {
-  my ( $command, $doc, $store_name ) = @_;
+  my ( $command, $doc, $store_name, $no_hooks ) = @_;
   return nfreeze {
     command    => $command,
     type       => $doc->tag(),
     store      => $store_name || $doc->doc_store()->name(),
+    no_hooks   => $no_hooks,
     id         => $doc->doc_id,
     key        => $doc->doc_key(),
     doc_string => $doc->system_stringify(),

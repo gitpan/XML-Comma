@@ -1,0 +1,165 @@
+<HTML>
+<HEAD>
+<TITLE>FAQ - frequently asked questions about XML::Comma</TITLE>
+<LINK REV="made" HREF="mailto:root@khk.allafrica.com">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#name">NAME</A></LI>
+	<LI><A HREF="#description">DESCRIPTION</A></LI>
+	<LI><A HREF="#basic information">BASIC INFORMATION</A></LI>
+	<UL>
+
+		<LI><A HREF="#how is xml::comma licensed and distributed">How is XML::Comma licensed and distributed?</A></LI>
+		<LI><A HREF="#is there an xml::comma web site">Is there an XML::Comma web site?</A></LI>
+		<LI><A HREF="#is there an xml::comma mailing list">Is there an XML::Comma mailing list?</A></LI>
+		<LI><A HREF="#what documentation is available">What documentation is available?</A></LI>
+	</UL>
+
+	<LI><A HREF="#code questions">CODE QUESTIONS</A></LI>
+	<UL>
+
+		<LI><A HREF="#what's the difference between $foo>bar() and $foo>element('bar')>get()">What's the difference between $foo-&gt;<CODE>bar()</CODE> and $foo-&gt;element('bar')-&gt;get()?</A></LI>
+		<LI><A HREF="#how do i tell how many instances of a given plural element exist">How do I tell how many instances of a given plural element exist?</A></LI>
+		<LI><A HREF="#what does the bad_content error that talks about '& found that isn't part of an entity reference' mean">What does the BAD_CONTENT error that talks about '&amp; found that isn't part of an entity reference' mean?</A></LI>
+		<LI><A HREF="#what does an error that ends 'sh: /tmp/log.comma: permission denied' mean">What does an error that ends 'sh: /tmp/log.comma: Permission denied' mean?</A></LI>
+	</UL>
+
+	<LI><A HREF="#performance">PERFORMANCE</A></LI>
+	<UL>
+
+		<LI><A HREF="#is xml::comma fast">Is XML::Comma fast?</A></LI>
+	</UL>
+
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="name">NAME</A></H1>
+<P>XML::Comma FAQ - frequently asked questions about XML::Comma</P>
+<P>
+<HR>
+<H1><A NAME="description">DESCRIPTION</A></H1>
+<P>XML::Comma is an information management platform. It was designed to
+be used as a core tool for developing Very Large Websites. Comma
+specifies an XML-based document definition format, encourages Perl
+code to be embedded in these definitions, and specifies an API for
+manipulating documents and document collections. Comma includes
+functionality to store sets of documents in ordered, extensible ways,
+and integrates with a relational database to index, sort and retrieve
+collections of documents.</P>
+<P>
+<HR>
+<H1><A NAME="basic information">BASIC INFORMATION</A></H1>
+<P>
+<H2><A NAME="how is xml::comma licensed and distributed">How is XML::Comma licensed and distributed?</A></H2>
+<P>XML::Comma is Free Software released under the GNU General Public
+License. For more information about the license, please see
+<A HREF="http://www.fsf.org/licenses/gpl.html">http://www.fsf.org/licenses/gpl.html</A></P>
+<P>Comma is distributed as a Perl module. The most recent version is
+always available at <A HREF="http://xml-comma.org/download/">http://xml-comma.org/download/</A></P>
+<P>
+<H2><A NAME="is there an xml::comma web site">Is there an XML::Comma web site?</A></H2>
+<P>Yes. <A HREF="http://xml-comma.org/">http://xml-comma.org/</A></P>
+<P>
+<H2><A NAME="is there an xml::comma mailing list">Is there an XML::Comma mailing list?</A></H2>
+<P>Yes. Please see <A HREF="http://xml-comma.org/mailing-list.html">http://xml-comma.org/mailing-list.html</A></P>
+<P>
+<H2><A NAME="what documentation is available">What documentation is available?</A></H2>
+<P>The <STRONG>XML::Comma User's Guide</STRONG> describes the Comma API in detail. It
+is available in HTML and PDF. The Guide can be found in the <CODE>Comma/docs</CODE>
+directory of the distribution, or at:</P>
+<PRE>
+  <A HREF="http://xml-comma.org/guide-filter.html">http://xml-comma.org/guide-filter.html</A>
+  <A HREF="http://xml-comma.org/guide.pdf">http://xml-comma.org/guide.pdf</A></PRE>
+<P>
+<HR>
+<H1><A NAME="code questions">CODE QUESTIONS</A></H1>
+<P>
+<H2><A NAME="what's the difference between $foo>bar() and $foo>element('bar')>get()">What's the difference between $foo-&gt;<CODE>bar()</CODE> and $foo-&gt;element('bar')-&gt;get()?</A></H2>
+<P>This is really a question about Comma's ``shortcut'' syntax, which
+defines a mapping between method calls and the elements of a given
+container.</P>
+<P>There is a section on the shortcut syntax in the guide that goes into
+more detail, but here is a quick list of the seven possible ways a
+shortcut can can be resolved.</P>
+<PRE>
+  $x-&gt;foo ( [@args] )                  # becomes:
+  $x-&gt;method('foo, @args)              # if there is a method &quot;foo&quot;
+  $x-&gt;element('foo')                   # singular, nested
+  $x-&gt;elements('foo')                  # plural, nested
+  $x-&gt;element('foo')-&gt;get()            # singular, non-nested, no @args 
+  $x-&gt;element('foo')-&gt;set(@args)       # singular, non-nested, with @args
+  $x-&gt;elements_group_get('foo')        # plural, nested, no @args
+  $x-&gt;elements_group_set('foo', @args) # plural, nested, with @args</PRE>
+<P>
+<H2><A NAME="how do i tell how many instances of a given plural element exist">How do I tell how many instances of a given plural element exist?</A></H2>
+<P>Because the <CODE>elements()</CODE> method always tries to return a ``list'' of
+elements -- which means that it returns an array in list context and a
+reference to an array in scalar context -- you have to do a bit of
+extra work to determine how many instances of a plural element
+exist. The most concise (and the recommended) way to do this is:</P>
+<PRE>
+  my $how_many_foos = scalar ( @{$doc-&gt;elements('foo')} );</PRE>
+<P>
+<H2><A NAME="what does the bad_content error that talks about '& found that isn't part of an entity reference' mean">What does the BAD_CONTENT error that talks about '&amp; found that isn't part of an entity reference' mean?</A></H2>
+<P>You have a problem that boils down to something along these lines:</P>
+<PRE>
+  $doc-&gt;element('some_element')-&gt;set ( &quot;foo &amp; bar&quot; );</PRE>
+<P>Element content must be legal XML -- so no &amp;lt;, &amp;gt;, or &amp;amp;
+characters are allowed. These special characters must be ``escaped'' by
+replacing them with their entity codes (respectively &amp;amp;lt;,
+&amp;amp;gt;, or &amp;amp;amp;). The <CODE>Comma::Util::XML_basic_escape()</CODE> and
+<CODE>Comma::Util::XML_basic_unescape()</CODE> methods are available, as are
+shortcut flags for the element <CODE>set()</CODE> and <CODE>get()</CODE> methods:</P>
+<PRE>
+  $doc-&gt;element('some_element()-&gt;set ( &quot;foo &amp; bar&quot;, escape=&gt;1 );
+  $doc-&gt;element('some_element')-&gt;get ( unescape=&gt;1 );
+  $doc-&gt;some_element ( &quot;foo &amp; bar&quot;, escape=&gt;1 );</PRE>
+<P>Note that there is no way to pass the <CODE>unescape</CODE> flag in the
+shortcut-get syntax (so there are three examples above, rather than
+four). It is fair to construe this as a problem with the API.</P>
+<P>
+<H2><A NAME="what does an error that ends 'sh: /tmp/log.comma: permission denied' mean">What does an error that ends 'sh: /tmp/log.comma: Permission denied' mean?</A></H2>
+<P>Comma writes a line about all un-caught errors to a log file. The
+location of the log file is controlled by a setting in Comma.pm -- the
+default is <CODE>/tmp/log.comma/</CODE>. This file probably needs to be writable
+by any processes that use the Comma framework. In most installations,
+the file is made world-writable (which should tell you that the Comma
+log system isn't intended to be used as part of any security auditing
+or similar framework -- you should write additional code to handle any
+secure reporting that an application might need.)</P>
+<P>
+<HR>
+<H1><A NAME="performance">PERFORMANCE</A></H1>
+<P>
+<H2><A NAME="is xml::comma fast">Is XML::Comma fast?</A></H2>
+<P>Sure. We don't know of any faster way to develop (or to add new
+features to) large-scale applications that manipulate collections of
+hundreds of thousands of pieces of messy-but-structured
+information. We use it every day, and so do many, many people who
+access the web sites we build.</P>
+<P>Oh, wait: you meant, ``does it run fast?'' Well, that's in the eye of
+the beholder. Comma's bottleneck is the parsing and object-ifying of
+XML files. The power and flexibility that the API gives you comes at
+some cost -- a hand-coded, special-purpose implementation could well
+be faster for any single usage.</P>
+<P>However, we've worked hard to make Comma fast enough to be really,
+really, useful. For example, Comma's ``Inline'' parser is about twice as
+fast as the general-use XML parsers against which we've benchmarked it
+(because Comma documents aren't allowed to make use of all parts of
+the XML specification). An experienced designer of large-scale
+internet systems will easily be able to structure and tune a
+Comma-based system to serve hundreds of thousands of dynamic pages a
+day on mid-range x86 boxes.</P>
+
+</BODY>
+
+</HTML>

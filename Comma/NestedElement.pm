@@ -285,6 +285,7 @@ sub element_is_plural {
 }
 
 sub element_is_defined {
+  # dbg '->', $_[0];
   return $_[0]->def()->def_by_name($_[1]);
 }
 
@@ -304,7 +305,27 @@ sub element_is_required {
   return $_[0]->def()->is_required($_[1]);
 }
 
+# generic validate() self implementation. calls def's validate
+# routine, then recurses down the tree calling validate() for all
+# sub-elements.
+#
+#
+sub validate {
+  my $self = shift();
+  eval {
+    $self->def()->validate ( $self );
+    foreach my $el ( $self->elements() ) {
+      $el->validate();
+    }
+  }; if ( $@ ) {
+    XML::Comma::Log->err ( 'VALIDATE_ERROR', $@ );
+  }
+  return '';
+}
+
 ##
+# DEPRECATED:
+#
 # calls the def's validate routine, then does the same
 # for all child nested elements. all callees should die with a
 # message string if they encounter an error
@@ -422,14 +443,13 @@ sub sort_elements() {
 
 sub to_string {
   my $self = shift();
-  my $str;
-  $str = '<' . $self->tag() . $self->attr_string() . ">\n";
+  my $str = '';
   foreach my $el ( $self->elements() ) {
     $str .= $el->to_string();
   }
-  $str .= '</'. $self->tag() . '>';
-  $str .= "\n";
-  return $str;
+  return ''  unless  $str;
+  return '<' . $self->tag() . $self->attr_string() . ">\n" .
+    $str . '</'. $self->tag() . '>' . "\n";
 }
   
 #  ##

@@ -77,7 +77,7 @@ print "ok 19\n"  if  $doc->element('en')->get() eq 'bar';
 eval { $doc->element('en')->set('15') };
 print "ok 20\n"  if  $@;
 my @choices = $doc->element('en')->enum_options();
-print "ok 21\n"  if  'kazzam--foo--bar' eq join ( "--", @choices );
+print "ok 21\n"  if  'bar--foo--kazzam' eq join ( "--", sort @choices );
 
 eval { $doc->element('en')->set('') };
 print "ok 22\n"  if  $@;
@@ -119,20 +119,20 @@ print "ok 38\n"  if  $doc->element('sing')->get(unescape=>1)
 $doc->element('sing')->set( "innocuous" );
 print "ok 39\n";
 $doc->element('sing')->set( "un-typical test" );
-eval { $doc->validate_structure(); };
+eval { $doc->validate(); };
 print "ok 40\n" if $@;
 
 my $d2 = XML::Comma::Doc->new ( type=>'_test_validation' );
 # should fail because of plu (and nested, and nested_sing inside nested)
-eval { $doc->validate_structure(); };
+eval { $doc->validate(); };
 print "ok 41\n" if $@;
 $d2->element('plu')->set('foo');
 # should fail because of nested (and nested_sing inside it)
-eval { $doc->validate_structure(); };
+eval { $doc->validate(); };
 print "ok 42\n" if $@;
 $d2->element('nested');
 # should fail because of nested_sing inside nested
-eval { $doc->validate_structure(); };
+eval { $doc->validate(); };
 print "ok 43\n" if $@;
 # now fill nested_sing, and the validate should work
 $d2->element('nested')->element('nested_sing')->set('foo');

@@ -59,11 +59,6 @@ sub make_id {
   # pad/trim to the correct length
   my $next_id = substr ( sprintf("%0*s", $self->{_Dd_width}, $string),
                          0, $self->{_Dd_width} );
-  # we need to make sure this directory exists -- in some of the other
-  # Location modules the next_sequential_id stuff does this for us
-  my $directory = File::Spec->catdir ( @{$struct->{locs}} );
-  XML::Comma::Storage::FileUtil->make_directory ( $struct->{store},
-                                                  $directory );
   # return the new pieces
   return ( $next_id, # id piece
            $next_id  # location piece

@@ -30,7 +30,6 @@ use XML::Comma::Util qw( dbg trim name_and_args_eval );
 
 use strict;
 
-
 # _Def_deftable : cache built as-we-go for definitions,
 #            : * should be accessed/modified only by  def_by_name() *
 # _Def_name_up_path
@@ -270,6 +269,10 @@ sub get_store {
                            $self->name_up_path() );
 }
 
+sub store_names {
+  return keys %{$_[0]->{_Def_storages}};
+}
+
 sub get_index {
     my ( $self, $index_name ) = @_;
     return $self->{_Def_indexes}->{$index_name} ||
@@ -278,6 +281,9 @@ sub get_index {
                              $self->name_up_path() );
 }
 
+sub index_names {
+  return keys %{$_[0]->{_Def_indexes}};
+}
 
 
 sub _config__macro {
@@ -340,7 +346,11 @@ sub _config__required {
             die \"required element '$req' not found in \" . \$self->tag_up_path() . \"\\n\"  if
                     (! \$req_el) or 
                     ((! \$req_el->def()->is_nested()) and (! \$req_el->get()));
-          }" );
+          }",
+                    0xffffff # our "hook order" number -- high because
+                             # we want to do this hook after any that
+                             # are declared in the defs
+                    );
   }
 }
 
@@ -443,6 +453,18 @@ sub is_blob {
 sub def_sub_elements {
   return ( $_[0]->elements('element','nested_element','blob_element') );
 }
+
+
+
+##
+# Empty DESTROY: we don't want to autoload this
+##
+sub DESTROY {
+#    if ( $_[0]->{_tag} eq 'DocumentDefinition' ) {
+#      print "D: $_[0]\n";
+#    }
+}
+
 
 1;
 

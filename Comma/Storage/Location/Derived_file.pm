@@ -67,7 +67,7 @@ sub make_id {
   push @{$struct->{locs}}, $balance_dir  if  $balance_dir;
   # we need to make sure the directory (which we've been passed in
   # pieces, and perhaps have just added a _balance piece to)
-  # exists. evan if we haven't added a _balance piece, the directory
+  # exists. even if we haven't added a _balance piece, the directory
   # might not exist (in some of the other Location modules the
   # next_sequential_id stuff does this directory creation for us)
   my $directory = File::Spec->catdir ( @{$struct->{locs}} );

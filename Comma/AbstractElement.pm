@@ -219,7 +219,6 @@ sub AUTOLOAD {
   $self->auto_dispatch ( $m, @args );
 }
 
-sub DESTROY {}
 
 ####
 #
@@ -245,6 +244,25 @@ sub finish_initial_read {
   }
   # destroy read_args ref
   #delete ${$_[0]->{Doc_storage}}{read_args};
+}
+
+
+##
+# Empty DESTROY: we don't want to autoload this
+##
+sub DESTROY {
+#  print $_[0]->{_tag} . "\n";
+#   print 'D: ' . $_[0] . "\n";
+#    print '   index    ' . ($::index||'<undef>')."\n";
+#    print '   ind def  ' . ($::index->{_def}||'<undef>')."\n";
+#    print '   dmg def  ' . XML::Comma::DefManager->for_path('DocumentDefinition')->{_nested_lookup_table}->{nested_element}->[5] . "\n";
+
+
+#    if ( (! defined $::index->{_def}) && (! $::index_dumped)) {
+#      print "  $::index\n";
+#      map { print "  $_ --> " . ($::index->{$_} || '<undef>') . "\n" } keys(%{$::index});
+#      $::index_dumped++;
+#    }
 }
 
 1;

@@ -108,7 +108,7 @@ sub _retrieval_common {
     %args = $class->parse_read_args(@_);
     XML::Comma::DefManager->for_path($args{type})->get_store($args{store});
   }; if ( $@ ) {
-    XML::Comma::Log->err ( 'DOC_RETRIEVE_ERROR', $@ );
+    XML::Comma::Log->err ( 'DOC_READ/RETRIEVE_ERROR', $@ );
   }
   return ( $store, $args{id}, $args{timeout}, \%args );
 }
@@ -471,6 +471,8 @@ sub index_remove {
 
 
 sub DESTROY {
+#    print 'D: ' . $_[0] . "\n";
+#    print '   ' . ($::index->{_def}||'<undef>')."\n";
   $_[0]->doc_unlock()  if  $_[0]->{_Doc_locked};
 }
 

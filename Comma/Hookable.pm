@@ -21,6 +21,7 @@
 ##
 
 package XML::Comma::Hookable;
+use XML::Comma::Util qw( dbg );
 
 use strict;
 
@@ -29,33 +30,48 @@ use strict;
 # add hook
 #
 sub add_hook {
-  my ( $self, $hook_type, $hook ) = @_;
+  my ( $self, $hook_type, $hook, $hook_order ) = @_;
   # does this hook_type exist for this context?
-  my $hooks_arrayref = $self->get_hooks_arrayref ( $hook_type );
+  my $hooks_arrayref = $self->_raw_get_hooks_arrayref ( $hook_type );
   die "no hook type '$hook_type' is legal for " . $self->tag_up_path() . "\n"
     if ! $hooks_arrayref;
+  # if we weren't passed a "hook_order" we need to make one
+  unless ( $hook_order ) {
+    $hook_order = scalar @{$hooks_arrayref};
+  }
   # is this a string to be evaled, or a code ref?
   if ( ref($hook) eq 'CODE' ) {
-    push @{$hooks_arrayref}, $hook;
+    push @{$hooks_arrayref}, { code => $hook, order => $hook_order };
+#    push @{$hooks_arrayref}, $hook;
   } else {
     my $code_ref = eval $hook;
     if ( $@ ) {
       print "\n--\n$hook\n--\n";
       die "error while defining '$hook_type': $@\n";
     }
-    push @{$hooks_arrayref}, $code_ref; 
+    push @{$hooks_arrayref}, { code => $code_ref, order => $hook_order };
+#    push @{$hooks_arrayref}, $code_ref;
   }
+  # re-sort so our ordering is correct
+  @{$hooks_arrayref} = sort { $a->{order} <=> $b->{order} } @{$hooks_arrayref};
   return $hook;
 }
 
 
-# takes a hook type and returns the array-ref of those hooks. illegal
-# hooktypes therefore return false
+# takes a hook type and returns the array-ref of the code blocks of
+# these hooks. illegal hooktypes return false.
 sub get_hooks_arrayref {
   my ( $self, $hook_type ) = @_;
-  return $self->{'_Hookable_' . $hook_type . 's'};
+  my $ref = $self->_raw_get_hooks_arrayref ( $hook_type );
+  return  unless  $ref;
+  my @list = map { $_->{code} } @{$ref};
+  return \@list;
 }
 
+sub _raw_get_hooks_arrayref {
+  my ( $self, $hook_type ) = @_;
+  return $_[0]->{'_Hookable_' . $_[1] . 's'};
+}
 
 sub allow_hook_type {
   my ( $self, @hook_types ) = @_;
@@ -65,3 +81,5 @@ sub allow_hook_type {
 }
 
 1;
+
+

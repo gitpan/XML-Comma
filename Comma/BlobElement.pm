@@ -100,6 +100,17 @@ sub set_from_file {
   return '';
 }
 
+sub validate {
+  my $self = shift();
+  eval {
+    $self->def()->validate ( $self );
+  }; if ( $@ ) {
+    XML::Comma::Log->err
+        ( 'BLOB_VALIDATE_ERROR', "for " . $self->tag_up_path() . ": $@" );
+  }
+  return '';
+}
+
 sub get_location {
   my $self = shift();
   return $self->{_Blob_location} || '';

@@ -79,7 +79,7 @@
       <![CDATA[ sub { $_[0]->_fill_pnotes_data($_[1]) } ]]>
     </set_from_file_hook>
     <read_hook>
-      <![CDATA[ sub { $_[0]->_fill_pnotes_data($_[0]->get_location()) } ]]>
+      <![CDATA[ sub { $_[0]->_fill_pnotes_data($_[0]->get_location()); } ]]>
     </read_hook>
 
     <def_hook>

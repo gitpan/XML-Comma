@@ -37,12 +37,10 @@ require Exporter;
   sql_get_hold
   sql_release_hold
 
-  sql_create_table
-  sql_create_info_table
-
   sql_create_index_tables_table
   sql_data_table_definition
   sql_sort_table_definition
+  sql_bcollection_table_definition
   sql_textsearch_index_table_definition
   sql_textsearch_defers_table_definition
 
@@ -62,14 +60,19 @@ use strict;
 
 sub sql_create_hold_table {
   my $dbh = shift();
-  $dbh->do ( "CREATE TABLE comma_hold ( key VARCHAR(255) UNIQUE )" )
+  dbg 'creating hold table';
+  $dbh->commit();
+  $dbh->do ( "CREATE TABLE comma_hold ( key VARCHAR(255) UNIQUE)" );
+  $dbh->commit();
 }
 
 sub sql_get_hold {
   my ( $lock_singlet, $key ) = @_;
   my $dbh = $lock_singlet->get_dbh();
   my $q_lock_name = $dbh->quote ( $key );
-  $dbh->begin_work();
+  dbg 'dbh', $dbh;
+  $dbh->{AutoCommit}=0;
+  $dbh->commit();
   $dbh->do ( "INSERT INTO comma_hold (key) VALUES ($q_lock_name)" );
 }
 
@@ -79,6 +82,7 @@ sub sql_release_hold {
   my $q_lock_name = $dbh->quote ( $key );
   $dbh->do ( "DELETE FROM comma_hold WHERE key = $q_lock_name" );
   $dbh->commit();
+  $dbh->{AutoCommit}=1;
 }
 
 sub sql_create_index_tables_table {
@@ -94,6 +98,7 @@ $index->get_dbh()->do (
     last_modified  INT,
     sort_spec      VARCHAR(255),
     textsearch     VARCHAR(255),
+    collection     VARCHAR(255),
     index_def      TEXT )"
 );
 }
@@ -116,6 +121,15 @@ sub sql_data_table_definition {
   doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) } PRIMARY KEY )";
 }
 
+sub sql_bcollection_table_definition {
+  return
+"CREATE TABLE $_[1] (
+  _comma_flag  INT2,
+  doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) },
+  value  VARCHAR(255) );
+ CREATE INDEX bci_$_[1] ON $_[1] (value)";
+}
+
 
 sub sql_textsearch_index_table_definition {
   return
@@ -136,7 +150,8 @@ sub sql_textsearch_defers_table_definition {
 sub sql_textsearch_word_lock {
   my ( $index, $i_table_name, $word ) = @_;
   my $dbh = $index->get_dbh();
-  $dbh->begin_work();
+  $dbh->{AutoCommit}=0;
+  $dbh->commit();
   $dbh->do ( "LOCK TABLE $i_table_name IN SHARE ROW EXCLUSIVE MODE" );
 }
 
@@ -145,6 +160,7 @@ sub sql_textsearch_word_unlock {
   my $dbh = $index->get_dbh();
   #my $q_lock_name = $dbh->quote ( $i_table_name . $word );
   $dbh->commit();
+  $dbh->{AutoCommit}=1;
   #$dbh->do ( "COMMIT WORK" );
 }
 
