@@ -27,8 +27,6 @@ use vars '$AUTOLOAD';
 
 BEGIN {
 
-  $XML::Comma::VERSION = '1.08';
-
   my $config =
   {
 
@@ -38,6 +36,8 @@ BEGIN {
 
   defs_directories    =>
     [
+#     '/u/khkramer/src/perl/XML-Comma/XML/t/defs',
+     '/allafrica/comma/defs',
      '/usr/local/comma/defs',
      '/usr/local/comma/defs/macros',
      '/usr/local/comma/defs/standard',
@@ -56,6 +56,7 @@ BEGIN {
                             sql_syntax  =>  'mysql',
                             dbi_connect_info => [
                                                  'DBI:mysql:comma:localhost',
+#                                                 'DBI:mysql:comma:homes',
                                                  'root',
                                                  'test',
                                                  { RaiseError => 1,

@@ -23,6 +23,7 @@
 package XML::Comma::Pkg::Transfer::HTTP_Transfer;
 
 # _target           : url to get/post to/from
+# _ignore_here      : flag -- ignore all network commands except ping
 # _https_cert_file  : certificate file, for any  https client authentication
 # _https_key_file   : key file          ''  ''   ''    ''     ''
 
@@ -49,9 +50,10 @@ use LWP::UserAgent;
 use HTTP::Request::Common;
 use MIME::Base64;
 use Storable qw( nfreeze thaw );
+use Sys::Hostname qw();
 
 use XML::Comma;
-use XML::Comma::Util qw( dbg );
+use XML::Comma::Util qw( dbg array_includes );
 
 
 sub new {
@@ -59,6 +61,10 @@ sub new {
   my $self = {}; bless ( $self, $class );
   $self->{_target} = $args{target} ||
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 'no target given to new()' );
+  if ( my @ignores = @{$args{ignore_on}} ) {
+    my $hn = Sys::Hostname::hostname();
+    $self->{_ignore_here} = $hn  if  array_includes ( @ignores, $hn );
+  }
   $self->{_https_cert_file} = $args{https_cert_file};
   $self->{_https_key_file} = $args{https_key_file};
   # FIX: perhaps these should be set just before each request?
@@ -66,6 +72,17 @@ sub new {
   $ENV{HTTPS_KEY_FILE}  = $self->{_https_key_file} || '';
   return $self;
 }
+
+
+sub test_ignore_here {
+  my $self = shift;
+  if ( my $hostname = $self->{_ignore_here} ) {
+    return "ignoring network commands on $hostname\n"
+  } else {
+    return;
+  }
+}
+
 
 # takes no arguments, tests connection to server. returns 1 on
 # successfull connection and data exchange, '' otherwise
@@ -90,6 +107,7 @@ sub ping {
 # on the network or while trying to store the local doc.
 sub get_and_store {
   my ( $self, @args ) = @_;
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
   my $ua = LWP::UserAgent->new();
   my $req = $self->_get_request ( 'get_and_store',
                                   XML::Comma::Doc->parse_read_args(@args) );
@@ -99,7 +117,7 @@ sub get_and_store {
       if $response->content_length();
   } else {
     XML::Comma::Log->err ( 'TRANSFER_ERROR',
-                           'unrecoverable get_and_store error: $@' );
+                           'remote get_and_store error' );
   }
   return;
 }
@@ -111,6 +129,7 @@ sub get_and_store {
 # network or remote server.
 sub get_hash {
   my ( $self, @args ) = @_;
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
   my $ua = LWP::UserAgent->new();
   my $req = $self->_get_request ( 'get_hash',
                                   XML::Comma::Doc->parse_read_args(@args) );
@@ -118,7 +137,7 @@ sub get_hash {
   if ( $response->is_success() ) {
     return $response->content();
   } else {
-    XML::Comma::Log->err ( 'TRANSFER_ERROR', 'could not get_hash' );
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 'remote get_hash error' );
   }
 }
 
@@ -128,17 +147,16 @@ sub get_hash {
 # network or remote server.
 sub put {
   my ( $self, $doc, $no_hooks ) = @_;
-  my $remote_id;
-  eval {
-    my $ua = LWP::UserAgent->new();
-    my $req = $self->_put_request ( 'put', $doc, $no_hooks );
-    my $response = $ua->request ( $req );
-    #print $response->content();
-    $remote_id = $response->content();
-  }; if ( $@ ) {
-    die "$@";
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
+  my $ua = LWP::UserAgent->new();
+  my $req = $self->_put_request ( 'put', $doc, '', $no_hooks );
+  my $response = $ua->request ( $req );
+  if ( $response->is_success() ) {
+    return $response->content();
+  } else {
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           'remote put error for' . $doc->doc_key() );
   }
-  return $remote_id;
 }
 
 
@@ -150,17 +168,16 @@ sub put {
 # kinds of things, we've given it a different method name.)
 sub put_archive {
   my ( $self, $doc, $store_name, $no_hooks ) = @_;
-  my $remote_id;
-  eval {
-    my $ua = LWP::UserAgent->new();
-    my $req = $self->_put_request ( 'put', $doc, $store_name, $no_hooks );
-    my $response = $ua->request ( $req );
-    #print $response->content();
-    $remote_id = $response->content();
-  }; if ( $@ ) {
-    die "$@";
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
+  my $ua = LWP::UserAgent->new();
+  my $req = $self->_put_request ( 'put', $doc, $store_name, $no_hooks );
+  my $response = $ua->request ( $req );
+  if ( $response->is_success() ) {
+    return $response->content();
+  } else {
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           'remote put_archive error for' . $doc->doc_key() );
   }
-  return $remote_id;
 }
 
 # takes a doc object as its argument. puts the doc on the remote
@@ -172,17 +189,41 @@ sub put_archive {
 # network or remote server.
 sub put_push {
   my ( $self, $doc, $store_name ) = @_;
-  my $remote_id;
-  eval {
-    my $ua = LWP::UserAgent->new();
-    my $req = $self->_put_request ( 'put_push', $doc, $store_name );
-    my $response = $ua->request ( $req );
-    $remote_id = $response->content();
-  }; if ( $@ ) {
-    die "$@";
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
+  my $ua = LWP::UserAgent->new();
+  my $req = $self->_put_request ( 'put_push', $doc, $store_name );
+  my $response = $ua->request ( $req );
+  if ( $response->is_success() ) {
+    return $response->content();
+  } else {
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           'remote put_push error for' . $doc->doc_key() );
   }
-  return $remote_id;
 }
+
+# takes a doc object as its argument. tries to erase the doc from the
+# remote server. returns the doc key on success; returns the empty
+# string if the doc was not found on the remote server; throws an
+# error on encountering network problems.
+sub erase {
+  my ( $self, $doc ) = @_;
+  my $msg = $self->test_ignore_here(); return $msg if $msg;
+  my $ua = LWP::UserAgent->new();
+  my $req = $self->_put_request ( 'erase', $doc );
+  my $response = $ua->request ( $req );
+  if ( $response->is_success() ) {
+    return $response->content();
+  } else {
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           'remote erase error for' . $doc->doc_key() );
+  }
+}
+
+
+####
+####
+####
+
 
 sub handler {
   my $r = shift();
@@ -219,18 +260,22 @@ sub get_and_store_handler {
 
 sub get_hash_handler {
   my ( $r, $params ) = @_;
-  my $hash;
-  my $doc = eval {
-    XML::Comma::Doc->read
-        ( XML::Comma::Storage::Util->concat_key(type  => $params->{type},
-                                                store => $params->{store},
-                                                id    => $params->{id}) );
+  my $hash = '';
+  eval {
+    my ( $type, $store, $id ) = ( $params->{type},
+                                  $params->{store},
+                                  $params->{id} );
+    my $output_string = '';
+    eval {
+      my $doc = XML::Comma::Doc->read ( type => $type,
+                                        store => $store,
+                                        id => $id );
+      $hash = $doc->comma_hash();
+    };
+    return _ok ( $r, 'bin/data', \$hash );
   }; if ( $@ ) {
-    $hash = '';
-  } else {
-    $hash = $doc->comma_hash();
+    return _not_ok ( $r, $@ );
   }
-  return _ok ( $r, 'text/plain', \$hash );
 }
 
 sub put_handler {
@@ -238,7 +283,7 @@ sub put_handler {
   my $response_string = '';
   eval {
     $response_string =
-      XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params );
+      XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params )->doc_id();
   }; if ( $@ ) {
     return _not_ok ( $r, $@ );
   }
@@ -251,7 +296,23 @@ sub put_push_handler {
   my $response_string = '';
   eval {
     $response_string =
-      XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params );
+      XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params )->doc_id();
+  }; if ( $@ ) {
+    return _not_ok ( $r, $@ );
+  }
+#    my $output_string;
+#    while ( my ($key, $value) = each %$params ) {
+#      $output_string .= "$key -- " . substr ( $value, 0, 20 ) . "\n";
+#    }
+  return _ok ( $r, 'text/plain', \$response_string );
+}
+
+sub erase_handler {
+  my ( $r, $params ) = @_;
+  my $response_string;
+  eval {
+    $response_string = XML::Comma::Def->read(name=>$params->{type})
+      ->get_store($params->{store})->force_erase ( %$params );
   }; if ( $@ ) {
     return _not_ok ( $r, $@ );
   }
@@ -325,7 +386,7 @@ sub _store {
   my ( $self_or_class, $args ) = @_;
   my $store = XML::Comma::Def->read (name=>$args->{type})
     ->get_store($args->{store});
-  $store->force_store ( %$args );
+  return $store->force_store ( %$args );
 }
 
 

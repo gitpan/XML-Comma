@@ -1,11 +1,19 @@
-$self->add_hook ( 'validate_hook',
+my $default = $self->element('default')->get();
+if ( ! $default  or  $default =~ /^false$/i ) {
+  $default = 0;
+} else {
+  $default = 1;
+}
+$self->element('default')->set ( $default );
 
+$self->add_hook ( 'set_hook',
   sub {
-    my ( $doc, $content ) = @_;
-    ($content !~ /^(TRUE|FALSE)$/) ||
-      die "'$content' is not a valid boolean value";
+    if ( ! ${$_[1]}  or  ${$_[1]} =~ /^false$/i ) {
+      ${$_[1]} = 0;
+    } else {
+      ${$_[1]} = 1;
+    }
   }
-
 );
 
 1;

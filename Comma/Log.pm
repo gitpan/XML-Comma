@@ -51,7 +51,7 @@ sub err {
 # usage: XML::Comma::Log->warn ( $string );
 sub warn {
   chomp $_[1];
-  print STDERR "$_[1]\n";
+  #print STDERR "$_[1]\n";
   $_[0]->log ( "WARNING -- $_[1]" );
 }
 

@@ -27,6 +27,7 @@ use File::Spec;
 use File::Copy;
 
 # _extension :
+# _decl_pos  :
 #
 # children should use an _init method (which this classes "new" method
 # calls, to process arguments and set up their states. the _init
@@ -43,6 +44,7 @@ use File::Copy;
 sub new {
   my ( $class, %arg ) = @_; my $self = {}; bless ( $self, $class );
   $self->{_extension} = $arg{extension} || '.comma';
+  $self->{_decl_pos} = $arg{decl_pos};
   return ( $self, 'extension', $self->_init(%arg) );
 }
 
@@ -51,7 +53,7 @@ sub MAJOR_NUMBER {
 }
 
 sub decl_pos {
-  return;
+  return $_[0]->{_decl_pos}
 }
 
 sub write {

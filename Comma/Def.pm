@@ -21,7 +21,7 @@
 ##
 
 package XML::Comma::Def;
-use XML::Comma::Util qw( dbg trim name_and_args_eval );
+use XML::Comma::Util qw( dbg trim name_and_args_eval array_includes );
 
 @ISA = qw( XML::Comma::NestedElement
            XML::Comma::Configable
@@ -36,6 +36,7 @@ use strict;
 
 # _Def_indexes                : {} hashref {_Def_indexes}->{name} = $index
 # _Def_storages               : {} hashref {_Def_storages}->{name} = $storage
+# _Def_macro_names            : [] arrayref listing macros applied
 # _Def_plural                 : {} an existence hashref
 # _Def_ignore_for_hash        : {} an existence hashref
 # _Def_required               : {} an existence hashref
@@ -74,9 +75,9 @@ sub new {
 
 sub _init {
   my ( $self, %arg ) = @_;
-  $self->{_Def_methods} = {};
   $self->{_Def_plural} = {};
   $self->{_Def_required} = {};
+  $self->{_Def_macro_names} = [];
   $self->allow_hook_type ( 'read_hook',
                            'document_write_hook',
                            'validate_hook',
@@ -148,8 +149,10 @@ sub finish_initial_read {
   # the storages and methods creation routines should
   # be done specially, rather than as part of the _config__ stuff,
   # to avoid order-of-declaration errors.
-  $self->_create_indexes();
-  $self->_create_storages();
+  if ( $self->tag() eq 'DocumentDefinition' ) {
+    $self->_create_indexes();
+    $self->_create_storages();
+  }
   $self->_config_dispatcher();
 }
 
@@ -295,6 +298,20 @@ sub _config__macro {
   # of arguments to the macro
   scalar ( eval XML::Comma::DefManager->macro_string($macro_name) ) ||
     die "error during macro '$macro_name' eval: $@\n";
+  push @{$self->{_Def_macro_names}}, $macro_name;
+}
+
+sub applied_macros {
+  my ( $self, @mnames ) = @_;
+  if ( @mnames ) {
+    foreach ( @mnames ) {
+      return  unless
+        XML::Comma::Util::array_includes ( @{$self->{_Def_macro_names}}, $_ );
+    }
+    return 1;
+  } else {
+    return @{$self->{_Def_macro_names}};
+  }
 }
 
 sub _config__document_write_hook {
@@ -454,6 +471,46 @@ sub def_sub_elements {
   return ( $_[0]->elements('element','nested_element','blob_element') );
 }
 
+
+########
+#
+# method methods -- override these from AbstractElement to point at
+# ourself, not at our def...
+#
+# note that methods called this way get the Def as their $self, not a
+# Doc. for many methods this won't matter, but it might be a good FAQ
+# entry. also, it would be good to unify the code for Def->method and
+# Doc->method, although (I think) that would require another layer of
+# indirection.
+#
+########
+
+sub method {
+  my ( $self, $name, @args ) = @_;
+  my $method = $self->get_method ( $name );
+  if ( $method ) {
+    my $return; my @return;
+    if ( wantarray ) {
+      @return = eval { $method->( $self, @args ); };
+    } else {
+      $return = eval { $method->( $self, @args ); };
+    }
+    if ( $@ ) {
+      XML::Comma::Log->err ( 'METHOD_ERROR',
+                             "'$name' call threw error: $@" );
+    }
+    return wantarray ? @return : $return;
+  } else {
+    XML::Comma::Log->err ( 'NO_SUCH_METHOD',
+                           "no method '$name' found in '" .
+                           $self->tag_up_path() . "'" );
+  }
+}
+
+sub method_code {
+  my ( $self, $name ) = @_;
+  return $self->get_method ( $name );
+}
 
 
 ##

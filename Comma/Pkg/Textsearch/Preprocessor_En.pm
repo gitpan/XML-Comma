@@ -22,20 +22,34 @@
 
 package XML::Comma::Pkg::Textsearch::Preprocessor_En;
 
+use XML::Comma::Pkg::Textsearch::Preprocessor;
 use Lingua::Stem;
-
 use strict;
-
 use XML::Comma::Util qw( dbg );
 
 my %Preprocessor_Stopwords;
+my $max_length = $XML::Comma::Pkg::Textsearch::Preprocessor::max_word_length;
 
-# usage: @list_of_words = XML::Comma::Pkg::Textsearch::Preprocessor->stem($text)
 sub stem {
   my %dups;
   return grep { ! defined $Preprocessor_Stopwords{$_} }
-    grep { $_ and (! $dups{$_} ++) and (length($_) <= 12) }
+    grep { $_ and (! $dups{$_} ++) and (length($_) <= $max_length) }
       @{Lingua::Stem::stem ( split(m:[\s\W]+:, $_[1]) )};
+}
+
+sub stem_and_count {
+  my %hash;
+  foreach ( @{Lingua::Stem::stem ( split(m:[\s\W]+:, $_[1]) )} ) {
+    unless ( defined $Preprocessor_Stopwords{$_} or
+             length($_) > $max_length ) {
+      $hash{$_}++;
+    }
+  }
+  return %hash;
+}
+
+sub is_stopword {
+  return defined $Preprocessor_Stopwords{$_[1]};
 }
 
 BEGIN {

@@ -52,7 +52,7 @@ sub set {
     # run set hooks
     unless ( $args{no_set_hooks} ) {
       foreach my $hook ( @{$self->def()->get_hooks_arrayref('set_hook')} ) {
-        $hook->( $self, \$content, %args );
+        $hook->( $self, \$content, \%args );
       }
     }
     # write out
@@ -88,7 +88,7 @@ sub set_from_file {
     # run set hooks
     foreach my $hook 
       ( @{$self->def()->get_hooks_arrayref('set_from_file_hook')} ) {
-        $hook->( $self, $filename, %args );
+        $hook->( $self, $filename, \%args );
       }
     $self->{_Blob_location} =
       $self->{Doc_storage}->{store}->copy_to_blob
@@ -193,6 +193,14 @@ sub finish_initial_read {
   }
   $_[0]->{_Blob_location} = $2;
   $_[0]->SUPER::finish_initial_read();
+}
+
+
+#
+# on deletion, erase backing store
+#
+sub call_on_delete {
+  $_[0]->set();
 }
 
 1;

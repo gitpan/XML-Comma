@@ -126,7 +126,9 @@ sub erase {
 
 sub output_ok {
   my ( $r, $string ) = @_;
+  $r->status ( 200 );
   $r->content_type ( "text/plain" );
+  $r->send_http_header();
   $r->print ( $string );
   return OK;
 }
@@ -134,6 +136,8 @@ sub output_ok {
 
 sub output_not_ok {
   my ( $r, $string ) = @_;
+  $r->status ( 500 );
+  $r->send_http_header();
   $r->log_error ( $string );
   return SERVER_ERROR;
 }

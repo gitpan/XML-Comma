@@ -41,6 +41,7 @@ sub decl_pos {
 sub new {
   my ( $class, %args ) = @_;
   my $self = {}; bless ( $self, $class );
+  $self->{_decl_pos} = $args{decl_pos};
   return ( $self );
 }
 

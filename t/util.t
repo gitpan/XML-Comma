@@ -1,6 +1,6 @@
 use strict;
 
-print "1..14\n";
+print "1..15\n";
 
 use XML::Comma::Util qw( trim
                          array_includes
@@ -9,6 +9,7 @@ use XML::Comma::Util qw( trim
                          flatten_arrayrefs
                          XML_basic_escape
                          XML_basic_unescape
+                         XML_smart_escape
                        );
 
 # flatten_arrayrefs
@@ -62,11 +63,14 @@ print "ok 10\n"  if  $str eq 'foo &amp; bar';
 print "ok 11\n"  if  XML_basic_unescape('foo &amp; bar') eq 'foo & bar';
 
 $str = XML_basic_escape ( 'foo &amp; bar' );
-print "ok 12\n"  if  $str eq 'foo &amp; bar';
+print "ok 12\n"  if  $str eq 'foo &amp;amp; bar';
+
+$str = XML_smart_escape ( '<foo>&amp;<bar>' );
+print "ok 13\n"  if  $str eq '&lt;foo&gt;&amp;&lt;bar&gt;';
 
 $str = XML_basic_escape ( '<foo>&amp;<bar>' );
-print "ok 13\n"  if  $str eq '&lt;foo&gt;&amp;&lt;bar&gt;';
-print "ok 14\n"  if  XML_basic_unescape('&lt;foo&gt;&amp;&lt;bar&gt;')
-  eq '<foo>&<bar>';
+print "ok 14\n"  if  $str eq '&lt;foo&gt;&amp;amp;&lt;bar&gt;';
+print "ok 15\n"  if  XML_basic_unescape( $str ) eq '<foo>&amp;<bar>';
+
 
 

@@ -22,6 +22,8 @@
 
 package XML::Comma::Bootstrap;
 
+$XML::Comma::VERSION = '1.09';
+
 use XML::Comma::Util qw( dbg trim );
 
 @ISA = ( 'XML::Comma::Def' );
@@ -146,6 +148,8 @@ sub bootstrap_block {
   <element><name>plural</name></element>
   <element><name>required</name></element>
 
+  <element><name>macro</name></element>
+
   <element><name>read_hook</name></element>
   <element><name>validate_hook</name></element>
   <element><name>document_write_hook</name></element>
@@ -162,11 +166,12 @@ sub bootstrap_block {
   <nested_element>
     <name>element</name>
     <element><name>name</name></element>
-    <element><name>def_hook</name></element>
+    <element><name>ignore_for_hash</name></element>
     <nested_element>
       <name>method</name>
       <defname>DocumentDefinition:method</defname>
     </nested_element>
+    <element><name>def_hook</name></element>
     <element><name>read_hook</name></element>
     <element><name>validate_hook</name></element>
     <element><name>set_hook</name></element>
@@ -186,13 +191,14 @@ sub bootstrap_block {
   <nested_element>
     <name>blob_element</name>
     <element><name>name</name></element>
-    <element><name>extension</name></element>
-    <element><name>def_hook</name></element>
-    <element><name>validate_hook</name></element>
+    <element><name>ignore_for_hash</name></element>
     <nested_element>
       <name>method</name>
       <defname>DocumentDefinition:method</defname>
     </nested_element>
+    <element><name>extension</name></element>
+    <element><name>def_hook</name></element>
+    <element><name>validate_hook</name></element>
     <element><name>macro</name></element>
     <element><name>read_hook</name></element>
     <element><name>set_hook</name></element>
@@ -212,13 +218,12 @@ sub bootstrap_block {
     <name>nested_element</name>
     <element><name>name</name></element>
     <element><name>defname</name></element>
-
+    <element><name>ignore_for_hash</name></element>
     <element><name>def_hook</name></element>
     <element><name>read_hook</name></element>
     <element><name>macro</name></element>
     <element><name>plural</name></element>
     <element><name>required</name></element>
-    <element><name>ignore_for_hash</name></element>
     <element><name>validate_hook</name></element>
     <element><name>sort_sub</name></element>
 
@@ -248,7 +253,6 @@ sub bootstrap_block {
       'macro',
       'plural',
       'required',
-      'ignore_for_hash',
       'validate_hook',
       'element',
       'blob_element',
@@ -314,11 +318,16 @@ sub bootstrap_block {
         <name>type</name>
         <default>stringified</default>
       </element>
+      <element>
+        <name>sql_type</name>
+        <default>VARCHAR(245)</default>
+      </element>
       <nested_element>
         <name>clean</name>
         <element><name>to_size</name></element>
         <element><name>order_by</name></element>
         <element><name>size_trigger</name></element>
+        <element><name>erase_where_clause</name></element>
       </nested_element>
       <required>'name'</required>
     </nested_element>
@@ -347,7 +356,7 @@ sub bootstrap_block {
       <element>
         <name>which_preprocessor</name>
         <default>
-          sub { return 'XML::Comma::Pkg::Textsearch::Preprocessor' }
+          sub { return 'XML::Comma::Pkg::Textsearch::Preprocessor_En'; }
         </default>
       </element>
       <element><name>defer_on_update</name></element>
@@ -401,13 +410,13 @@ sub bootstrap_block {
             'nested_element',
             'blob_element',
             'method',
+            'macro',
             'store',
             'index',
             'read_hook',
             'document_write_hook',
             'plural',
             'required',
-            'ignore_for_hash',
             'validate_hook',
   </plural>
 

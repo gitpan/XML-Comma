@@ -41,7 +41,7 @@ use XML::Comma::SQL::DBH_User;
 use XML::Comma::SQL::Base;
 use XML::Comma::Indexing::Iterator;
 use XML::Comma::Indexing::Clean;
-use XML::Comma::Pkg::Textsearch::Preprocessor;
+use XML::Comma::Pkg::Textsearch::Preprocessor_En;
 
 use strict;
 
@@ -61,7 +61,6 @@ BEGIN {
 
 
 # _Index_doctype
-# _Index_storage_type
 
 # _Index_data_table_name  : cached data table name
 # _Index_collection_table_names : {} cache of sort_spec name pairs
@@ -568,10 +567,10 @@ sub rebuild {
     print "done re-indexing...\n";
     print "deleting entries not added by rebuild...\n";
   }
-  sql_delete_where_comma_flags ( $self,
+  sql_delete_where_comma_flags ( $self->get_dbh(),
                                  $self->data_table_name(),
                                  $rebuild_flag );
-  sql_clear_all_comma_flags ( $self, $self->data_table_name() );
+  sql_clear_all_comma_flags ( $self->get_dbh(), $self->data_table_name() );
   sql_unset_all_table_comma_flags ( $self );
   print "cleaning...\n"  if  $args{verbose};
   # complete clean will get rid of entries in sort tables that are not
@@ -677,8 +676,10 @@ sub clean {
   my $clean_element;
 
   if ( $table_name ) {
-    my ( $sort_name, $sort_string ) =
-      $self->split_sort_spec ( sql_get_sort_spec_for_table($self,$table_name) );
+    my $sort_spec = sql_get_sort_spec_for_table ( $self, $table_name );
+    my ( $sort_name, $sort_string ) = $self->split_sort_spec ( $sort_spec );
+    # quote the sort_spec because it might have spaces (yech, blech)
+    $sort_spec = "'$sort_spec'";
     # needs to have a clean defined, with a 'to_size'
     my $sort = $self->get_collection ( $sort_name );
     #dbg 'doing clean for' , $table_name, $sort_name, $sort_string;
@@ -688,10 +689,15 @@ sub clean {
       if  ! $clean_element->to_size();
     XML::Comma::Indexing::Clean->
         init_and_cast ( element => $clean_element,
-                        index => $self,
-                        sort_name => $sort_name,
-                        sort_string => $sort_string,
-                        table_name => $table_name )->clean();
+                        doctype => $self->{_Index_doctype},
+                        index_name => $self->name(),
+                        dbh => $self->get_dbh(),
+                        order_by =>
+                          $clean_element->element('order_by')->get() ||
+                            $self->element('default_order_by')->get(),
+                        sort_spec => $sort_spec,
+                        table_name => $table_name,
+                        data_table_name => $self->data_table_name() )->clean();
   } else {
     # clean everything
     eval {
@@ -705,8 +711,14 @@ sub clean {
       my @bctns = sql_get_bcollection_table($self);
       XML::Comma::Indexing::Clean->
           init_and_cast ( element => $clean_element,
-                          index => $self,
+                          doctype => $self->{_Index_doctype},
+                          index_name => $self->name(),
+                          dbh => $self->get_dbh(),
+                          order_by =>
+                            $clean_element->element('order_by')->get() ||
+                              $self->element('default_order_by')->get(),
                           table_name => $table_name,
+                          data_table_name => $table_name,
                           bcollection_table_names => \@bctns )->clean();
       # now loop through and call ourself again to clean everything else
       foreach my $table ( sql_get_sort_tables($self) ) {
@@ -714,7 +726,7 @@ sub clean {
       }
     }; if ( $@ ) {
       my $error = $@;
-      eval { sql_clear_all_comma_flags ( $self, 'index_tables' ); };
+      eval { sql_clear_all_comma_flags ( $self->get_dbh(), 'index_tables' ); };
       die "error while doing a complete clean: $error\n";
     }
   }
@@ -1084,17 +1096,20 @@ sub _check_db {
   # starting up together from stepping on each other as they try to
   # create the necessary index tables.
   XML::Comma::lock_singlet()->wait_for_hold ( "CHECKDB_HOLD" );
-  # go ahead and try to create the index_tables table -- we'll just
-  # assume that any error the database throws is just letting us know
-  # that there's already a table here.
-  eval { sql_create_index_tables_table($self); };
-  #if ( $@ ) { warn "$@\n"; }
+  eval {
+    # go ahead and try to create the index_tables table -- we'll just
+    # assume that any error the database throws is just letting us know
+    # that there's already a table here.
+    eval { sql_create_index_tables_table($self); };
+    #if ( $@ ) { warn "$@\n"; }
 
-  # see if there is an entry for this index's data table.
-  my $old_def = _get_def_from_db ( $self );
-  $self->_check_tables ( $old_def );
-  # finally, release the hold.
+    # see if there is an entry for this index's data table.
+    my $old_def = _get_def_from_db ( $self );
+    $self->_check_tables ( $old_def );
+    # finally, release the hold.
+  }; my $err = $@;
   XML::Comma::lock_singlet()->release_hold ( "CHECKDB_HOLD" );
+  if ( $err ) { die $err; };
 }
 
 sub _get_def_from_db {
@@ -1191,7 +1206,7 @@ sub _check_collections {
     next  if  $type eq 'many tables';
     unless ( defined $new_collections{$name} and
              $type eq $new_collections{$name}->element('type')->get() ) {
-      # dbg 'dropping old collection', $name, $type;
+      #dbg 'dropping old collection', $name, $type, $sql_type;
       if ( $type eq 'stringified' ) {
         sql_alter_data_table_drop_or_modify ( $self, $name );
       } elsif ( $type eq 'binary table' ) {
@@ -1206,11 +1221,11 @@ sub _check_collections {
     next  if  $type eq 'many tables';
     unless ( defined $old_collections{$name} and
              $type eq $old_collections{$name}->element('type')->get() ) {
-      # dbg 'adding new collection', $name, $type;
+      #dbg 'adding new collection', $name, $type, $sql_type;
       if ( $type eq 'stringified' ) {
         sql_alter_data_table_add_collection ( $self, $name );
       } elsif ( $type eq 'binary table' ) {
-        sql_create_bcollection_table ( $self, $name );
+        sql_create_bcollection_table ( $self, $name, $el );
       }
     }
   }
@@ -1320,16 +1335,13 @@ sub _create_new_data_table {
     if ( $type eq 'stringified' ) {
       sql_alter_data_table_add_collection ( $self, $name );
     } elsif ( $type eq 'binary table' ) {
-      sql_create_bcollection_table ( $self, $name );
+      sql_create_bcollection_table ( $self, $name, $collection );
     }
   }
   foreach my $sql_index ( $self->elements('sql_index') ) {
     sql_alter_data_table_add_index ( $self, $sql_index );
   }
   if ( ! $existing_table_name ) {
-    foreach my $collection ( $self->elements('bcollection') ) {
-      sql_create_bcollection_table ( $self, $collection );
-    }
     foreach my $textsearch ( $self->elements('textsearch') ) {
       sql_create_textsearch_tables ( $self, $textsearch );
     }
@@ -1337,18 +1349,8 @@ sub _create_new_data_table {
 }
 
 sub DESTROY {
-  my $self = shift;
-  # kludge: remove all 'clean' elements, because any that have been
-  # _init_and_cast'ed will contain back-references to us. yuck -- fix
-  # this architecture.
-  my @elements = $self->elements('clean');
-  arrayref_remove ( $self->{_nested_elements}, @elements );
-  foreach my $el ( @elements ) {
-    arrayref_remove ( $self->{_nested_lookup_table}->{$el->tag()}, $el );
-  }
-
   # disconnect database handle
-  $self->disconnect();
+  $_[0]->disconnect();
 }
 
 

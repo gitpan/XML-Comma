@@ -33,6 +33,8 @@ require Exporter;
   flatten_arrayrefs
   XML_basic_escape
   XML_basic_unescape
+  XML_smart_escape
+  XML_bare_amp_escape
   dbg
   name_and_args_eval
   random_an_string
@@ -55,6 +57,8 @@ sub array_includes (\@$) {
   my $arrayref = shift();
   my $string = shift();
   foreach ( @$arrayref ) {
+    #print "array includes: $string, $_\n";
+    next unless defined $_; # defensive programming to avoid warnings
     return 1  if  $string eq $_;
   }
   return;
@@ -95,13 +99,11 @@ sub flatten_arrayrefs {
 
 
 # XML escapes & < >
-# Smart about escaping ampersands (&'s) only when it's needed
 sub XML_basic_escape {
   my $string = shift;
-  # escape & only if it's not already part of an entity encoding. (we look
-  # for entities that have 1-15 word-constituent letters between an & and a ; .)
-  $string =~ s/&(?!\w{1,15};)/&amp;/g;
-  # escape < > " '
+  # escape &
+  $string =~ s/\&/&amp;/g;
+  # escape < >
   $string =~ s/</\&lt;/g ;
   $string =~ s/>/\&gt;/g ;
   return $string;
@@ -112,6 +114,25 @@ sub XML_basic_unescape {
   $string =~ s/\&amp;/&/g ;
   $string =~ s/\&lt;/</g ;
   $string =~ s/\&gt;/>/g ;
+  return $string;
+}
+
+# XML escapes & < > -- Tries to be smart about escaping ampersands
+# (&'s) only when they're not part of an entity encoding.
+sub XML_smart_escape {
+  my $string = XML_bare_amp_escape ( shift );
+  # escape < > " '
+  $string =~ s/</\&lt;/g ;
+  $string =~ s/>/\&gt;/g ;
+  return $string;
+}
+
+# escape all ampersands that don't seem to be part of an entity encoding
+sub XML_bare_amp_escape {
+  my $string = shift;
+  # look for orphan amps, assume that entities that have 1-12
+  # word-constituent letters between an & and a ;
+  $string =~ s/\&(?!\w{1,15};)/&amp;/g;
   return $string;
 }
 

@@ -1,11 +1,45 @@
+use Date::Calc  qw();
+use Time::Local qw();
+use POSIX       qw();
+
 $self->add_hook ( 'validate_hook',
 
   sub {
     my ( $doc, $content ) = @_;
-    #dbg "mac", $self, $doc, $content;
-    if ( $content !~ /^\d{4}\d{2}\d{2}$/ ) {
-      die "$content is not 8 digits\n";
-    };
+    return  if  $content =~ /^(\d{4})(\d{2})(\d{2})$/  and
+      Date::Calc::check_date ( $1, $2, $3 );
+    die "not a valid date\n";
   }
 
 );
+
+$self->add_method ( 'days_add',
+                    sub {
+                      $_[0]->get() =~ /^(\d{4})(\d{2})(\d{2})$/;
+                      my ($y, $m, $d) = ( $1, $2, $3 );
+                      my $time = Time::Local::timegm ( 0, 0, 0, $d, $m-1, $y );
+                      my $seconds_offset = 86400 * ( $_[1] || 0 );
+                      my $new_time = $time + $seconds_offset;
+                      my @tm = gmtime ( $new_time );
+                      return ($tm[5]+1900) .
+                        substr("00".($tm[4]+1),-2) .
+                          substr("00".$tm[3],-2);
+                    } );
+
+
+$self->add_method ( 'today',
+                    sub {
+                      my $day_offset = $_[1] || 0;
+                      my @tm = gmtime ( time() + $day_offset * 86400 );
+                      return ($tm[5]+1900) .
+                        substr("00".($tm[4]+1),-2) .
+                          substr("00".$tm[3],-2);
+                    } );
+
+$self->add_method ( 'diff_today',
+                    sub {
+                      $_[0]->get() =~ /^(\d{4})(\d{2})(\d{2})$/;
+                      my ($y, $m, $d) = ( $1, $2, $3 );
+                      my $time = Time::Local::timegm ( 0, 0, 0, $d, $m-1, $y );
+                      return POSIX::floor ( (time() - $time) / 86400 );
+                    } );

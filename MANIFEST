@@ -25,6 +25,8 @@ Comma/Pkg/Transfer/HTTP_Upload/defs/HTTP_Upload_Config.def
 Comma/Pkg/Textsearch/Preprocessor.pm
 Comma/Pkg/Textsearch/Preprocessor_En.pm
 Comma/Pkg/Textsearch/Preprocessor_Sp.pm
+Comma/Pkg/Textsearch/Preprocessor_Fr.pm
+Comma/Pkg/MySQL_Simple_Lock.pm
 Comma/SQL/Base.pm
 Comma/SQL/DBH_User.pm
 Comma/SQL/Lock.pm
@@ -40,6 +42,7 @@ Comma/Storage/Location/GMT_3layer_dir.pm
 Comma/Storage/Location/Read_only_file.pm
 Comma/Storage/Location/Sequential_dir.pm
 Comma/Storage/Location/Sequential_file.pm
+Comma/Storage/Location/SequentialCheck_file.pm
 Comma/Storage/Location/location_modules.doc
 Comma/Storage/Output/Gzip.pm
 Comma/Storage/Output/Twofish.pm
@@ -75,6 +78,7 @@ t/defs/_test_read_only.def
 t/defs/macros/boolean.macro
 t/defs/macros/date_8.macro  
 t/defs/macros/enum.macro  
+t/defs/macros/integer.macro  
 t/defs/macros/range.macro  
 t/defs/macros/unix_time.macro
 t/defs/standard/Comma_Standard_Image.def

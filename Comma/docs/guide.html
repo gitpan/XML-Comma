@@ -743,11 +743,21 @@ is handled by the <b>elements_group_delete()</b> method. Again, the
 first argument supplies a <i>name</i> and the remainder of the
 arguments specify content strings. If the content of an element
 matches one of the supplied strings, that element will be
-deleted. (Any strings that are not matched will be ignored.) </p>
+deleted. (Any strings that are not matched will be ignored.) If
+<b>elements_group_delete</b> is only given the first, <i>name</i>,
+argument, then all elements in the group are deleted. This provides a
+convenient idiom for clearing and re-setting an elements group.</p>
 
 <pre>
 # remove the nicknames we just added (wrong movie)
 $doc-&gt;elements_group_delete ( 'nickname', 'Sneezy', 'Forgetful' );
+
+# remove all the nicknames and replace them with a list of nicknames we
+# get back from a couple of subroutine calls
+my @new_nicknames = Television::Stooges::nicknames();
+push @new_nicknames, Usenet::Rec::Humor::Stooges::FanFiction::nicknames();
+$doc->elements_group_delete ( 'nickname' );
+$doc->elements_group_add_uniq ( 'nickname', @new_nicknames );
 </pre>
 
 <p> To query a group for the presence of a particular piece of
@@ -1092,22 +1102,21 @@ my $doc = XML::Comma::Doc->new ( type=>'User' );
 $doc->element('username')->set ( 'kwindla' );
 $doc->element('email')->set ( 'kwindla@xymbollab.com' );
 # write this Doc out to the "main" permanent store
-my $key = $doc->store ( store => 'main' );
+my $key = $doc->store ( store => 'main' )->doc_key();
 # now read the Doc back in, manipulate it, and store it back out to the same place
 my $d2 = XML::Comma::Doc->retrieve ( $key );
 $d2->element('full_name')->set ( 'Kwindla Hultman Kramer' );
 $d2->store();
 </pre>
 
-<p> There are two new methods here -- <b>store()</b> and
-<b>retrieve()</b>. There is also a new concept -- the document
-<b>key</b>. </p>
+<p> There are three new methods here -- <b>store()</b>,
+<b>retrieve()</b>, and <b>doc_key</b>.
 
 <p> The <b>store()</b> method writes a Doc out to permanent storage. A
 <b>store => &lt;name&gt;</b> argument must be supplied the first time
 the method is called on a new Doc, to specify which of the stores in
-the Def will be used. The <b>store()</b> method returns a unique
-identifier for the stored Doc, called a <b>key</b>. </p>
+the Def will be used. The <b>store()</b> method re-returns a reference
+to the Doc, so that you can chain method calls together easily. The <b>doc_key</b> method returns a unique, long-term identifier for the stored Doc. </p>
 
 <p> The <b>retrieve()</b> method fetches a Doc out of storage, and
 expects to be supplied a document <b>key</b> as its argument. </p>
@@ -1165,12 +1174,13 @@ previous example); it is also happy to accept separate, parameterized
 arguments supplying a type, store name and Doc id, which is what we've
 done here. </p>
 
-<p> The other two new methods here are <b>doc_key()</b>, which returns
-this Doc's key, and <b>doc_location()</b> which returns the underlying
-file that this Doc was fetched from. It is worth noting that
-<b>doc_location()</b> is rarely used in the course of "normal" Doc
-manipulation, because Comma handles all of the underlying filesystem
-tasks that are part of ordinary storage, retrieval and the like. </p>
+<p> Again, we see the <b>doc_key()</b> method, which returns this
+Doc's key, and a new method, <b>doc_location()</b>, which returns the
+underlying file that this Doc was fetched from. It is worth noting
+that <b>doc_location()</b> is rarely used in the course of "normal"
+Doc manipulation, because Comma handles all of the underlying
+filesystem tasks that are part of ordinary storage, retrieval and the
+like. </p>
 
 <p> There are other "doc_foo()" methods, including <b>doc_store()</b>
 which returns a reference to the store that was used to fetch or store
@@ -2013,8 +2023,9 @@ my $index = XML::Comma::Def-&gt;read(name=&gt;'User')-&gt;get_index ('main');
 # get iterator
 my $i = $index-&gt;iterator();
 # iterate, printing out "$key: $email"
-while ( $i++ ) {
+while ( $i ) {
   print $i-&gt;doc_key() . ': ' . $i-&gt;email() . "\n";
+  $i++;
 }
 </pre>
 
@@ -2089,6 +2100,13 @@ while ( $i ) {
   $i++;
 }
 </pre>
+
+<p> <b>NOTE</b> -- there is a bug in perl 5.6.x and 5.8.0 that makes
+the first (and most compact) idiom above leak memory. The iterator
+object won't get properly garbage collected, when the
+<code>while()</code> look is written like that. This can be a big
+problem in long-running contexts (such as inside a web server. For any
+long-running code, use one of the more verbose forms. </p>
 
 <p> Of course, an iterator that steps through all of the records in an
 index is not usually what you want. The <b>iterator()</b> method
@@ -2371,16 +2389,42 @@ my $i = $index-&gt;iterator ( textsearch_spec=&gt;'addresses_text:elm springfiel
 
 <p> As the comments in the above example imply, the textsearch
 subsystem includes a "preprocessor" interface that allows words to be
-stemmed and pruned before indexing. There are currently two
-preprocessors in the standard distribution, one for English and one
-for Spanish. The English module is used by default. It includes a stop
-list of roughly 500 words, and relies on Lingua::Stem to do its
-stemming. The <b>which_preprocessor</b> element is available to
-control which preprocessor is used to prepare a document for indexing:
-<b>which_preprocessor</b> should define a sub that will be passed
-three arguments -- the active $doc, $index and $textsearch objects --
-and must return the name of the package that should be used. Here is a
-typical example: </p>
+stemmed and pruned before indexing. The preprocessor defaults to
+<b>XML::Comma::Pkg::Textsearch::Preprocessor_En</b>, which handles
+English text. It includes a stop list of roughly 500 words, and relies
+on the CPAN module <b>Lingua::Stem</b> to do its stemming. </p>
+
+<p> There are currently two other preprocessors in the standard
+distribution, <b>Preprocessor_Fr</b> for French and
+<b>Preprocessor_Sp</b> for Spanish. If you are only handling
+English-language content, you can skip the next three code examples,
+which detail how to specify Preprocessors other than
+<b>Preprocessor_En</b>. </p>
+
+<p> A textsearch's <b>which_preprocessor</b> element controls which
+preprocessor will be used: <b>which_preprocessor</b> should define a
+sub that will be passed some combination of four arguments -- an
+active $doc; $index and $textsearch objects; and a search "attribute."
+The sub must return the name of the Preprocessor package that should
+be used. Here is a typical example: </p>
+
+<pre>
+  &lt;textsearch&gt;
+    &lt;name&gt;body_text&lt;/name&gt;
+    &lt;which_preprocessor&gt;
+      sub { return 'XML::Comma::Pkg::Textsearch::Preprocessor_Fr'; }
+    &lt;/which_preprocessor&gt;
+  &lt;/textsearch&gt;
+</pre>
+
+<p> Not much to it. </p>
+
+<p> Things get somewhat more complex when we have to choose between
+multiple pre-processors on the fly. A Preprocessor is used in two
+different contexts: 1) when a doc is indexed, and 2) when a search is
+performed. The routine below uses the $doc argument to determine what
+Preprocessor to use in the former case, and the $attribute argument in
+the latter. </p>
 
 <pre>
   &lt;textsearch&gt;
@@ -2390,8 +2434,8 @@ typical example: </p>
         use XML::Comma::Pkg::Textsearch::Preprocessor_En;
         use XML::Comma::Pkg::Textsearch::Preprocessor_Sp;
         sub {
-          my ( $doc, $index, $ts ) = @_;
-          if ( $doc-&gt;lang_code() eq 'sp' ) {
+          my ( $doc, $index, $ts, $attribute ) = @_;
+          if ( $doc-&gt;lang_code() eq 'sp'  or  $attribute eq 'sp' ) {
             return 'XML::Comma::Pkg::Textsearch::Preprocessor_Sp';
           } else {
             return 'XML::Comma::Pkg::Textsearch::Preprocessor_En';
@@ -2401,6 +2445,19 @@ typical example: </p>
     &lt;/which_preprocessor&gt;
   &lt;/textsearch&gt;
 </pre>
+
+<p> The <b>$attribute</b> argument's value comes from the
+<b>textsearch_spec</b>, which has a special form for just this
+purpose: </p>
+
+<pre>
+# look up a word in the index, stemmed by the Spanish pre_processor
+my $i = $index-&gt;iterator ( textsearch_spec=&gt;'body_text{sp}:lobos' );
+</pre>
+
+<p> The extra bit of text after the textsearch name, enclosed in curly
+brackets, is stripped off and passed as the <b>$attribute</b> to the
+<b>which_preprocessor</b> sub. </p>
 
 <p> The back end of the <b>textsearch</b> facility is currently
 implemented on top of, and as part of, the Comma database-specific
@@ -2758,16 +2815,24 @@ to type: </p>
 <p> The <b>doc_id_sql_type</b> element can be used to specify the SQL
 type for the columns that store the <b>doc_id</b> parts of
 records. This also defaults to <b>VARCHAR(255)</b>, and that's usually
-fine, but for particular efficiency it too can be changed. Another
-rarely-used specifier is the <b>store</b> element. By convention, an
-index shares its name with the store to which it is bound (remember,
-an index can only hold information about documents from a single
-store). But the convention is sometimes too restrictive -- for
-example, two indexes using the same store obviously can't have the
-same name. The <b>store</b> element allows an index to explicitly
-state with which store it is associated. Here is an index definition
-that uses both the <b>store</b> and <b>doc_id_sql_type</b> specifiers:
-</p>
+fine, but for particular efficiency it too can be changed. <b>NOTE:
+</b> unlike most other index elements, the <b>doc_id_sql_type</b> for
+an index should not be altered after an index is created the first
+time. If you need to change the <b>doc_id_sql_type</b>, you'll need to
+drop and rebuild the index. Collections can also specify a
+<b>sql_type</b>, which will be used only by 'binary table' type
+collections. Like the <b>doc_id_sql_type</b>, this specifier should
+not be changed for an existing index. </p>
+
+<p> Another rarely-used specifier is the
+<b>store</b> element. By convention, an index shares its name with the
+store to which it is bound (remember, an index can only hold
+information about documents from a single store). But the convention
+is sometimes too restrictive -- for example, two indexes using the
+same store obviously can't have the same name. The <b>store</b>
+element allows an index to explicitly state with which store it is
+associated. Here is an index definition that uses both the
+<b>store</b> and <b>doc_id_sql_type</b> specifiers: </p>
 
 <pre>
 &lt;index&gt;
@@ -3043,16 +3108,20 @@ cleanup phase. </p>
 
 <p>Three types of hooks are available to run during store
 operations. Just before a document is stored, each defined
-<b>pre_store_hook</b> runs. Two arguments are passed: the doc being
-stored and (though this is rarely needed) the store definition. If any
+<b>pre_store_hook</b> runs. Three arguments are passed: the doc being
+stored and (though these are rarely needed) the store definition and a
+hashref containing the args that were passed to the original store()
+call. (This access to the original %args allows hook code to take
+actions based on programmer-defined args. You can pass anything you
+want as part of the store args -- its completely open-ended. ) If any
 of the <b>pre_store_hooks</b> <code>die</code> then the store
 operation is aborted, the remaining hooks are ignored, and a
 <code>STORE_ERROR</code> is thrown. </p>
 
 <p> Just after a doc is stored, each defined <b>post_store_hook</b>
-runs, again taking the doc in question and the store definition as its
-arguments. Every <b>post_store_hook</b> runs and any errors that are
-thrown are ignored. </p>
+runs, again taking the doc in question, the store definition and the
+args hashref as its arguments. Every <b>post_store_hook</b> runs and
+any errors that are thrown are ignored. </p>
 
 <p> As a side note: very occasionally you may want to modify the doc
 itself inside a <b>post_store_hook</b>, and then to save those
@@ -3842,20 +3911,21 @@ throws an error, the update halts and the call to
 propogated, however). This hook is passed the doc that is the source
 of the update and the index object as its two arguments. </p>
 
-<p> <b>post_store_hook ( $doc, $store )</b> -- any store. This hook is
-run at the very end of a store operation (triggered by doc
-<b>store()</b>, <b>move()</b>, and <b>copy()</b> methods). All hooks
-are run, then the doc is unlocked, then -- if necessary -- the first
-of any errors that might have been encountered as the hooks were run
-is thrown. This hook is passed the doc being stored and the store
-object as its arguments. </p>
+<p> <b>post_store_hook ( $doc, $store, \%store_arguments )</b> -- any
+store. This hook is run at the very end of a store operation
+(triggered by doc <b>store()</b>, <b>move()</b>, and <b>copy()</b>
+methods). All hooks are run, then the doc is unlocked, then -- if
+necessary -- the first of any errors that might have been encountered
+as the hooks were run is thrown. This hook is passed the doc being
+stored and the store object as its arguments. </p>
 
-<p> <b>pre_store_hook ( $doc, $store )</b> -- any store. This type of
-hook is run at the very beginning of a store operation (triggered by
-doc <b>store()</b>, <b>move()</b>, and <b>copy()</b> methods). If any
-<b>pre_store_hook</b> throws an error, the store operation is aborted
-and a <code>STORE_ERROR</code> is propogated. This hook is passed the
-doc being stored and the store object as its arguments. </p>
+<p> <b>pre_store_hook ( $doc, $store, \%store_arguments )</b> -- any
+store. This type of hook is run at the very beginning of a store
+operation (triggered by doc <b>store()</b>, <b>move()</b>, and
+<b>copy()</b> methods). If any <b>pre_store_hook</b> throws an error,
+the store operation is aborted and a <code>STORE_ERROR</code> is
+propogated. This hook is passed the doc being stored and the store
+object as its arguments. </p>
 
 <p> <b>stop_rebuild_hook ( $doc, $index )</b> -- any index. This hook
 is run during an index <b>rebuild()</b>, after each doc is
@@ -3876,7 +3946,7 @@ operation is halted and a <code>BAD_CONTENT</code> or
 two arguments: the element to which the hook is attached and (for
 non-nested elements) the content to be validated. </p>
 
-<p> <b>set_hook ( $element, $content_reference, %set_arguments )</b>
+<p> <b>set_hook ( $element, $content_reference, \%set_arguments )</b>
 -- non-nested elements and blob elements. This hook is triggered by a
 call to an element's <b>set()</b> method. Any <b>set_hook</b>s defined
 for an element is run after any <b>validate_hook</b>s and before the
@@ -3886,7 +3956,7 @@ second argument, a reference to the content that was passed to the
 necessary. If any <b>set_hook</b> dies, an error is thrown and the set
 is aborted. </p>
 
-<p> <b>set_from_file_hook ( $element, $filename, %set_arguments )</b>
+<p> <b>set_from_file_hook ( $element, $filename, \%set_arguments )</b>
 -- blob elements. This hook is exactly analagous to the
 <b>set_hook</b> described above, except that it is unique to blob
 elements, is triggered by the blob element <b>set_from_file()</b>
@@ -3914,6 +3984,10 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
   <li>XML::Comma
     <ul>
     <li>&lt;all configuration variables readable via methods&gt;</li>
+    <li>$lock_interface = XML::Comma->lock_singlet()</li>
+      <ul>
+      <li>undef = $lock_interface->wait_for_hold ( $string );</li>
+      <li>undef = $lock_interface->release_hold ( $string );</li></ul>
     </ul></li>
 
   <li>XML::Comma::Doc
@@ -3957,6 +4031,8 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>null = $el-&gt;set_attr ( $name =&gt; $value, [ $name =&gt; $value ... ] );</li>
     <li>$string = $el-&gt;get_attr ( $name );</li>
     <li>$hash_ref = $def-&gt;def_pnotes();</li>
+    <li>@names = $def-&gt;applied_macros();</li>
+    <li>1/undef = $def-&gt;applied_macros ( @names );</li>
     </ul></li>
 
   <li>blob elements
@@ -4012,8 +4088,17 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$hash_ref = $def-&gt;def_pnotes();</li>
     <li>$code_ref = $def-&gt;add_hook ( $hook_type, $string || $code_ref );</li>
     <li>$code_ref = $def-&gt;add_method ( $name, $string || $code_ref );</li>
-    <li>$code_ref || undef = $def-&gt;get_method ( $name );</li>
+    <li>$code_ref || undef = $def-&gt;method_code ( $name );</li>
+    <li>@return/[] = $def-&gt;method ( $name, @args );</li>
+    <li>@names = $def-&gt;applied_macros();</li>
+    <li>1/undef = $def-&gt;applied_macros ( @names );</li>
     <li>@els/[] = $def-&gt;def_sub_elements();</li>
+    <li>$el = $def-&gt;def_by_name ( $element_name );</li>
+    <li>1/undef = $def-&gt;is_required();</li>
+    <li>1/undef = $def-&gt;is_plural();</li>
+    <li>1/undef = $def-&gt;is_nested();</li>
+    <li>1/undef = $def-&gt;is_blob();</li>
+    <li>1/undef = $def-&gt;is_ignore_for_hash();</li>
     </ul></li>
 
   <li>XML::Comma::Indexing::Index
@@ -4091,6 +4176,8 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>@array = flatten_arrayrefs ( @arrays/[] [...] );</li>
     <li>$escaped_string = XML_basic_escape ( $string );</li>
     <li>$unescaped_string = XML_basic_unescape ( $string );</li>
+    <li>$escaped_string = XML_smart_escape ( $string );      # ignores entities</li>
+    <li>$escaped_string = XML_bare_amp_unescape ( $string ); # ditto</li>
     <li>'' = dbg ( @arrays/[] [...] );</li>
     <li>($name, @args) = name_and_args_eval ( $string );</li>
     <li>$string = random_an_string ( $length );</li>
@@ -4123,6 +4210,7 @@ table that has been created as part of an index's backing store. The fields are 
  <li>last_modified</li>
  <li>sort_spec</li>
  <li>textsearch</li>
+ <li>collection</li>
  <li>index_def</li>
 </ul>
 
@@ -4149,9 +4237,10 @@ table this is (see below). </p>
 <p> The <i>last_modified</i> field indicates when a table was last
 changed, but is currently not much used. </p>
 
-<p> Only one of the <i>sort_spec</i>, <i>textsearch</i> and
-<i>index_def</i> fields is used by any single record: these fields
-hold extra information relevant to the various kinds of tables. </p>
+<p> Only one of the <i>sort_spec</i>, <i>textsearch</i>,
+<i>collection</i> and <i>index_def</i> fields is used by any single
+record: these fields hold extra information relevant to the various
+kinds of tables. </p>
 
 <h2> Table Type 1: The Data Table </h2>
 

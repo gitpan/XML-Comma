@@ -1,11 +1,23 @@
--- note that init-and-casted Clean clements retain a pointer back to
-   the index. this could be one of the circular reference that's
-   causing global destruction to stumbledy-fall. Also, since
-   everything seems to segfault at the beginning of any -d:DProf
-   invocation, now, should we look to the DBH code as a possible
-   culprit?
+- improve and flexibilify "escape" functionality. perhaps: there
+  should be a short-cut element-level def tag that allows escape
+  behavior to be specified. the tag content should e a two-argument
+  list: first argument denoting escape and second argument denoting
+  unescape method. arguments will be turned into code refs,
+  somehow. defaults will remain XML_basic_escape and
+  XML_basic_unescape, BUT default behavior will change. If escaping is
+  specified in the Def, then escape=>1 becomes the default for set()
+  and unescape=>1 becomes the default for get(). 
 
--- document "distinct" iterator arg
+- file_permissions stuff should be part of the "location" arguments,
+  not a stand-alone element. there should be a file_group argument, to
+  go with file_permissions.
+
+- DON'T LET RESERVED METHOD NAMES BE USED AS ELEMENT NAMES
+
+- misspelled methods called on classes should throw more understandable errors:
+  ex 'XML::Comma::Doc->retrrieve( ... )'
+
+- document "distinct" iterator arg
 
 - add the "test existence of element without creating" construction to
   the FAQ (same as the "how many instances" construction.

@@ -112,23 +112,37 @@ sub method {
   my ( $self, $name, @args ) = @_;
   my $method = $self->def()->get_method ( $name );
   if ( $method ) {
-    return eval { $method->( $self, @args ); }; 
+    my $return; my @return;
+    if ( wantarray ) {
+      @return = eval { $method->( $self, @args ); };
+    } else {
+      $return = eval { $method->( $self, @args ); };
+    }
     if ( $@ ) {
       XML::Comma::Log->err ( 'METHOD_ERROR',
                              "'$name' call threw error: $@" );
     }
+    return wantarray ? @return : $return;
   } else {
     XML::Comma::Log->err ( 'NO_SUCH_METHOD',
                            "no method '$name' found in '" .
                            $self->tag_up_path() . "'" );
   }
-  print "here we are\n";
-  return undef;
 }
 
 sub method_code {
   my ( $self, $name ) = @_;
   return $self->def()->get_method ( $name );
+}
+
+
+##
+# convenience pointer to def->applied_macros()
+##
+
+sub applied_macros {
+  my $self = shift;
+  return $self->def()->applied_macros ( @_ );
 }
 
 
@@ -246,6 +260,16 @@ sub finish_initial_read {
   #delete ${$_[0]->{Doc_storage}}{read_args};
 }
 
+####
+#
+# call_on_delete() -- When an element is deleted from a NestedElement,
+# call this sub. Normally empty, but BlobElements, for example, need
+# to erase their underlying files.
+#
+####
+
+sub call_on_delete {
+}
 
 ##
 # Empty DESTROY: we don't want to autoload this

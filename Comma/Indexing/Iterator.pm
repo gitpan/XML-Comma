@@ -29,12 +29,16 @@ use XML::Comma::Util qw( dbg arrayref_remove );
 use strict;
 
 use overload bool => \&iterator_has_stuff,
-             '""' => sub { return $_[0] },
-             '++' => \&iterator_next,
-             '='  => sub {
-               #dbg '=======', "$_[0]", $_[0]->{_Iterator_index};
-               return $_[0];
-             }
+  '""' => sub { return $_[0] },
+  '++' => \&iterator_next,
+  '='  => sub {
+    # dbg '=', "-> $_[0]"; 
+    #
+    # this is problematic, because of an apparent scoping bug in perl
+    # 5.6.1 and 5.8.0.  Gotchas should be fully explained in
+    # documentation.
+    return $_[0];
+  }
 ;
 
 BEGIN {
@@ -43,7 +47,7 @@ BEGIN {
   if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
     # try to use()
     eval "use XML::Comma::SQL::$syntax";
-    # report failure
+    # report failure 
     if ( $@ ) {
       die "trouble importing: $@\n";
     }
@@ -359,7 +363,8 @@ sub _make_collection_spec {
   my @from_tables;
   my @binary_tables;
   my @sort_tables;
-  my $chunks = $spec_parser->statement ( $arg . " END OF STATEMENT" );
+  my $chunks = $spec_parser->statement ( $arg . " )END OF STATEMENT" );
+  die "bad collection spec: '$arg'\n"  unless  $chunks;
   foreach my $chunk ( @{$chunks} ) {
     my $NOT = ''; my $OP = '=';
     my ( $name, $value) = split /:/, $chunk, 2;
@@ -390,6 +395,12 @@ sub _make_collection_spec {
           if $NOT;
         $sql .= "$table_name.value $OP " .
           $self->{_Iterator_index}->get_dbh()->quote ( $value );
+        # we need to set the _distinct flag, if we use a partial
+        # match, here, as there could be multiple records in the
+        # binary table that will get joined in.
+        unless ( defined $self->{_Iterator_distinct} ) {
+          $self->{_Iterator_distinct} = 1  if  $OP eq 'LIKE';
+        }
       } elsif ( $type eq 'many tables' ) {
         die "can't use a partial (%) match with collection '$name'\n"
           if $OP eq 'LIKE';
@@ -446,11 +457,16 @@ sub _make_textsearch_spec {
   my $sql_string='';
   my @temp_tables;
   my ( $ts_name, $word_string ) = split ( /\:/, $arg[0], 2 );
+  my $ts_attribute;
+  if ( $ts_name =~ m:(.*)\{(.*)\}: ) {
+    $ts_name = $1;
+    $ts_attribute = $2;
+  }
+  my $preproc = $self->_get_textsearch_preprocessor ( $ts_name, $ts_attribute );
   foreach my $word ( split /\s+/, $word_string ) {
-    my ($stemmed_word) = XML::Comma::Pkg::Textsearch::Preprocessor->stem($word);
+    my ($stemmed_word) = $preproc->stem ( $word );
     next  if  ! $stemmed_word;  # arg was stopword
     my $q_word = $dbh->quote ( $stemmed_word );
-
     my ($ts_table_name) =
       $self->{_Iterator_index}->sql_get_textsearch_tables($ts_name);
     die "no textsearch table found for $ts_name\n" if ! $ts_table_name;
@@ -476,6 +492,27 @@ sub _make_textsearch_spec {
   return $sql_string;
 }
 
+sub _get_textsearch_preprocessor {
+  my ( $self, $ts_name, $ts_attribute ) = @_;
+  foreach my $ts_el ( $self->{_Iterator_index}->elements('textsearch') ) {
+    if ( $ts_el->name() eq $ts_name ) {
+      my $code_ref = eval $ts_el->element('which_preprocessor')->get();
+      if ( $@ ) {
+        die "textsearch '$ts_name' died during eval: $@\n";
+      }
+      my $preprocessor = eval {
+        $ts_el->{_comma_compiled_which_preprocessor}
+          ->( undef, $self->{_Iterator_index}, $ts_el, $ts_attribute );
+      }; if ( $@ ) {
+        die "textsearch '$ts_name' died during 'which_preprocessor': $@\n";
+      }
+      return $preprocessor;
+    }
+  }
+  die "no textsearch '$ts_name' found in " .
+    $self->{_Iterator_index}->tag_up_path() . "\n";
+}
+
 ####
 # AUTOLOAD
 #
@@ -499,10 +536,11 @@ sub AUTOLOAD {
 
 sub DESTROY {
 #  dbg 'iterator destroy', $_[0],$_[0]->{_Iterator_index}||'<undef>';
-#  map { print "  $_ --> " . (${$_[0]}{$_} || '<undef>') . "\n" } keys(%{$_[0]});
+  #  map { print "  $_ --> " . (${$_[0]}{$_} || '<undef>') . "\n" } keys(%{$_[0]});
+  # print "destroying $_[0]\n";
   $_[0]->{_Iterator_sth}->finish()  if  $_[0]->{_Iterator_sth};
   $_[0]->{_Iterator_index}->sql_drop_any_temp_tables
-    ( $_[0]->{_Iterator_from_tables} )  if  $_[0]->{_Iterator_index};
+    ( scalar($_[0]), @{$_[0]->{_Iterator_from_tables}} )  if  $_[0]->{_Iterator_index};
 #  dbg 'done destroying iterator', $_[0]->{_Iterator_index}||'<undef>';
 }
 
@@ -511,7 +549,7 @@ sub DESTROY {
 BEGIN {
 $XML::Comma::Indexing::Iterator::spec_grammar = q{
 
-statement: spec "END OF STATEMENT" { $return = $item[1] } | <error>
+statement: spec ")END OF STATEMENT" { $return = $item[1] } | <error>
 
 spec:
        npair conj  spec { $return = [ $item[1], $item[2], @{$item[3]} ] }   |

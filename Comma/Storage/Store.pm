@@ -92,7 +92,7 @@ sub write {
   # pre-store hooks
   unless ( $arg{no_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('pre_store_hook')} ) {
-      $sub->( $arg{doc}, $self );
+      $sub->( $arg{doc}, $self, \%arg );
     }
   }
   # validate structure
@@ -152,7 +152,7 @@ sub write {
   my $post_store_error;
   unless ( $arg{no_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('post_store_hook')} ) {
-      eval { $sub->( $arg{doc}, $self ); };
+      eval { $sub->( $arg{doc}, $self, \%arg ); };
       $post_store_error = $@  if  ( $@ and ! $post_store_error );
     }
   }
@@ -177,11 +177,13 @@ sub force_store {
   # if we're given an id, erase the doc (if it exists) and figure out
   # a storage location
   if ( $args{id} ) {
+    my $doc;
     eval {
-      XML::Comma::Doc->retrieve ( type => $self->{_Store_doctype},
-                                  store => $self->name(),
-                                  id => $args{id} )->erase();
-    }; # (debugging: ) if ( $@ ) { print "error: $@\n"; }
+      $doc = XML::Comma::Doc->retrieve ( type => $self->{_Store_doctype},
+                                         store => $self->name(),
+                                         id => $args{id} )
+    };
+    $doc->erase()  if  $doc;
     # now, derive location
     $location = $self->location_from_id ( $args{id} );
     # call make_directory, which won't do anything if the directory
@@ -206,10 +208,27 @@ sub force_store {
   foreach my $blob ( $doc->get_all_blobs() ) {
     my $send_side_filename = $blob->get_location();
     $blob->set();
-    $blob->set ( $args{blobs}->{$send_side_filename} );
+    $blob->set ( $args{blobs}->{$send_side_filename},
+                 filename => $send_side_filename );
   }
   $doc->store ( no_hooks => $args{no_hooks} );
-  return $doc->doc_id();
+  return $doc;
+}
+
+# takes same (but more limited) set of args as above
+sub force_erase {
+  my ( $self, %args ) = @_;
+  my $doc;
+  eval {
+    $doc = XML::Comma::Doc->retrieve ( type => $self->{_Store_doctype},
+                                       store => $self->name(),
+                                       id => $args{id} )
+  }; # if ( $@ ) { print STDERR "force erase error: $@\n"; }
+  if ( $doc ) {
+    $doc->erase();
+    return $args{key};
+  }
+  return '';
 }
 
 ## FIX -- remove this when the deprecated HTTP_Upload stuff finally goes away

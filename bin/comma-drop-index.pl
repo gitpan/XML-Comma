@@ -19,6 +19,7 @@ my @tables;
 
 push @tables, $index->data_table_name();
 push @tables, $index->sql_get_sort_tables();
+push @tables, $index->sql_get_bcollection_table();
 
 foreach my $textsearch ( $index->elements('textsearch') ) {
   my $name = $textsearch->element('name')->get();

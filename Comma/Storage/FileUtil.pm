@@ -216,9 +216,10 @@ sub first_or_last_down_dir_path {
 sub make_directory {
   my ( $class, $store, $path, $make_lock ) = @_;
   return if ( -w $path );
-  mkpath ( $path, 0, 0777 ) ||
-    die "could not make directory '$path': $!\n";
-  chmod $store->dir_permissions(), $path;
+  my @createds = mkpath ( $path, 0, 0777 );
+  die "could not make directory '$path': $!\n"  unless  @createds;
+  # XML::Comma::Log->warn ( "created: " . join("\n", @createds) );
+  chmod $store->dir_permissions(), @createds;
   if ( $make_lock ) {
     my $lfn = File::Spec->catfile ( $path, $lockfilename );
     open ( LOCK, ">$lfn" ) ||

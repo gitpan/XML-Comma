@@ -77,6 +77,7 @@ sub elements {
   # args
   my @list = ();
   foreach my $arg ( @args ) {
+    $self->_element_defined_check ( $arg );
     push @list, @{$self->{_nested_lookup_table}->{$arg} || []};
   }
   # we need to sort into the right order, if no args or more than one arg given
@@ -139,20 +140,27 @@ sub add_element {
 }
 
 sub _add_element_legality_check {
-  my ( $self, $tag ) = @_;
-  # defined check
-  if ( ! $self->element_is_defined($tag) ) {
+  $_[0]->_element_defined_check ( $_[1] );
+  $_[0]->_element_plural_check ( $_[1] );
+}
+
+sub _element_defined_check {
+  # dbg 'me', ref($_[0]), $_[0]->def();
+  return  if  ref($_[0]) eq 'XML::Comma::Bootstrap';
+  if ( ! $_[0]->element_is_defined($_[1]) ) {
     XML::Comma::Log->err 
         ( 'ELEMENT_NOT_DEFINED',
-          "no element <$tag> defined for context '".
-          $self->tag_up_path() . "'" );
+          "no element <$_[1]> defined for context '".
+          $_[0]->tag_up_path() . "'" );
   }
-  # plural check
-  if ( ! $self->element_is_plural($tag) and $self->elements($tag)->[0] ) {
+}
+
+sub _element_plural_check {
+  if ( ! $_[0]->element_is_plural($_[1]) and $_[0]->elements($_[1])->[0] ) {
     XML::Comma::Log->err
         ( 'ELEMENT_ALREADY_EXISTS',
-          "non-plural element <$tag> already exists in context '" .
-          $self->tag_up_path() . "'" );
+          "non-plural element <$_[1]> already exists in context '" .
+          $_[0]->tag_up_path() . "'" );
   }
 }
 
@@ -180,6 +188,7 @@ sub _delete_elements {
   $self->assert_not_read_only();
   arrayref_remove ( $self->{_nested_elements}, @elements );
   foreach my $el ( @elements ) {
+    $el->call_on_delete();
     arrayref_remove ( $self->{_nested_lookup_table}->{$el->tag()}, $el );
   }
 }

@@ -1,5 +1,5 @@
-
-my %choices = map { $_ => 1 } @macro_args;
+my @choices = @macro_args;
+my %choices = map { $_ => 1 } @choices;
 
 $self->add_hook ( 'validate_hook',
 
@@ -21,5 +21,5 @@ $self->add_hook ( 'validate_hook',
 
 );
 
-$self->add_method ( 'enum_options', sub { return keys %choices } );
+$self->add_method ( 'enum_options', sub { return @choices } );
 

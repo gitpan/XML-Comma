@@ -336,17 +336,24 @@ sub store {
     XML::Comma::Log->err ( 'BAD_STORE_ATTEMPT',
                            "doc isn't locked, can't store" );
   }
-  # do the write -- differently depending on whether this is a
-  # first-time store
+  # do the write -- and do it differently depending on whether this is
+  # a first-time store, a copy between two stores, or a re-store
   eval {
-    if (my $store = $self->doc_store()  and
-        (defined $arg{store} ? $arg{store} eq $self->doc_store()->name() : 1)) {
-      $store->write ( %arg, doc=>$self );
-    } else {
-      my $store_name = $arg{store} ||
-        die "no store given to first-time Doc->store()\n";
-      $store = $self->def()->get_store( $store_name );
+    my $store = $self->doc_store();
+    my $store_arg = $arg{store} || '';
+    # first-time store
+    if ( ! $store ) {
+      die "no store given to first-time Doc->store()\n"  unless  $store_arg;
+      $store = $self->def()->get_store( $store_arg );
       $store->write ( %arg, doc=>$self, anew=>1 );
+    }
+    # re-store the doc in an already-known store
+    elsif ( (! $store_arg)  or  $store->name() eq $store_arg ) {
+      $store->write ( %arg, doc=>$self );
+    }
+    # store the doc in a different store (an implicit copy)
+    else {
+      $self->copy ( %arg );
     }
   }; if ( $@ ) { XML::Comma::Log->err ( 'STORE_ERROR', $@ ); }
   return $self;
@@ -470,10 +477,17 @@ sub index_remove {
 }
 
 
+##
+##
 sub DESTROY {
 #    print 'D: ' . $_[0] . "\n";
 #    print '   ' . ($::index->{_def}||'<undef>')."\n";
-  $_[0]->doc_unlock()  if  $_[0]->{_Doc_locked};
+#    print "destroying: " . $_[0]->doc_key() . "\n";
+  if ( $_[0]->{_Doc_locked} ) {
+#    print "unlocking: " . $_[0]->doc_key() . "...";
+    $_[0]->doc_unlock();
+#    print "okay\n";
+  }
 }
 
 1;

@@ -93,14 +93,28 @@ sub _connect {
   eval { $self->{_DBH}->disconnect(); sleep 1; };
   my $db_struct = $self->db_struct();
   my @connect_array = @{ $db_struct->{dbi_connect_info} };
-  $self->{_DBH} = DBI->connect( @connect_array ) ||
-    XML::Comma::Log->err ( 'DB_CONNECTION_ERROR', $@ );
+
+  # try to connect -- looping to try again if we fail
+  my $max_attempts = 30;
+  for my $attempt ( 1 .. $max_attempts ) {
+    eval { $self->{_DBH} = DBI->connect( @connect_array ); };
+    last  unless  $@;
+    if ( $attempt < $max_attempts ) {
+      XML::Comma::Log->warn ( 'Couldn\'t connect to database ' .
+                              "(attempt $attempt) -- $@" );
+      sleep 2;
+    } else {
+      XML::Comma::Log->err ( 'DB_CONNECTION_ERROR', "$@" );
+    }
+  }
+
   $self->{_DBH_pid} = $$;
   #dbg 'setting pid to', $self->{_DBH_pid};
   my $check_method = $self->{DBH_connect_check};
   $self->$check_method()  if  $check_method;
   return $self->{_DBH};
 }
+
 
 # callable as a class or instance method: if called as a class method,
 # always returns the 'system_db' struct (or throws an error). if

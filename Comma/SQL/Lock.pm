@@ -105,12 +105,24 @@ sub unlock {
 
 sub maybe_unlock {
   my ( $self, $pid, $key ) = @_;
-  my $plist = Proc::ProcessTable->new();
-  foreach my $p ( @{$plist->table()} ) {
-    return  if  $p->pid() == $pid;
+  my $lr = sql_get_lock_record($self->get_dbh(), $key);
+  return unless $lr;
+  if ( $lr->{info} eq Sys::Hostname::hostname ) {
+    my $plist = Proc::ProcessTable->new();
+    foreach my $p ( @{$plist->table()} ) {
+      return  if  $p->pid() == $pid;
+    }
+    $self->unlock ( $key );
   }
-  $self->unlock ( $key );
 }
+
+
+####
+##
+## DEPRECATED -- the string-based hold methods don't really work as
+## intended, given some futziness with the mysql implementation.
+##
+##
 
 # generic, string-based "hold". this can be used to implement a
 # temporary lock without using the special doc lock table.
@@ -126,10 +138,20 @@ sub release_all_my_locks {
   sql_delete_locks_held_by_this_pid ( $_[0]->get_dbh() );
 }
 
+##
+##
+####
+
+
 # FIX: make destroy unlock all locks held by this pid?
 sub DESTROY {
   # print 'D: ' . $_[0] . "\n";
   $_[0]->disconnect();
 }
+
+
+
+
+
 
 

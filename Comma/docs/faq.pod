@@ -42,6 +42,20 @@ directory of the distribution, or at:
   http://xml-comma.org/guide.pdf
 
 
+=head1 CONFIGURATION QUESTIONS
+
+=head2 Some indexing.t tests are failing on a new XML::Comma install using MySQL; what's going on?
+
+Comma relies on MySQL's "USE DATA LOCAL" function, which has been
+disabled by default in MySQL versions 3.23.48 and greater. This change
+to MySQL breaks a few of the indexing tests. MySQL can be recompiled
+with the option "--enable-local-infile" to turn back on the LOCAL
+functionality. Or mysqld can be started with the argument
+"--local-infile=1". See the following piece of MySQL documentation:
+
+  http://www.mysql.com/doc/en/LOAD_DATA_LOCAL.html
+
+
 =head1 CODE QUESTIONS
 
 =head2 What's the difference between $foo->bar() and $foo->element('bar')->get()?
@@ -73,6 +87,29 @@ exist. The most concise (and the recommended) way to do this is:
 
   my $how_many_foos = scalar ( @{$doc->elements('foo')} );
 
+=head2 How do I check whether a given element exists, without auto-creating it?
+
+Comma elements automatically get created when you ask for them. So the
+following code first makes a new Doc, then (behind the scenes) makes a
+new Element object for you:
+
+  XML::Comma::Doc->new ( type=>'Some_Def' )->element ( "foo" );
+
+This automatic creation (auto-vivication, in Perl lingo) is almost
+always what you want. But there are cases where you need to check
+whether an Element already exists before you try to manipulate it. For
+example, you might have a nested element that has some required
+children -- and you probably only want to create that element when
+you're sure you're ready to populate it fully.
+
+The idiom to do this turns out to be almost the same as the idiom to
+check how many instances of a plural element exist, given above:
+
+  if ( @{$doc->elements('foo')} ) {
+    $doc->foo()->child ( 'some value' );
+  }
+
+
 =head2 What does the BAD_CONTENT error that talks about '& found that isn't part of an entity reference' mean?
 
 You have a problem that boils down to something along these lines:
@@ -93,6 +130,47 @@ shortcut flags for the element C<set()> and C<get()> methods:
 Note that there is no way to pass the C<unescape> flag in the
 shortcut-get syntax (so there are three examples above, rather than
 four). It is fair to construe this as a problem with the API.
+
+=head2 What's wrong with 'while($iterator++){}' ?
+
+There is a bug in Perl (both versions 5.6.1 and 5.8.0) that leads to a
+memory leak in Comma code like this:
+
+  my $iterator = $index->iterator();
+  while ( $iterator++ ) {
+    ...
+  }
+
+or:
+
+  if ( $iterator++ ) {
+  }
+
+If you use the 'while($iterator++){}' or 'if($iterator++){}', then
+your Iterators objects won't ever get garbage-collected. This is very
+often not a problem; any stand-alone script will be fine, the
+Iterators will get properly DESTROYed when the script exits. But code
+like the above running inside, for example, a web application, can be
+a problem. 
+
+This works fine:
+
+  my $iterator = $index->iterator();
+  while ( ++$iterator ) {
+    ...
+  }
+  
+The pre-increment may seem a little counter-intuitive, but the
+Iterator class is written to Do The Right Thing for this very common
+case. And the pre-increment doesn't trigger the memory leak. And this
+is fine, too:
+
+  my $iterator = $index->iterator();
+  while ( $iterator ) {
+    ...
+    $iterator++;
+  }
+
 
 =head2 What does an error that ends 'sh: /tmp/log.comma: Permission denied' mean?
 

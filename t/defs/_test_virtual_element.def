@@ -17,8 +17,8 @@
     <set_hook>
     <![CDATA[
     sub {
-      my ( $self, $content_ref, %args ) = @_;
-      $$content_ref = $args{value};
+      my ( $self, $content_ref, $args ) = @_;
+      $$content_ref = $args->{value};
     }
     ]]>
     </set_hook>

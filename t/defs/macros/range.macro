@@ -13,4 +13,7 @@ $self->add_hook ( 'validate_hook',
 
 );
 
+$self->add_method ( 'range_low', sub { return $low } );
+$self->add_method ( 'range_high', sub { return $high } );
+
 1;

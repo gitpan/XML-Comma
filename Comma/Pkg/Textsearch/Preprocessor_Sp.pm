@@ -21,12 +21,16 @@
 ##
 
 package XML::Comma::Pkg::Textsearch::Preprocessor_Sp;
+
+use XML::Comma::Pkg::Textsearch::Preprocessor;
 use locale qw( sp );
 use strict;
 
 use XML::Comma::Util qw( dbg );
 
 my %Preprocessor_Stopwords;
+my $max_length = $XML::Comma::Pkg::Textsearch::Preprocessor::max_word_length;
+
 
 # usage: @list_of_words = XML::Comma::Pkg::Textsearch::Preprocessor->stem($text)
 sub stem {
@@ -35,8 +39,22 @@ sub stem {
   my @words = grep { ! defined $Preprocessor_Stopwords{$_} }
     split ( /\W+/, $_[1] );
   # stem and throw away long words and duplicates
-  return grep { $_ and (! $dups{$_} ++) and (length($_) <= 12) }
+  return grep { $_ and (! $dups{$_} ++) and (length($_) <= $max_length) }
     lightweight_stem(@words);
+}
+
+# usage:
+#   %hash = XML::Comma::Pkg::Textsearch::Preprocessor->stem_and_count($text)
+#
+sub stem_and_count {
+  my %hash;
+  foreach ( @{Lingua::Stem::stem ( split(m:[\s\W]+:, $_[1]) )} ) {
+    unless ( defined $Preprocessor_Stopwords{$_} or
+             length($_) > $max_length ) {
+      $hash{$_}++;
+    }
+  }
+  return %hash;
 }
 
 ##

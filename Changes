@@ -58,3 +58,102 @@ Revision history for XML::Comma modules:
 -------------------------
 1.08  2002/07/26 12:40:45
 -------------------------
+
+  - Bug fixes or code cleanup in: method_names, _make_collection_spec,
+    Index->DESTROY, Element->method() and friends, boolean macro,
+    various tests, date_8 (code contributed by Chuck), macro section
+    in Bootstrap Def, bcollection tables, Index/Clean circular
+    references, Doc->store(), set(), decl_pos in various Location
+    modules, FileUtile make_directory permissions setting.
+
+  - DEPRECATED HTTP_Upload. The plan is to support HTTP_Transfer,
+    which is a cleaner architecture, instead. Be that as it may, fixed
+    some headers in HTTP_Upload_mod_perl module. Tests for
+    HTTP_Transfer are in t/transfer.manual.
+
+  - New date_8 macro methods "today" and "diff_today"
+
+  - Makefile.PL now respects existing Comma.pm installs -- prints out
+    message saying that it's not overwriting your Comma.pm if that's
+    the case. Also, moved VERSION into Bootstrap.pm, so that upgrades
+    show the right version even if Comma.pm doesn't change.
+
+  - Changed enum_choices() in enum macro to guarantee a specific
+    return order.
+
+  - Added integer macro.
+
+  - DEPRECATED the XML::Comma->lock_singlet() interface. It's close to
+    impossible to use this as intended, across differing database
+    architectures. Better to rip it out (advisorily, anyway, by
+    deprecating) and replace it with something better in the
+    future. In the meantime, added a MySQL-specific "disposable locks"
+    module in XML::Comma::Pkg::MySQL_Simple_Lock.
+
+  - Beefed up SQL::DBH_User _connect() routine (which is inherited by
+    all core code that needs db access). Sherrard wrote code to retry
+    and log failed attempts.
+
+  - TIB contributed new Location module SequentialCheck_file
+
+  - Fixed Blob class such that element_delete() deletes the backing
+    file.
+
+  - Big fixes to doc-level locking code. Old code was not
+    multi-machine safe. New code is, as long as the two (or more)
+    machines share a single database server. It is possible (though
+    unlikely -- requires bad perl interpreter exit) for a lock record
+    to hang around after process goes away. There is no probable fix
+    for this, but some utility scripts to print out info about comma
+    locks are on the todo list.
+
+  - Added a third passed argument to pre_ and post_store_hook code: a
+    hashref pointing to the original store() args. This allows hooks
+    to do arbritrarily complex iff'ing based on user-level args (which
+    are unconstrained, so this is a very open-ended mechanism).
+
+  - NON-BACKWARDS-COMPATIBLE CHANGE: Added a check for defined-ness
+    for the element names passed into $el->elements(). This might
+    break sloppy (or buggy) old code, but seemed like very much the
+    right thing to do. There's no good reason to be able to pass
+    non-existent element names to the elements() method.
+
+  - NON-BACKWARDS-COMPATIBLE CHANGE: Changed the third argument passed
+    to set_hook and set_from_file_hook to be a hash_ref, rather than
+    passing the whole hash. This might break some existing code
+    (although I don't think much code uses this feature, yet), but
+    it's the Right Thing (tm).
+
+  - NON-BACKWARDS-COMPATIBLE CHANGE: Changed the
+    Comma::Util::XML_basic_escape() method. This method used to try to
+    identify '&' characters that were part of an entity tag, and NOT
+    escape them. Because the logic was not symmetrical with
+    XML_basic_unescape(), confusing results resulted. New escape
+    method escapes all occurrences of '<', '>', and '&' in a string --
+    making it entirely symmetrical with the unescape code. Two new
+    methods were added, in case folks need the old functionality:
+    XML_smart_escape() and XML_bare_amp_escape().
+
+  - Added French Textsearch Preprocessor. Algorithm based on snowball
+    code from http://snowball.tartarus.org/french/stemmer.html
+
+  - Added 'erase_where_clause' capabilities to collection table
+    cleans.
+
+  - Error reporting on errors passed through DBI is much improved. All
+    do() statements in SQL/Base.pm where changed to prepare(), etc.
+
+  - Partial rewrite of Preprocessor code structure. Most importantly,
+    maximum word length is now tied to a global defined in the
+    Preprocessor abstract/template class, and the multi-preproc
+    switching code accomodates an "attribute" argument so the Iterator
+    can stem keyword arguments correctly. UPGRADE INFORMATION: if you
+    are upgrading from an earlier version of Comma, it is best to drop
+    all indexes that include <textsearch> fields, and rebuild them
+    after the upgrade.
+
+-------------------------
+1.09  2002/11/27 12:36:38
+-------------------------
+
+

@@ -16,6 +16,7 @@
   <element>
     <name>ot</name>
     <macro>range:1,10</macro>
+    <macro>integer</macro>
   </element>
 
   <element>
@@ -82,8 +83,28 @@
 
   <element><name>not_hashificated</name></element>
 
+  <element>
+    <name>bool</name>
+    <macro>boolean</macro>
+  </element>
+
+  <element>
+    <name>bool_default_true</name>
+    <macro>boolean</macro>
+    <default>TRUE</default>
+  </element>
+
   <plural>'plu'</plural>
   <required>'plu','nested'</required>
   <ignore_for_hash>'not_hashificated'</ignore_for_hash>
 
 </DocumentDefinition>
+
+
+
+
+
+
+
+
+

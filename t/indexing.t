@@ -8,7 +8,7 @@ use File::Path;
 
 my $test_dir =  '/usr/local/comma/docs/test';
 
-print "1..88\n";
+print "1..89\n";
 
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -226,81 +226,84 @@ print "ok 55\n"  if  _chk_0003_0002_0001($i);
 $i = $index_main->iterator ( collection_spec => "many1_b:b OR many1_c:d" );
 print "ok 56\n"  if  _chk_0003_0002_0001($i);
 
-$i = $index_main->iterator ( textsearch_spec => "paragraph:goldfish" );
+$i = $index_main->iterator ( collection_spec => "many1_b:%" );
 print "ok 57\n"  if  _chk_0003_0002_0001($i);
+
+$i = $index_main->iterator ( textsearch_spec => "paragraph:goldfish" );
+print "ok 58\n"  if  _chk_0003_0002_0001($i);
 
 # test retrieving nothing
 $i = $index_main->iterator ( collection_spec => "'many1_c:abcdefg'" );
-print "ok 58\n"  unless $i;
-
-$i = $index_main->iterator ( collection_spec => "'many1_b:abcdefg'" );
 print "ok 59\n"  unless $i;
 
-$i = $index_main->iterator ( collection_spec => "'many1_s:abcdefg'" );
+$i = $index_main->iterator ( collection_spec => "'many1_b:abcdefg'" );
 print "ok 60\n"  unless $i;
 
-$i = $index_main->iterator ( where_clause => "1=0" );
+$i = $index_main->iterator ( collection_spec => "'many1_s:abcdefg'" );
 print "ok 61\n"  unless $i;
+
+$i = $index_main->iterator ( where_clause => "1=0" );
+print "ok 62\n"  unless $i;
 
 # test partial get and then refresh
 $i = $index_main->iterator();
-print "ok 62\n" if (++$i)->doc_id() eq '0003';
+print "ok 63\n" if (++$i)->doc_id() eq '0003';
 $i->iterator_refresh();
-print "ok 63\n" if (++$i)->doc_id() eq '0003' and
+print "ok 64\n" if (++$i)->doc_id() eq '0003' and
                    (++$i)->doc_id() eq '0002' and
                    (++$i)->doc_id() eq '0001' and ! (++$i);
 
 # using the same iterator, make sure that advancing off the end of the
 # iterator doesn't seem to have any wierd side-effects
 $i++;
-print "ok 64\n"  unless $i;
-print "ok 65\n"  unless defined $i->doc_id();
+print "ok 65\n"  unless $i;
+print "ok 66\n"  unless defined $i->doc_id();
 $i++;
-print "ok 66\n"  unless $i;
-print "ok 67\n"  unless defined $i->doc_id();
+print "ok 67\n"  unless $i;
+print "ok 68\n"  unless defined $i->doc_id();
 
 # test "iterator select return value"
 $i = $index_main->iterator();
-print "ok 68\n" if $i->iterator_select_returnval() == 3;
+print "ok 69\n" if $i->iterator_select_returnval() == 3;
 
 # key, read_doc and retrieve_doc methods
 $i->iterator_refresh();
-print "ok 69\n" if $i->doc_key eq '_test_indexing|main|0003';
+print "ok 70\n" if $i->doc_key eq '_test_indexing|main|0003';
 my $read = $i->read_doc();
-print "ok 70\n" if $read->doc_id eq '0003' and $read->foo() eq 'foo2';
+print "ok 71\n" if $read->doc_id eq '0003' and $read->foo() eq 'foo2';
 undef $read;
 my $retrieved = $i->retrieve_doc();
-print "ok 71\n" if $retrieved->doc_id eq '0003' and $retrieved->foo() eq 'foo2';
+print "ok 72\n" if $retrieved->doc_id eq '0003' and $retrieved->foo() eq 'foo2';
 undef $retrieved;
 
 
 # an aggregate
 my $sum = $index_main->aggregate ( function=>"SUM(id_as_number)" );
-print "ok 72\n" if $sum == 6;
-$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
-                                collection_spec=>"'many1_b:a' OR many1_s:d" );
 print "ok 73\n" if $sum == 6;
 $sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
-                                collection_spec=>"'many2_b:d d'" );
+                                collection_spec=>"'many1_b:a' OR many1_s:d" );
 print "ok 74\n" if $sum == 6;
 $sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
+                                collection_spec=>"'many2_b:d d'" );
+print "ok 75\n" if $sum == 6;
+$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
                                 collection_spec=>"'many1_s:c'" );
-print "ok 75\n" if $sum == 3;
+print "ok 76\n" if $sum == 3;
 
 ##
 # order_by expressions
 $i = $index_main->iterator ( order_by=>'id_mod_3' );
-print "ok 76\n" if (++$i)->doc_id() eq '0003' and
+print "ok 77\n" if (++$i)->doc_id() eq '0003' and
                    (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and ! (++$i);
 
 $i = $index_main->iterator ( order_by=>'constant_exp, doc_id' );
-print "ok 77\n" if (++$i)->doc_id() eq '0001' and
+print "ok 78\n" if (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and
                    (++$i)->doc_id() eq '0003' and ! (++$i);
 
 $i = $index_main->iterator ( order_by=>'test_eval, doc_id' );
-print "ok 78\n" if (++$i)->doc_id() eq '0001' and
+print "ok 79\n" if (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and
                    (++$i)->doc_id() eq '0003' and ! (++$i);
 
@@ -312,13 +315,13 @@ while ( $i++ ) {
   $i->retrieve_doc()->erase();
 }
 $i = $index_main->iterator();
-print "ok 79\n" if $i->doc_id() eq '0003' and ! (++$i);
+print "ok 80\n" if $i->doc_id() eq '0003' and ! (++$i);
 
 $i->iterator_refresh();
 $i->retrieve_doc()->erase();
 
 $i = $index_main->iterator();
-print "ok 80\n" if ! $i;
+print "ok 81\n" if ! $i;
 
 ###
 ##
@@ -352,13 +355,13 @@ $doc_b->copy ( keep_open=>1 ); $doc_b->copy ( keep_open=> 1 );
 $doc_a->copy();
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 81\n" if (++$i)->doc_id() eq '0006' and
+print "ok 82\n" if (++$i)->doc_id() eq '0006' and
                    (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and ! (++$i);
 # but 'b' table should be unchanged
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 82\n" if (++$i)->doc_id() eq '0004' and
+print "ok 83\n" if (++$i)->doc_id() eq '0004' and
                    (++$i)->doc_id() eq '0008' and
                    (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and ! (++$i);
@@ -367,13 +370,13 @@ print "ok 82\n" if (++$i)->doc_id() eq '0004' and
 $doc_common->copy();
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 83\n" if (++$i)->doc_id() eq '0009' and
+print "ok 84\n" if (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 # and 'a' table should have one new member
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 84\n" if (++$i)->doc_id() eq '0006' and
+print "ok 85\n" if (++$i)->doc_id() eq '0006' and
                    (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
@@ -387,7 +390,7 @@ $doc_b->copy();
 
 # our overall set should now have six docs, 0007-0012
 $i = $index_main->iterator ( order_by=>'doc_id' );
-print "ok 85\n" if (++$i)->doc_id() eq '0007' and
+print "ok 86\n" if (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0008' and
                    (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
@@ -397,7 +400,7 @@ print "ok 85\n" if (++$i)->doc_id() eq '0007' and
 # 'a' table should have three docs
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 86\n" if (++$i)->doc_id() eq '0007' and
+print "ok 87\n" if (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 
@@ -405,7 +408,7 @@ print "ok 86\n" if (++$i)->doc_id() eq '0007' and
 # erase_where_clause and gets dropped during the "first" clean pass)
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 87\n" if (++$i)->doc_id() eq '0009' and
+print "ok 88\n" if (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 
@@ -420,4 +423,4 @@ while ( $i++ ) {
 }
 
 $i = $index_main->iterator();
-print "ok 88\n"  unless  $i;
+print "ok 89\n"  unless  $i;

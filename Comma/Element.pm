@@ -26,7 +26,7 @@ package XML::Comma::Element;
 
 use strict;
 
-use XML::Comma::Util qw( dbg trim array_includes arrayref_remove );
+use XML::Comma::Util qw( dbg trim arrayref_remove );
 
 ##
 # object fields
@@ -80,7 +80,8 @@ sub get {
   if ( defined $self->{_content} ) {
     $content = $self->{_content};
   } else {
-    $content = $self->def()->element('default')->get() || '';
+    $content = $self->def()->element('default')->get();
+    return (defined $content) ? $content : '';
   }
   if ( $args{unescape} ) {
     $content = XML::Comma::Util::XML_basic_unescape($content);
@@ -98,11 +99,13 @@ sub get_without_default {
 sub set {
   my ( $self, $content, %args ) = @_;
   $self->assert_not_read_only();
-  # trim
-  $content = trim ( $content );
-  # special arg -- escape
-  if ( $args{escape} ) {
-    $content = XML::Comma::Util::XML_basic_escape($content);
+  if ( defined $content ) {
+    # trim
+    $content = trim ( $content );
+    # special arg -- escape
+    if ( $args{escape} ) {
+      $content = XML::Comma::Util::XML_basic_escape($content);
+    }
   }
   # validate
   $self->validate_content ( $content );
@@ -110,7 +113,7 @@ sub set {
   # args
   eval {
     foreach my $hook ( @{$self->def()->get_hooks_arrayref('set_hook')} ) {
-      $hook->( $self, \$content, %args );
+      $hook->( $self, \$content, \%args );
     }
   }; if ( $@ ) {
     XML::Comma::Log->err
