@@ -19,7 +19,9 @@ Comma/NestedElement.pm
 Comma/Parsing/PurePerl.pm
 Comma/Parsing/SAXEventParser.pm
 Comma/Parsing/SimpleC.pm
+Comma/Pkg/ModuleConfiguration.pm
 Comma/Pkg/Mason/ParResolver.pm
+Comma/Pkg/test.par
 Comma/Pkg/Transfer/HTTP_Transfer.pm
 Comma/Pkg/Transfer/HTTP_Upload.pm
 Comma/Pkg/Transfer/HTTP_Upload/HTTP_Upload_mod_perl.pm

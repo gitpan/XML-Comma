@@ -6,12 +6,17 @@ use vars qw( @ISA );
 use PAR;
 use Archive::Zip;
 use File::Spec;
-use Apache::Constants qw(OK DECLINED DIR_MAGIC_TYPE);
+use Apache::Constants qw(OK NOT_FOUND DECLINED DIR_MAGIC_TYPE);
+use Apache::Util qw( ht_time );
+
+use Apache::File;  # for byte-range request handling
 
 use HTML::Mason::Resolver;
+use HTML::Mason::ComponentSource;
 
 my $PAR_MASON_DIR = 'mason';
 my %PAR_aliases;
+my $verbose;
 
 sub import {
   my $package = shift;
@@ -22,8 +27,27 @@ sub import {
   push @ISA, $arg{base};
 
   %PAR_aliases = %{$arg{par_paths} || {}};
+  $verbose = $arg{verbose} || 0;
 }
 
+
+sub simple_handle_request {
+  my ( $self, $r, $apache_handler ) = @_;
+
+  return DECLINED  if  $r->content_type  and
+                       $r->content_type =~ m|^httpd|;
+
+  if ( $r->content_type                 and
+       $r->content_type  !~  m|^text| ) {
+    if ( $r->pnotes('PAR') ) {
+      return $self->send_raw_file ( $r );
+    } else {
+      return DECLINED;
+    }
+  }
+
+  return $apache_handler->handle_request ( $r );
+}
 
 my $in_trans_handler_subr;
 sub trans_handler {
@@ -39,7 +63,7 @@ sub trans_handler {
   $in_trans_handler_subr = 0;
 
   my ( $par_filename, $par_path_info,
-       $par_is_directory, $par_full_path_readable ) = __PACKAGE__->
+       $par_is_directory, $par_freadable ) = __PACKAGE__->
          _par_translation ( $r, $par_archive_file, $stripped_path );
   my $root = File::Spec->canonpath
     ( File::Spec->catfile ($r->document_root, $par_alias_root) );
@@ -62,9 +86,14 @@ sub trans_handler {
       (($pl == $al) and (! -r $apache_filename))) {
     $par_filename = File::Spec->
       canonpath ( File::Spec->catfile($par_alias_root, $par_filename) );
-    $r->pnotes    ( PAR           => $par_archive_file );
-    $r->pnotes    ( PAR_directory => $par_is_directory );
-    $r->pnotes    ( PAR_filename  => $par_filename );
+    # keep track of several things about this par translation, for use
+    # in future phases of the request
+    $r->pnotes    ( PAR            => $par_archive_file );
+    $r->pnotes    ( PAR_filename   => $par_filename );
+    $r->pnotes    ( PAR_freadable  => $par_freadable );
+    $r->pnotes    ( PAR_directory  => $par_is_directory );
+    $r->pnotes    ( PAR_alias_root => $par_alias_root );
+
     $r->push_handlers ( PerlTypeHandler  => \&type_handler );
     $r->push_handlers ( PerlFixupHandler => \&fixup_handler );
     $r->filename  ( $par_filename );
@@ -95,19 +124,79 @@ sub type_handler {
 sub fixup_handler {
   my $r = shift;
 
-#   $r->warn ( 'PAR:           ' . $r->pnotes('PAR') );
-#   $r->warn ( 'PAR_directory: ' . $r->pnotes('PAR_directory') );
-#   $r->warn ( 'PAR_filename:  ' . $r->pnotes('PAR_filename') );
-#   $r->warn ( 'path_info:     ' . $r->path_info );
-#   $r->warn ( 'content_type:  ' . $r->content_type );
+  if ( $verbose ) {
+    $r->warn ( 'uri:            ' . $r->uri );
+    $r->warn ( 'filename:       ' . $r->filename );
+    $r->warn ( 'path_info:      ' . $r->path_info );
+    $r->warn ( 'content_type:   ' . $r->content_type );
+    $r->warn ( 'PAR:            ' . $r->pnotes('PAR') );
+    $r->warn ( 'PAR_alias_root: ' . $r->pnotes ('PAR_alias_root') );
+    $r->warn ( 'PAR_directory:  ' . $r->pnotes('PAR_directory') );
+    $r->warn ( 'PAR_filename:   ' . $r->pnotes('PAR_filename') );
+    $r->warn ( 'PAR_freadable:  ' . $r->pnotes('PAR_freadable') );
+  }
 
-  $r->filename ( $r->pnotes('PAR') );
+  $r->filename ( $r->pnotes('PAR') )  if  $r->pnotes('PAR');
+  return OK;
+}
+
+
+# this can handle both par and non-par requests, but it's preferable
+# in most cases to engineer a 'return DECLINED' in the handler for
+# non-par raw file requests rather than to pass them to this
+# function. see the "simple_handle_request" method.
+sub send_raw_file {
+  my ( $self, $r ) = @_;
+
+  my $content;
+  my $content_length;
+  my $last_modified;
+
+  if ( $r->pnotes('PAR') ) {
+    my $filename = $r->pnotes ( 'PAR_filename' );
+    my $root     = $r->pnotes ( 'PAR_alias_root' );
+    $filename =~ s|$root||;
+    $content = $self->_get_par_source ( $r->pnotes('PAR'), $filename );
+    return NOT_FOUND  unless  $content;
+    $content_length = length $content;
+    $last_modified  = (stat $r->pnotes('PAR'))[9];
+  } else {
+    $content_length = (stat $r->filename)[7];
+    $last_modified  = Apache::Util::ht_time ( (stat _)[9] );
+    my $fh = Apache::File->new ( $r->filename )  or  return NOT_FOUND;
+    $content = $fh->read ( $fh, $content_length );
+    $fh->close();
+  }
+
+  $r->header_out ( 'Accept-Ranges' => 'bytes' );
+  $r->header_out ( 'Content-Length' => $content_length );
+  $r->header_out ( 'Last-Modified'  => Apache::Util::ht_time($last_modified) );
+
+  my $range_request = $r->set_byterange;
+
+  if ( (my $status = $r->meets_conditions) == OK ) {
+    $r->send_http_header;
+  } else {
+    return $status;
+  }
+
+  return OK  if  $r->header_only;
+
+  if ( $range_request ) {
+    while ( my ($offset, $length) = $r->each_byterange ) {
+      $r->print ( substr($content, $offset, $length) );
+    }
+  } else {
+    $r->print ( $content );
+  }
   return OK;
 }
 
 
 sub get_info {
   my ( $self, $path ) = @_;
+  Apache->request->warn ( "get_info: $path" )  if  $verbose;
+
   # is this a readable component as far as SUPER is concerned? If so,
   # we'll use SUPER's resolution
   my $cs = $self->SUPER::get_info ( $path );
@@ -128,13 +217,17 @@ sub _get_par_component_info {
   return  unless  $zip->memberNamed
     ( File::Spec->canonpath(File::Spec->catfile($PAR_MASON_DIR, $par_path)) );
 
+  my $comp_class = "HTML::Mason::Component::FileBased";
   return HTML::Mason::ComponentSource->new
-    ( comp_path       => $path,
-      friendly_name   => $path,
-      comp_id         => "$par_archive||$path",
-      last_modified   => (stat $par_archive)[9],
-      source_callback => sub { $self->_get_par_source
-                                 ( $par_archive, $par_path ); },
+    (
+     friendly_name   => $path,
+     comp_id         => "$par_archive||$path",
+     last_modified   => (stat $par_archive)[9],
+     comp_path       => $path,
+     comp_class      => $comp_class,
+     source_callback => sub { $self->_get_par_source
+                                ( $par_archive, $par_path ) },
+     extra => { comp_root => 'par' },
     );
 }
 
@@ -149,7 +242,11 @@ sub _get_par_source {
 sub apache_request_to_comp_path {
   my ( $self, $r ) = @_;
   if ( $r->pnotes('PAR') ) {
-    return $r->pnotes ( 'PAR_filename' );
+    if ( $r->pnotes('PAR_freadable') ) {
+      return $r->pnotes ( 'PAR_filename' );
+    } else {
+      return $r->uri;
+    }
   } else {
     return $self->SUPER::apache_request_to_comp_path ( $r );
   }
