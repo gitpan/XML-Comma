@@ -26,11 +26,18 @@ END
 
 package main;
 
+my @cmd_line_utils = qw(
+
+bin/comma-drop-index.pl
+bin/comma-load-doc.pl
+
+);
+
 WriteMakefile(
     'NAME'	=> 'XML::Comma',
     'VERSION_FROM' => 'Comma/Bootstrap.pm', # finds $VERSION
     'ABSTRACT' => 'XML::Comma document life-cycle platform',
-    'EXE_FILES' => [],
+    'EXE_FILES' => \@cmd_line_utils,
     'clean' => {
       'FILES' => 'lib/XML/Comma.pm'
     }

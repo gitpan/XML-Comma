@@ -143,8 +143,6 @@ sub sql_create_lock_table {
 }
 
 sub sql_create_hold_table {
-# mysql doesn't need a hold table -- uses internal get_lock() and
-# release_lock()
 }
 
 # $dbh, $key
@@ -170,6 +168,7 @@ sub sql_delete_locks_held_by_this_pid {
 # $dbh, $key - returns 1 if row-insert succeeds, 0 on duplicate
 # key. throws error for any error other than duplicate key.
 sub sql_doc_lock {
+  # dbg '  -locking', $_[1];
   my $hn = $_[0]->quote ( Sys::Hostname::hostname );
   eval { 
     my $sth = $_[0]->prepare 
@@ -178,6 +177,10 @@ sub sql_doc_lock {
     $sth->execute();
     $sth->finish();
   }; if ( $@ ) {
+    # dbg 'sql lock insert error', $@; we actually want to get an
+    # error on a failed lock. we catch the error and check whether it
+    # signals an attempt to insert a "duplicate" key. If so, the lock
+    # attempt failed, so we return 0.
     if ( $@ =~ /duplicate/i ) {
       # print "lock on $_[1] failed\n";
       return 0;
@@ -189,6 +192,7 @@ sub sql_doc_lock {
 
 # $dbh, $key
 sub sql_doc_unlock {
+  # dbg 'un-locking', $_[1];
   my $sth = $_[0]->prepare ( "DELETE FROM comma_lock WHERE doc_key = '$_[1]'" );
   $sth->execute();
   $sth->finish();
@@ -196,21 +200,9 @@ sub sql_doc_unlock {
 
 
 sub sql_get_hold {
-  my ( $lock_singlet, $key ) = @_;
-  my $dbh = $lock_singlet->get_dbh();
-  my $q_lock_name = $dbh->quote ( $key );
-  my $sth = $dbh->prepare ( "SELECT GET_LOCK($q_lock_name,86400)" );
-  $sth->execute();
-  $sth->finish();
 }
 
 sub sql_release_hold {
-  my ( $lock_singlet, $key ) = @_;
-  my $dbh = $lock_singlet->get_dbh();
-  my $q_lock_name = $dbh->quote ( $key );
-  my $sth = $dbh->prepare ( "SELECT RELEASE_LOCK($q_lock_name)" );
-  $sth->execute();
-  $sth->finish();
 }
 
 #
@@ -219,23 +211,6 @@ sub sql_release_hold {
 
 
 sub sql_create_index_tables_table {
-my $index = shift();
-my $sth = $index->get_dbh()->prepare (
-"CREATE TABLE index_tables
-  ( _comma_flag    TINYINT,
-    _sq            INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-    doctype        VARCHAR(255),
-    index_name     VARCHAR(255),
-    table_name     VARCHAR(255),
-    table_type     TINYINT,
-    last_modified  INT,
-    sort_spec      VARCHAR(255),
-    textsearch     VARCHAR(255),
-    collection     VARCHAR(255),
-    index_def      TEXT )"
-);
-$sth->execute();
-$sth->finish();
 }
 
 #  table_type => const for the table_type column
@@ -300,12 +275,6 @@ sub sql_create_data_table {
 }
 
 sub sql_data_table_definition {
-  return
-"CREATE TABLE $_[1] (
-  _comma_flag             TINYINT,
-  record_last_modified    INT,
-  _sq                     INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
-  doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) } PRIMARY KEY )";
 }
 
 sub sql_data_table_name {
@@ -463,10 +432,6 @@ sub sql_create_sort_table {
 }
 
 sub sql_sort_table_definition {
-  return
-"CREATE TABLE $_[1] (
-  _comma_flag  TINYINT,
-  doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) } PRIMARY KEY )";
 }
 
 
@@ -533,14 +498,6 @@ sub sql_create_bcollection_table {
 }
 
 sub sql_bcollection_table_definition {
-  my ( $index, $name, %arg ) = @_;
-  return
-"CREATE TABLE $name (
-  _comma_flag  TINYINT,
-  doc_id ${ \( $index->element('doc_id_sql_type')->get() ) },
-  value  ${ \( $arg{bcoll_el}->element('sql_type')->get() ) },
-  INDEX(value),
-  UNIQUE INDEX(doc_id,value) )";
 }
 
 sub sql_drop_bcollection_table {
@@ -608,21 +565,9 @@ sub sql_create_textsearch_tables {
 }
 
 sub sql_textsearch_index_table_definition {
-  use XML::Comma::Pkg::Textsearch::Preprocessor;
-  my $max_length = $XML::Comma::Pkg::Textsearch::Preprocessor::max_word_length;
-  return
-"CREATE TABLE $_[1] (
-  word  CHAR($max_length)  PRIMARY KEY,
-  seqs  MEDIUMBLOB )";
 }
 
 sub sql_textsearch_defers_table_definition {
-  return
-"CREATE TABLE $_[1] (
-  doc_id        ${ \( $_[0]->element('doc_id_sql_type')->get() ) },
-  action        TINYINT,
-  text          MEDIUMBLOB,
-  _sq           INT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE )";
 }
 
 
@@ -651,30 +596,15 @@ sub sql_get_textsearch_tables {
 }
 
 sub sql_textsearch_word_lock {
-  my ( $index, $i_table_name, $word ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_lock_name = $dbh->quote ( $i_table_name . $word );
-  my $sth = $dbh->prepare ( "SELECT GET_LOCK($q_lock_name,1800)" );
-  $sth->execute();
-  $sth->finish();
 }
 
 sub sql_textsearch_word_unlock {
-  my ( $index, $i_table_name, $word ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_lock_name = $dbh->quote ( $i_table_name . $word );
-  my $sth = $dbh->prepare ( "SELECT RELEASE_LOCK($q_lock_name)" );
-  $sth->execute();
-  $sth->finish();
 }
 
 sub sql_textsearch_pack_seq_list {
-  shift();
-  return pack ( "L*", @_ );
 }
 
 sub sql_textsearch_unpack_seq_list {
-  return unpack ( "L*", $_[1] );
 }
 
 # pass EITHER a single doc_id or a list of doc_seqs.
@@ -954,12 +884,13 @@ sub sql_clear_all_comma_flags {
 
 sub sql_clean_find_orphans {
   my ( $table_name, $data_table_name ) = @_;
-  return "SELECT $table_name.doc_id from $table_name LEFT JOIN $data_table_name ON $table_name.doc_id = $data_table_name.doc_id WHERE $data_table_name.doc_id is NULL";
+  return "SELECT $table_name.doc_id FROM $table_name WHERE $table_name.doc_id NOT IN (SELECT $data_table_name.doc_id FROM $data_table_name)";
 }
 
 sub sql_set_comma_flags_for_clean_first_pass {
   my ( $dbh, $data_table_name, $table_name, $erase_where_clause,
        $flag_value ) = @_;
+  my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax};
 
   ## orphan rows in the sort tables. these can be created in small
   ## numbers by the normal fact of entries being cleaned from the data
@@ -967,8 +898,10 @@ sub sql_set_comma_flags_for_clean_first_pass {
   ## be created in large numbers by an aborted rebuild() or other
   ## large operation.
   if ( $table_name ne $data_table_name ) {
-    my $sth = $dbh->prepare
-      ( sql_clean_find_orphans ($table_name, $data_table_name) );
+    my $convoluted_getting_of_subname = "XML::Comma::SQL::$syntax" .
+      '::sql_clean_find_orphans ($table_name, $data_table_name);';
+    my $sql = eval $convoluted_getting_of_subname;
+    my $sth = $dbh->prepare ( $sql );
     $sth->execute();
     while ( my $row = $sth->fetchrow_arrayref() ) {
       my $orphan_id = $row->[0];
@@ -1132,7 +1065,7 @@ sub sql_limit_clause {
   my ( $index, $limit_number, $limit_offset ) = @_;
   if ( $limit_number ) {
     if ( $limit_offset ) {
-      return " LIMIT $limit_offset, $limit_number";
+      return " LIMIT $limit_number OFFSET $limit_offset";
     } else {
       return " LIMIT $limit_number";
     }
@@ -1175,10 +1108,6 @@ sub sql_create_textsearch_temp_table_stmt {
 }
 
 sub sql_load_data {
-  my ( $index, $dbh, $temp_table_name, $temp_filename ) = @_;
-  my $sth = $dbh->prepare ( "LOAD DATA LOCAL INFILE \"$temp_filename\" REPLACE INTO TABLE $temp_table_name" );
-  $sth->execute();
-  $sth->finish();
 }
 
 sub sql_drop_any_temp_tables {

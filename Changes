@@ -156,4 +156,12 @@ Revision history for XML::Comma modules:
 1.09  2002/11/27 12:36:38
 -------------------------
 
+  - Upgraded Pg-specific code for Postgres 7.3. Comma now REQUIRES Pg
+    7.3 -- which is fine, because Comma made poor assumptions pre-7.3
+    that didn't work so good. QUESTION: why is postgres so chatty, and
+    what can be done to keep it from printing out warnings when
+    indexes are created, and to stop errors that are caught with eval
+    from going to the log.
+
+
 

@@ -49,7 +49,6 @@ require Exporter;
   sql_textsearch_pack_seq_list
   sql_textsearch_unpack_seq_list
 
-  sql_alter_data_table_drop_or_modify
   sql_clean_find_orphans
   sql_limit_clause
   sql_create_textsearch_temp_table_stmt
@@ -62,7 +61,10 @@ sub sql_create_hold_table {
   my $dbh = shift();
   dbg 'creating hold table';
   $dbh->commit();
-  $dbh->do ( "CREATE TABLE comma_hold ( key VARCHAR(255) UNIQUE)" );
+  my $sth = $dbh->prepare
+    ( "CREATE TABLE comma_hold ( key VARCHAR(255) UNIQUE)" );
+  $sth->execute();
+  $sth->finish();
   $dbh->commit();
 }
 
@@ -70,24 +72,29 @@ sub sql_get_hold {
   my ( $lock_singlet, $key ) = @_;
   my $dbh = $lock_singlet->get_dbh();
   my $q_lock_name = $dbh->quote ( $key );
-  dbg 'dbh', $dbh;
+  # dbg 'dbh', $dbh;
   $dbh->{AutoCommit}=0;
   $dbh->commit();
-  $dbh->do ( "INSERT INTO comma_hold (key) VALUES ($q_lock_name)" );
+  my $sth = $dbh->prepare
+    ( "INSERT INTO comma_hold (key) VALUES ($q_lock_name)" );
+  $sth->execute();
+  $sth->finish();
 }
 
 sub sql_release_hold {
   my ( $lock_singlet, $key ) = @_;
   my $dbh = $lock_singlet->get_dbh();
   my $q_lock_name = $dbh->quote ( $key );
-  $dbh->do ( "DELETE FROM comma_hold WHERE key = $q_lock_name" );
+  my $sth = $dbh->prepare ( "DELETE FROM comma_hold WHERE key = $q_lock_name" );
+  $sth->execute();
+  $sth->finish();
   $dbh->commit();
   $dbh->{AutoCommit}=1;
 }
 
 sub sql_create_index_tables_table {
 my $index = shift();
-$index->get_dbh()->do (
+my $sth = $index->get_dbh()->prepare (
 "CREATE TABLE index_tables
   ( _comma_flag    INT2,
     _sq            SERIAL,
@@ -101,6 +108,8 @@ $index->get_dbh()->do (
     collection     VARCHAR(255),
     index_def      TEXT )"
 );
+$sth->execute();
+$sth->finish();
 }
 
 
@@ -122,19 +131,21 @@ sub sql_data_table_definition {
 }
 
 sub sql_bcollection_table_definition {
+  my ( $index, $name, %arg ) = @_;
   return
-"CREATE TABLE $_[1] (
+"CREATE TABLE $name (
   _comma_flag  INT2,
-  doc_id ${ \( $_[0]->element('doc_id_sql_type')->get() ) },
-  value  VARCHAR(255) );
- CREATE INDEX bci_$_[1] ON $_[1] (value)";
+  doc_id ${ \( $index->element('doc_id_sql_type')->get() ) },
+  value   ${ \( $arg{bcoll_el}->element('sql_type')->get() ) } );
+ CREATE INDEX bci_$name ON $name (value)";
 }
 
 
 sub sql_textsearch_index_table_definition {
+  my $max_length = $XML::Comma::Pkg::Textsearch::Preprocessor::max_word_length;
   return
 "CREATE TABLE $_[1] (
-  word  CHAR(12)  PRIMARY KEY,
+  word  CHAR($max_length)  PRIMARY KEY,
   seqs  TEXT )";
 }
 
@@ -152,7 +163,10 @@ sub sql_textsearch_word_lock {
   my $dbh = $index->get_dbh();
   $dbh->{AutoCommit}=0;
   $dbh->commit();
-  $dbh->do ( "LOCK TABLE $i_table_name IN SHARE ROW EXCLUSIVE MODE" );
+  my $sth = $dbh->prepare
+    ( "LOCK TABLE $i_table_name IN SHARE ROW EXCLUSIVE MODE" );
+  $sth->execute();
+  $sth->finish();
 }
 
 sub sql_textsearch_word_unlock {
@@ -184,25 +198,25 @@ sub sql_textsearch_unpack_seq_list {
 # stuff. there is no difference between drop and modify, in the
 # mechanics, and the field_name and field_type variables are not used
 # (the def fields are pulled instead).
-sub sql_alter_data_table_drop_or_modify {
-  my ( $index, $field_name, $field_type ) = @_;
+#  sub sql_alter_data_table_drop_or_modify {
+#    my ( $index, $field_name, $field_type ) = @_;
 
-  my $temp_table_name = "t$$";
-  my $data_table_name = $index->data_table_name();
+#    my $temp_table_name = "t$$";
+#    my $data_table_name = $index->data_table_name();
 
-  my $dbh = $index->get_dbh();
-  $dbh->do (
-            "CREATE TABLE $temp_table_name AS SELECT _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } FROM $data_table_name"
-           );
-  $dbh->do ( "DROP TABLE $data_table_name" );
-  $dbh->do ( "DROP SEQUENCE $data_table_name" . '__sq_seq' );
-  $index->_create_new_data_table ( $data_table_name );
-  $dbh->do (
-            "INSERT INTO $data_table_name ( _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } ) SELECT _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } FROM $temp_table_name"
-           );
-  $dbh->do ( "DROP TABLE $temp_table_name" );
-  return '';
-}
+#    my $dbh = $index->get_dbh();
+#    $dbh->do (
+#              "CREATE TABLE $temp_table_name AS SELECT _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } FROM $data_table_name"
+#             );
+#    $dbh->do ( "DROP TABLE $data_table_name" );
+#    $dbh->do ( "DROP SEQUENCE $data_table_name" . '__sq_seq' );
+#    $index->_create_new_data_table ( $data_table_name );
+#    $dbh->do (
+#              "INSERT INTO $data_table_name ( _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } ) SELECT _comma_flag, doc_id, record_last_modified, _sq, ${ \( join(', ',$index->columns()) ) } FROM $temp_table_name"
+#             );
+#    $dbh->do ( "DROP TABLE $temp_table_name" );
+#    return '';
+#  }
 
 
 # this update w/ subselect ought to work, but Pg won't allow the order
@@ -222,7 +236,7 @@ sub sql_alter_data_table_drop_or_modify {
 
 
 sub sql_clean_find_orphans {
-  my ( $index, $table_name, $data_table_name ) = @_;
+  my ( $table_name, $data_table_name ) = @_;
   return "SELECT $table_name.doc_id FROM $table_name WHERE $table_name.doc_id NOT IN (SELECT $data_table_name.doc_id FROM $data_table_name)";
 }
 
