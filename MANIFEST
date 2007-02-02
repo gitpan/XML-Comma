@@ -2,6 +2,7 @@ Changes
 INSTALL
 LICENSE
 MANIFEST
+META.yml
 Makefile.PL
 README
 bin/comma-drop-index.pl
