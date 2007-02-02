@@ -45,6 +45,7 @@ WriteMakefile(
     'VERSION_FROM' => 'lib/XML/Comma.pm',
     'PREREQ_PM'    =>
               { Inline                   => 0,
+                Fcntl                    => 0,
                 Lingua::Stem             => 0,
                 Crypt::Twofish           => 0,
                 Crypt::CBC               => 0,

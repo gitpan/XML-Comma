@@ -22,6 +22,7 @@
 
 package XML::Comma::Log;
 
+use Fcntl ":flock";
 use strict;
 
 
@@ -66,9 +67,22 @@ sub log {
   my $string = $_[1];
   chomp $string;
   $string =~ s/\n/ /g;
-  `echo "${\( time() )} $$ $string" >> ${ \( XML::Comma->log_file() ) }`;
+  {
+    my $log;
+    unless ( open( $log, "+>>", XML::Comma->log_file() ) &&
+	     flock( $log, LOCK_EX ) ) {
+      print STDERR "Can't open " . XML::Comma->log_file();
+      print STDERR time() . "$$ $string";
+      return;
+    };
+    seek($log, 0, 2); #seek to EOF in case someone appended while we waited
+    print $log scalar localtime() . ": $$ $string\n";
+    # note close() makes an implicit funlock()
+    close($log) || print STDERR "$$ can't close log file at ".time.", other procs may block forever \""
+      . XML::Comma->log_file() . "\": $!";
+  }
+  #`echo "${\( time() )} $$ $string" >> ${ \( XML::Comma->log_file() ) }`;
 }
-
 
 ##
 # first, look for the first stackframe caller that is not an

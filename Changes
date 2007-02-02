@@ -1,7 +1,7 @@
 Revision history for XML::Comma modules:
 
 -------------------------
-1.22  2007/01/31
+1.25  2007/01/31
 -------------------------
 
   - Performance, correctness/security fix in XML::Comma::Log
