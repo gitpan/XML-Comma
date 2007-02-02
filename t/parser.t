@@ -203,4 +203,7 @@ eval {
   $def = XML::Comma::Def->read ( name => '_test_parser_di_sub_exe_err' );
 }; print "ok 39\n"  if  $@ and $@ =~ m|ouch|;
 
+# mixin parsing/instantiation
 
+# my $mdoc = XML::Comma::Doc->new ( type => '_test_parser_mixin' );
+# my $mel = $mdoc->element('mixed_in');

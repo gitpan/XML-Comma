@@ -42,7 +42,7 @@ WriteMakefile(
     'NAME'	       => 'XML::Comma',
     'ABSTRACT'     => 'XML::Comma document life-cycle platform',
     'EXE_FILES'    => \@cmd_line_utils,
-    'VERSION_FROM' => 'Comma.pm',
+    'VERSION_FROM' => 'lib/XML/Comma.pm',
     'PREREQ_PM'    =>
               { Inline                   => 0,
                 Lingua::Stem             => 0,
@@ -51,9 +51,11 @@ WriteMakefile(
                 Digest::HMAC_MD5         => 0,
                 String::CRC              => 0,
                 Math::BaseCalc           => 0,
+                Class::ClassDecorator    => 0,
+                Compress::Zlib           => 0,
                 DBI                      => 0,
               },
-    'clean' => {
-      'FILES' => 'lib/XML/Comma.pm'
-    }
+    #'clean' => {
+    #  'FILES' => 'lib/XML/Comma.pm'
+    #}
 );

@@ -15,7 +15,6 @@ rmtree $def->get_store('other')->base_directory, 0;
 ####
 
 my $doc = XML::Comma::Doc->new ( type => '_test_timestamp' );
-
 $doc->store ( store => 'one', keep_open => 1 );
 my $doc_key = $doc->doc_key();
 my $created = $doc->created();

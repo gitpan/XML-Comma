@@ -32,6 +32,6 @@ XML::Comma has been tested with Apache 1.3.x, mod_perl 1.2.x, HTML::Mason
 MySQL 3.23+, and PostgresSQL.  
 
 For more information about XML::Comma, point a web browser at
-http://xymbollab.com/tools/comma/, or read the tutorial included with
+http://xml-comma.org, or read the tutorial included with
 the XML::Comma distribution at docs/guide.html
 

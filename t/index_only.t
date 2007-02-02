@@ -6,12 +6,10 @@ use XML::Comma::Util qw( dbg );
 
 print "1..10\n";
 
-my $doc = XML::Comma::Doc->new ( type => '_test_index_only' );
-print "ok 1\n";
 
 # erase everything, so that we start fresh
-my $index = $doc->def()->get_index ( "main" );
-print "ok 2\n";
+my $index = XML::Comma::Def->_test_index_only->get_index ( "main" );
+print "ok 1\n";
 
 my $it = $index->iterator();
 while ( ++$it ) {
@@ -19,6 +17,10 @@ while ( ++$it ) {
   # dbg 'id', $doc->doc_id();
   $doc->erase();
 }
+print "ok 2\n";
+
+
+my $doc = XML::Comma::Doc->new ( type => '_test_index_only' );
 print "ok 3\n";
 
 $doc->time ( time );
@@ -27,6 +29,7 @@ $doc->store ( store => 'main' );
 print "ok 4\n";
 
 my $id = $doc->doc_id();
+print "id: $id\n";
 
 undef $doc;
 $doc = XML::Comma::Doc->read ( "_test_index_only|main|$id" );
