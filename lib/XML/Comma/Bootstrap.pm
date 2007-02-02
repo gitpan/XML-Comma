@@ -317,8 +317,13 @@ sub bootstrap_block {
     <element><name>name</name></element>
     <!-- 'store' will default to self->element('name')->get() -
          (note, this is handled by the Store->store() method in
-          the internals ) -->
+          the internals, but is extendable via the def for 
+          multi-store indexing) -->
     <element><name>store</name></element>
+    <!-- 'doctype' will default to index->doctype() - 
+         (note, this is also extendable via the def for 
+          multi-def indexing) -->
+    <element><name>doctype</name></element>
     <!-- doc_id_sql_type SHOULD NOT BE CHANGED without completely
          dropping and recreating a given index's database (or otherwise
          altering the database structure outside of Comma). ** there is
@@ -344,7 +349,7 @@ sub bootstrap_block {
       <element><name>code</name></element>
       <element>
         <name>type</name>
-        <default>stringified</default>
+        <default>binary table</default>
       </element>
       <element>
         <name>sql_type</name>
@@ -428,7 +433,9 @@ sub bootstrap_block {
       <name>method</name>
       <defname>DocumentDefinition:method</defname>
     </nested_element>
-    <plural>qw( field
+    <plural>qw( store
+                doctype
+                field
                 collection
                 bcollection
                 sort

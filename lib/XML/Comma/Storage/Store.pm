@@ -146,6 +146,7 @@ sub write {
   my $blobs_flag = 0;
   unless ( $arg{no_blobs} ) {
     foreach my $blob ( $arg{doc}->get_all_blobs_and_ghosts() ) {
+      # print "MOVING: " . $blob->{_Blob_location} . "\n";
       $blobs_flag += $blob->store ( copy => $arg{anew} );
     }
     $arg{doc}->clear_ghosts_list();
@@ -166,6 +167,7 @@ sub write {
   my $post_store_error;
   unless ( $arg{no_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('post_store_hook')} ) {
+      #$sub->( $arg{doc}, $self, \%arg );
       eval { $sub->( $arg{doc}, $self, \%arg ); };
       $post_store_error = $@  if  ( $@ and ! $post_store_error );
     }
@@ -179,10 +181,14 @@ sub write {
 }
 
 # id => doc id
+# key => doc key
 # type => doc type
 # store => name of store
 # no_hooks => don't run store_hooks if true
 # doc_string => string block that is the new doc
+# blobs_local_files => flag (1) saying that we can treat this as a move between
+#              two local stores, that we'll do set_from_file for blob content,
+#              rather than get it from the blobs_hash below
 # blobs => { blob_location_from_doc_string => blob_content }
 sub force_store {
   my ( $self, %args ) = @_;
@@ -218,12 +224,19 @@ sub force_store {
                  no_blobs => 1,
                  keep_open => 1 );
   # and walk through the blobs, clearing and resetting according to
-  # the passed list
+  # either our local references or the passed list
   foreach my $blob ( $doc->get_all_blobs() ) {
-    my $send_side_filename = $blob->get_location();
-    $blob->set();
-    $blob->set ( $args{blobs}->{$send_side_filename},
-                 filename => $send_side_filename );
+    if ( $args{blobs_local_files} ) {
+      my $filename = $blob->get_location;
+      $blob->clear_location;
+      print "resetting and copying: " . $filename . "\n";
+      $blob->set_from_file ( $filename );
+    } else {
+      my $send_side_filename = $blob->get_location();
+      $blob->set();
+      $blob->set ( $args{blobs}->{$send_side_filename},
+                   filename => $send_side_filename );
+    }
   }
   $doc->store ( no_hooks => $args{no_hooks} );
   return $doc;

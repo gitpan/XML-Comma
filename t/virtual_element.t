@@ -2,6 +2,8 @@ use strict;
 
 print "1..36\n";
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 

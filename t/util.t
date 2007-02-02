@@ -1,6 +1,8 @@
 use strict;
 
-print "1..15\n";
+print "1..18\n";
+
+use lib ".test/lib/";
 
 use XML::Comma::Util qw( trim
                          array_includes
@@ -10,6 +12,9 @@ use XML::Comma::Util qw( trim
                          XML_basic_escape
                          XML_basic_unescape
                          XML_smart_escape
+                         random_an_string
+                         urlsafe_ascify_32bits
+                         urlsafe_deascify_32bits
                        );
 
 # flatten_arrayrefs
@@ -72,5 +77,10 @@ $str = XML_basic_escape ( '<foo>&amp;<bar>' );
 print "ok 14\n"  if  $str eq '&lt;foo&gt;&amp;amp;&lt;bar&gt;';
 print "ok 15\n"  if  XML_basic_unescape( $str ) eq '<foo>&amp;<bar>';
 
-
-
+# base 64 stuff
+print "ok 16\n"  if  length(random_an_string(12)) == 12;
+my $time = time;
+my $b64_time = urlsafe_ascify_32bits ( $time );
+print "ok 17\n"  if  length($b64_time) == 6;
+my $time2 = urlsafe_deascify_32bits ( $b64_time );
+print "ok 18\n"  if  $time eq $time2;

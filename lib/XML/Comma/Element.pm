@@ -106,6 +106,9 @@ sub set {
   my ( $self, $content, %args ) = @_;
   $self->assert_not_read_only();
   if ( defined $content ) {
+    # stringify to avoid strange errors that sometimes crop up now
+    # that we're overloading/decorating our Element classes
+    $content = "$content";
     # trim
     $content = trim ( $content );
     # escape arg/config handling
@@ -205,6 +208,9 @@ sub to_string {
 
 sub auto_dispatch {
   my ( $self, $m, @args ) = @_;
+  if ( my $method = $self->can($m) ) {
+    $method->( $self, @args );
+  }
   $self->method ( $m, @args );
 }
 

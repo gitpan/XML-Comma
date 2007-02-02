@@ -1,5 +1,7 @@
 use strict;
 
+use lib ".test/lib/";
+
 use XML::Comma;
 
 # first, let's create a comma root directory and put some defs down

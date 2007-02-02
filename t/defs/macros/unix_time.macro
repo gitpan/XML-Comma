@@ -22,4 +22,11 @@ $self->add_method ( 'date_8',
                           substr("00".$tm[3],-2);
                     } );
 
+$self->add_method ( 'date_8',
+                    sub {
+                      my @tm = $t2arr->( $_[0]->get || return );
+                      return ($tm[5]+1900) .
+                        substr("00".($tm[4]+1),-2) .
+                          substr("00".$tm[3],-2);
+                    } );
 1;

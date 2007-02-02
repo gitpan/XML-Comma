@@ -22,9 +22,15 @@
 
 package XML::Comma::Pkg::DecoratorTest::Talker;
 
+my $what = "";
+
 sub say_hello {
   my $self = shift;
-  return "hello";
+  return $what;
+}
+
+sub init {
+  $what = "hello";
 }
 
 1;

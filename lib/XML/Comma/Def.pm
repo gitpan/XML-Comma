@@ -168,6 +168,7 @@ sub finish_initial_read {
     $self->_create_storages();
   }
   $self->_config_dispatcher();
+  $self->_init_decorators();
 }
 
 
@@ -247,19 +248,42 @@ sub _create_storages {
 
 sub _index_on_store_hooks {
   my ( $self, $storage_el ) = @_;
-  foreach my $inx_name ( $storage_el->elements_group_get('index_on_store') ) {
-    # check whether the index exists, and that it expects this storage
+  
+  foreach my $index_string ( $storage_el->elements_group_get(
+                               'index_on_store') ) {
+
+    # mismatched <store/> and <doctype/> directives in an index declaration 
+    # throw an exception
+    
     my $index;
-    eval { $index = $self->get_index ( $inx_name ); };
-    if ( $@ ) {
-      die "can't index_by_name to '$inx_name' -- it doesn't exist\n";
+
+    my ( $def_name, $index_name ) = split /:/, $index_string;
+
+    if ( $def_name && $index_name ) { 
+      eval { $index = XML::Comma::Def->read( name => $def_name )
+                                     ->get_index ( $index_name ); 
+      }; if ( $@ ) {
+        die "can't index_by_name to '$index_string' -- it doesn't exist\n";
+      }
+      $self->_store_doctype_index_match_p( $index, $storage_el ) or 
+        die "can't index_by_name to '$index_string' " . 
+            "-- it doesn't accept writes from storage '" . 
+            $storage_el->name() . "' in def '" . $self->name() . "'\n";
+    } else {
+      eval { $index = $self->get_index ( $index_string ); };
+      if ( $@ ) {
+        die "can't index_by_name to '$index_string' -- it doesn't exist\n";
+      }
+      $self->_store_doctype_index_match_p( $index, $storage_el ) or
+        die "can't index_by_name to '$index_string' " . 
+            "-- it doesn't accept writes from storage '" . 
+           $storage_el->name() . "' in def '" . $self->name() . "'\n";
     }
-    my $st = $index->store();
-    if ( $st ne $storage_el->name() ) {
-      die "can't index_by_name to '$inx_name' -- it stores from '$st'\n";
-    }
-    my $update_string = "sub { \$_[0]->index_update ( index=>'$inx_name' ) };";
-    my $delete_string = "sub { \$_[0]->index_remove ( index=>'$inx_name' ) };";
+    
+    my $update_string = 
+      "sub { \$_[0]->index_update ( index=>'$index_string' ) };";
+    my $delete_string = 
+      "sub { \$_[0]->index_remove ( index=>'$index_string' ) };";
     $storage_el->add_hook ( 'post_store_hook', $update_string );
     $storage_el->add_hook ( 'erase_hook', $delete_string );
   }
@@ -277,6 +301,28 @@ sub _create_indexes {
             $self->element('name')->get() );
   }
 }
+
+sub _store_doctype_index_match_p {
+  my ( $self, $index, $storage_el ) = @_;
+  no warnings;
+
+  # check that the user defined doctype declarations match the index
+  my $doctype_match = grep { $_ eq '*' or $_ eq $self->name() }
+    map{ eval $_ } $index->elements_group_get( 'doctype' );
+
+  # or that the default index doctype is the same as the def
+  $doctype_match ||= $index->doctype() eq $self->name();
+
+  # check user defined stores declarations match the storage element
+  my $store_match = grep { $_ eq '*' or $_ eq $storage_el->name() }
+    map { eval $_ } $index->elements_group_get( 'store' );
+
+  # or that the default index store is the same as the storage element
+  $store_match ||= $index->store() eq $storage_el->name();
+
+  return $doctype_match && $store_match;
+}
+
 
 sub get_store {
   my ( $self, $storage_name ) = @_;
@@ -589,9 +635,22 @@ sub auto_dispatch {
 #
 ####
 
+sub _init_decorators {
+  my $self = shift;
+  my @classes = $self->get_decorators() or return;
+  foreach my $class ( @classes ) {
+    if ( $class->can('init') ) {
+      $class->init ( $self );
+    }
+  }
+}
+
 sub get_decorators {
-  return @{ $_[0]->{_Def_decorator_classes}
-              ||= [map { $_->module } $_[0]->elements('class')] };
+  no strict 'refs';
+  return @{ $_[0]->{_Def_decorator_classes} ||=
+    [map { eval "require ".$_->module  unless  scalar %{$_->module."::"};
+           die "$@\n"  if  $@;
+           $_->module } $_[0]->elements('class')] };
 }
 
 sub get_decorator_config {

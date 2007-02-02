@@ -5,6 +5,8 @@ use File::Path;
 
 print "1..8\n";
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Util qw( dbg random_an_string );
 

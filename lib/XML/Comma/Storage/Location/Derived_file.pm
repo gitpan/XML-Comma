@@ -65,18 +65,19 @@ sub make_id {
   # balance directory
   my $balance_dir = $self->_get_balance_directory ( $string );
   push @{$struct->{locs}}, $balance_dir  if  $balance_dir;
-  # we need to make sure the directory (which we've been passed in
+  # make location string
+  my $location = File::Spec->canonpath
+                 (File::Spec->catfile (@{$struct->{locs}},
+                                       $string.$self->{_extension}) );
+  # now we need to make sure the directory (which we've been passed in
   # pieces, and perhaps have just added a _balance piece to)
   # exists. even if we haven't added a _balance piece, the directory
   # might not exist (in some of the other Location modules the
   # next_sequential_id stuff does this directory creation for us)
-  my $directory = File::Spec->catdir ( @{$struct->{locs}} );
+  my ( undef, $directory ) = File::Spec->splitpath ( $location );
   XML::Comma::Storage::FileUtil->make_directory ( $struct->{store},
                                                   $directory );
-
-  # make and return the location and id strings
-  my $location = File::Spec->catfile ( $directory,
-                                       $string.$self->{_extension} );
+  # make matching id
   my $id = join ( '',@{$struct->{ids}},$string );
   return ( $id, $location );
 }
@@ -88,10 +89,12 @@ sub location_from_id {
   if ( $balance_dir ) {
     return
       ( '',
-        File::Spec->catfile($location,$balance_dir,$id.$self->{_extension}) );
+        File::Spec->canonpath
+        (File::Spec->catfile($location,$balance_dir,$id.$self->{_extension})) );
   } else {
     return ( '',
-             File::Spec->catfile($location,$id.$self->{_extension}) );
+             File::Spec->canonpath
+             (File::Spec->catfile($location,$id.$self->{_extension})) );
   }
 }
 
@@ -103,6 +106,7 @@ sub id_from_location {
   my $body = $1;
   if ( $self->{_Df_balanced} ) {
     # assumption: directory path separator is one character wide
+    # FIX: shouldn't this have logic for *both* head and tail balancing?
     $body = substr ( $body, $self->{_Df_balanced}->{length}+1 );
   }
   return ( $id . $body, '' );

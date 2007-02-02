@@ -57,9 +57,10 @@ sub err {
 
 # usage: XML::Comma::Log->warn ( $string );
 sub warn {
-  chomp $_[1];
-  #print STDERR "$_[1]\n";
-  $_[0]->log ( "WARNING -- $_[1]" );
+  my $msg = $_[1];
+  chomp $msg;
+  #print STDERR "$msg\n";
+  $_[0]->log ( "WARNING -- $msg" );
 }
 
 
@@ -84,6 +85,7 @@ sub log {
   #`echo "${\( time() )} $$ $string" >> ${ \( XML::Comma->log_file() ) }`;
 }
 
+
 ##
 # first, look for the first stackframe caller that is not an
 # XML::Comma package. then, look all the way up the stack to see if
@@ -96,8 +98,8 @@ sub external_caller {
   my ( $package, $filename, $line, $subroutine,
        $hasargs, $wantarray, $evaltext, $is_require ) = caller($i++);
   while ( $package ) {
-    #print "$package -- $filename -- $line -- $subroutine -- $evaltext\n";
-    #print "CONTEXT: $package -- $line\n";
+    # print "$package -- $filename -- $line -- $subroutine -- $evaltext\n";
+    # print "CONTEXT: $package -- $line\n";
     # first external caller?
     if ( (! $caller_file) and ($package !~ /^XML::Comma/) ) {
       $caller_file = $filename;
@@ -170,5 +172,3 @@ sub to_string {
 }
 
 1;
-
-

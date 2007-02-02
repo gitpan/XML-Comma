@@ -48,11 +48,11 @@
   <name>four</name>
   <base>test/four</base>
   <location>Sequential_file:'max',10,'extension','.encrypt'</location>
-  <output>Twofish: 'key',      'some 16-byte key',
-                   'key_hash', '09d6240d90187d3e30f9b438510e973a'</output>
+  <output>Blowfish: 'key',      'some 16-byte key',
+                    'key_hash', '09d6240d90187d3e30f9b438510e973a'</output>
   <!-- <output>
    <![CDATA[
-   Twofish: 
+   Blowfish: 
      'key' => do { print "key ('1234'): "; my $key=<>; chop $key; $key },
      'key_hash' => '81dc9bdb52d04dc20036dbd8313ed055',       
     ]]>   </output> -->
@@ -68,8 +68,8 @@
   <output>HMAC_MD5: 'key',      'an-hmac-sillykey',
                     'key_hash', '7c116a20dcc378de2afb4cc9955a2187'</output>
 
-  <output>Twofish: 'key',      'another-sillykey',
-                   'key_hash', '6ae8eaeaa226a03a46d79a359ab00db0'</output>
+  <output>Blowfish: 'key',      'another-sillykey',
+                    'key_hash', '6ae8eaeaa226a03a46d79a359ab00db0'</output>
   </store>
 
   <store>
@@ -156,6 +156,18 @@
     <location>Sequential_file: 'digits', ['a','b', 'c'], 'max', 4</location>
   </store>
 
+  <store>
+    <name>thirteen</name>
+    <base>test/thirteen</base>
+    <location>Timestamped_random</location>
+  </store>
+
+  <store>
+    <name>fourteen</name>
+    <base>test/fourteen</base>
+    <location>Sequential_dir: 'digits', ['x','y', 'z'], 'max', 2</location>
+    <location>Timestamped_random: 'gmt_balance', 1</location>
+  </store>
 
 </DocumentDefinition>
 

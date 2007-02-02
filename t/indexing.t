@@ -8,12 +8,15 @@ use File::Path;
 
 my $test_dir =  '/usr/local/comma/docs/test';
 
-print "1..97\n";
+print "1..99\n";
+
+use lib ".test/lib/";
 
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
-
+#for tests on 'stringified' and 'many tables' collections
+$XML::Comma::_no_deprecation_warnings = 1;
 
 my $doc_block_a = <<END;
 <_test_indexing>
@@ -57,6 +60,7 @@ eval {
   $def->get_index ( 'doesnt exist' );
 }; my $error = $@;
 print "ok 3\n"  if  $index_main && $index_other && $error;
+
 
 ## ping. twice (just to make sure we don't have a
 ## connection/instantiation problem. pinging causes a dbh->connect(),
@@ -113,7 +117,9 @@ $i = $index_main->iterator ( fields => [ 'foo', 'buried' ] );
 print "ok 24\n"  if  $i->doc_id() eq '0003';
 print "ok 25\n"  if  $i->foo() eq 'foo2';
 print "ok 26\n"  if  $i->buried() eq 'oo-oo-oo';
-eval { $i->bar() }; print "ok 27\n"  if  $@;
+
+# but now this does a lazy read of the doc, so it should pass [dug]
+eval { $i->bar() }; print "ok 27\n"  unless $@;
 
 # test asking for a field that doesn't exist
 eval { $i = $index_main->iterator ( fields => [ 'okoe' ] ) };
@@ -198,6 +204,7 @@ $i->iterator_refresh;
 # while ( $i->iterator_has_stuff ) { print $i->doc_id; print "\n"; $i++; }
 # now do the normal "what's in here test?"
 print "ok 50\n"  if  _chk_0002_0001($i);
+
 print "ok 51\n"  if  $i->select_count() == 2;
 $i->iterator_refresh ( 1 );
 print "ok 52\n"  if  $i->doc_id eq '0002';
@@ -209,6 +216,7 @@ print "ok 55\n"  if  $i->select_count() == 2;
 # test that nonsense word doesn't return an iterator
 $i = $index_main->iterator ( textsearch_spec => "paragraph:flargenblobble" );
 print "ok 56\n" unless $i->iterator_has_stuff;
+
 
 # get all 3 in various ways
 sub _chk_0003_0002_0001 {
@@ -294,35 +302,41 @@ undef $read;
 my $retrieved = $i->retrieve_doc();
 print "ok 80\n" if $retrieved->doc_id eq '0003' and $retrieved->foo() eq 'foo2';
 undef $retrieved;
+$read = $i->doc_read();
+print "ok 81\n" if $read->doc_id eq '0003' and $read->foo() eq 'foo2';
+undef $read;
+$retrieved = $i->doc_retrieve();
+print "ok 82\n" if $retrieved->doc_id eq '0003' and $retrieved->foo() eq 'foo2';
+undef $retrieved;
 
 
 # an aggregate
 my $sum = $index_main->aggregate ( function=>"SUM(id_as_number)" );
-print "ok 81\n" if $sum == 6;
-$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
-                                collection_spec=>"'many1_b:a' OR many1_s:d" );
-print "ok 82\n" if $sum == 6;
-$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
-                                collection_spec=>"'many2_b:d d'" );
 print "ok 83\n" if $sum == 6;
 $sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
+                                collection_spec=>"'many1_b:a' OR many1_s:d" );
+print "ok 84\n" if $sum == 6;
+$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
+                                collection_spec=>"'many2_b:d d'" );
+print "ok 85\n" if $sum == 6;
+$sum = $index_main->aggregate ( function=>"SUM(id_as_number)",
                                 collection_spec=>"'many1_s:c'" );
-print "ok 84\n" if $sum == 3;
+print "ok 86\n" if $sum == 3;
 
 ##
 # order_by expressions
 $i = $index_main->iterator ( order_by=>'id_mod_3' );
-print "ok 85\n" if (++$i)->doc_id() eq '0003' and
+print "ok 87\n" if (++$i)->doc_id() eq '0003' and
                    (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and ! (++$i);
 
 $i = $index_main->iterator ( order_by=>'constant_exp, doc_id' );
-print "ok 86\n" if (++$i)->doc_id() eq '0001' and
+print "ok 88\n" if (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and
                    (++$i)->doc_id() eq '0003' and ! (++$i);
 
 $i = $index_main->iterator ( order_by=>'test_eval, doc_id' );
-print "ok 87\n" if (++$i)->doc_id() eq '0001' and
+print "ok 89\n" if (++$i)->doc_id() eq '0001' and
                    (++$i)->doc_id() eq '0002' and
                    (++$i)->doc_id() eq '0003' and ! (++$i);
 
@@ -334,13 +348,13 @@ while ( $i++ ) {
   $i->retrieve_doc()->erase();
 }
 $i = $index_main->iterator();
-print "ok 88\n" if $i->doc_id() eq '0003' and ! (++$i);
+print "ok 90\n" if $i->doc_id() eq '0003' and ! (++$i);
 
 $i->iterator_refresh();
 $i->retrieve_doc()->erase();
 
 $i = $index_main->iterator();
-print "ok 89\n" if ! $i;
+print "ok 91\n" if ! $i;
 
 ###
 ##
@@ -374,13 +388,13 @@ $doc_b->copy ( keep_open=>1 ); $doc_b->copy ( keep_open=> 1 );
 $doc_a->copy();
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 90\n" if (++$i)->doc_id() eq '0006' and
+print "ok 92\n" if (++$i)->doc_id() eq '0006' and
                    (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and ! (++$i);
 # but 'b' table should be unchanged
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 91\n" if (++$i)->doc_id() eq '0004' and
+print "ok 93\n" if (++$i)->doc_id() eq '0004' and
                    (++$i)->doc_id() eq '0008' and
                    (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and ! (++$i);
@@ -389,13 +403,13 @@ print "ok 91\n" if (++$i)->doc_id() eq '0004' and
 $doc_common->copy();
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 92\n" if (++$i)->doc_id() eq '0009' and
+print "ok 94\n" if (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 # and 'a' table should have one new member
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 93\n" if (++$i)->doc_id() eq '0006' and
+print "ok 95\n" if (++$i)->doc_id() eq '0006' and
                    (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
@@ -409,7 +423,7 @@ $doc_b->copy();
 
 # our overall set should now have six docs, 0007-0012
 $i = $index_main->iterator ( order_by=>'doc_id' );
-print "ok 94\n" if (++$i)->doc_id() eq '0007' and
+print "ok 96\n" if (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0008' and
                    (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
@@ -419,7 +433,7 @@ print "ok 94\n" if (++$i)->doc_id() eq '0007' and
 # 'a' table should have three docs
 $i = $index_main->iterator ( collection_spec=>"many1_s:a",
                              order_by=>'doc_id' );
-print "ok 95\n" if (++$i)->doc_id() eq '0007' and
+print "ok 97\n" if (++$i)->doc_id() eq '0007' and
                    (++$i)->doc_id() eq '0011' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 
@@ -427,7 +441,7 @@ print "ok 95\n" if (++$i)->doc_id() eq '0007' and
 # erase_where_clause and gets dropped during the "first" clean pass)
 $i = $index_main->iterator ( collection_spec=>"many1_s:b",
                              order_by=>'doc_id' );
-print "ok 96\n" if (++$i)->doc_id() eq '0009' and
+print "ok 98\n" if (++$i)->doc_id() eq '0009' and
                    (++$i)->doc_id() eq '0010' and
                    (++$i)->doc_id() eq '0012' and ! (++$i);
 
@@ -442,4 +456,4 @@ while ( $i++ ) {
 }
 
 $i = $index_main->iterator();
-print "ok 97\n"  unless  $i;
+print "ok 99\n"  unless  $i;

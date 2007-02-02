@@ -41,6 +41,13 @@ sub new {
     die "Index_Only Location module needs an index_name argument\n";
   $self->{_doctype} = $arg{store}->doctype();
 
+  # In special cases where we don't want doc_ids to be sequential we 
+  # allow the use to specify an element or method to derive the doc_id
+  # from
+  $self->{_IO_derive_from} = $arg{derive_from};
+  # derive_args (experimental)
+  $self->{_IO_derive_args} = $arg{derive_args} || [];
+
   my $index = XML::Comma::Def->read ( name=>$self->{_doctype} )
     ->get_index ( $self->{_index_name} ) ||
     die "Index_Only error -- can't get index named $arg{index_name} for doctype '$arg{store}\n";
@@ -59,6 +66,16 @@ sub decl_pos {
 }
 
 sub make_id {
+  my ( $self, $struct ) = @_;
+
+  if ( $self->{_IO_derive_from} ) {
+    # get the id from some element or method
+    my $id = $struct->{doc}->auto_dispatch ( $self->{_IO_derive_from},
+                                              @{$self->{_IO_derive_args}} );
+    die "Derived_file got no value from its derive_from: " .
+      $self->{_IO_derive_from} . "\n"  if  ! $id;
+    return ( $id, '' );
+  }
   return ( 'COMMA_DB_SEQUENCE_SET', '' );
 }
 
@@ -98,8 +115,7 @@ sub read {
   my  ( $self, $store, $location, $id ) = @_;
   my $index = XML::Comma::Def->read ( name => $self->{_doctype} )
     ->get_index ( $self->{_index_name} );
-
-  my $single = $index->single ( where_clause => "doc_id=$id" )
+  my $single = $index->single ( where_clause => "doc_id='$id'" )
     || die ( "doc with id '$id' not found in index\n" );
 
   return $self->_build_block_from_fields ( $index, $single );

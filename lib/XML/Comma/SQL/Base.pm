@@ -22,162 +22,78 @@
 
 package XML::Comma::SQL::Base;
 
-require Exporter;
-@ISA = qw ( Exporter );
-
-use Sys::Hostname qw();
-
-# FIX: separate these into :tags
-
-@EXPORT = qw(
-  sql_create_lock_table
-  sql_create_hold_table
-  sql_get_lock_record
-  sql_doc_lock
-  sql_doc_unlock
-  sql_delete_locks_held_by_this_pid
-  sql_get_hold
-  sql_release_hold
-
-  sql_create_a_table
-  sql_create_index_tables_table
-  sql_create_data_table
-  sql_data_table_definition
-  sql_data_table_name
-  sql_get_def
-  sql_update_def_in_tables_table
-
-  sql_alter_data_table_drop_or_modify
-  sql_alter_data_table_add
-  sql_alter_data_table_add_collection
-  sql_alter_data_table_add_index
-  sql_alter_data_table_drop_index
-  sql_insert_into_data
-  sql_update_in_data
-  sql_delete_from_data
-  sql_get_sq_from_data_table
-
-  sql_create_sort_table
-  sql_sort_table_definition
-  sql_get_sort_table_for_spec
-  sql_get_sort_spec_for_table
-  sql_get_sort_tables
-  sql_insert_into_sort
-  sql_delete_from_sort
-
-  sql_create_bcollection_table
-  sql_bcollection_table_definition
-  sql_drop_bcollection_table
-  sql_get_bcollection_table
-  sql_insert_into_bcollection
-  sql_delete_from_bcollection
-
-  sql_create_textsearch_tables
-  sql_textsearch_index_table_definition
-  sql_textsearch_defers_table_definition
-  sql_drop_textsearch_tables
-  sql_get_textsearch_tables
-  sql_textsearch_word_lock
-  sql_textsearch_word_unlock
-  sql_textsearch_pack_seq_list
-  sql_textsearch_unpack_seq_list
-  sql_update_in_textsearch_index_table
-  sql_delete_from_textsearch_index_table
-  sql_textsearch_defer_delete
-  sql_textsearch_defer_update
-  sql_delete_from_textsearch_defers_table
-  sql_get_textsearch_defers_sth
-  sql_get_textsearch_indexed_words
-  sql_get_textsearch_index_packed
-  sql_create_textsearch_temp_table
-  sql_create_textsearch_temp_table_stmt
-  sql_load_data
-  sql_drop_any_temp_tables
-
-  sql_id_indexed_p
-  sql_seq_indexed_p
-  sql_simple_rows_count
-  sql_drop_table
-  sql_update_timestamp
-  sql_get_timestamp
-
-  sql_get_table_comma_flag
-  sql_set_table_comma_flag
-  sql_set_all_table_comma_flags_politely
-  sql_get_all_tables_with_comma_flags_set
-  sql_unset_all_table_comma_flags
-  sql_unset_table_comma_flag
-  sql_clean_find_orphans
-  sql_set_comma_flags_for_clean_first_pass
-  sql_set_comma_flags_for_clean_second_pass
-  sql_set_all_comma_flags
-  sql_clear_all_comma_flags
-  sql_delete_where_not_comma_flags
-  sql_delete_where_comma_flags
-
-  sql_select_from_data
-  sql_limit_clause
-  sql_select_aggregate
-  sql_select_returns_count
-);
+use XML::Comma::Storage::Util ();
+use XML::Comma::Util qw( dbg );
+use Sys::Hostname ();
 
 use strict;
-use XML::Comma::Util qw( dbg );
-
-# some of the sql statements that get used, grouped here for
-# readability and overrideability. $index (and, usually, $_[0]) refers
-# to an Index object, $dbh to a dbh handle, and $doc to a Doc
-# object. string arguments vary depending on the statement.
 
 sub sql_create_lock_table {
-  my $dbh = shift();
-  $dbh->commit()  unless  $dbh->{AutoCommit};
-  my $sth = $dbh->prepare (
-"CREATE TABLE comma_lock
-        ( doc_key         VARCHAR(255) UNIQUE,
-          pid             INT,
-          info            VARCHAR(255),
-          time            INT )" );
+  my $lock = shift;
+  my $dbh  = $lock->get_dbh_writer();
+  # if database is postgres, we b0rked our cursor when we tried to access 
+  # the non-existent comma_lock table... eval{} is in case we have an old
+  # version of DBD::Pg that doesn't support transactions
+  eval { $dbh->rollback() if(XML::Comma->system_db() eq 'postgres'); };
+  my $sth = $dbh->prepare_cached (
+    qq[
+        CREATE TABLE comma_lock
+            ( doc_key         VARCHAR(255) UNIQUE,
+              pid             INT,
+              info            VARCHAR(255),
+              time            INT )
+    ]);
   $sth->execute();
   $sth->finish();
-  $dbh->commit()  unless  $dbh->{AutoCommit};
 }
 
 sub sql_create_hold_table {
+  die "sql_create_hold_table is not implemented";
 }
 
-# $dbh, $key
+# $lock, $key
 sub sql_get_lock_record {
-  my $doc_key = $_[0]->quote ( $_[1] );
-my $sth = $_[0]->prepare ( 
-"SELECT doc_key,pid,info,time FROM comma_lock WHERE doc_key=$doc_key" );
-$sth->execute();
-my $result = $sth->fetchrow_arrayref();
-return $result ? { doc_key => $result->[0],
-                   pid     => $result->[1],
-                   info    => $result->[2],
-                   time    => $result->[3] } : '';
+  my ($lock, $key) = @_;
+  my $dbh  = $lock->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        SELECT doc_key, pid, info, time 
+            FROM comma_lock 
+            WHERE doc_key = ?  
+    ]);
+  $sth->execute( $key );
+  my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
+  return $result ? { doc_key => $result->[0],
+                     pid     => $result->[1],
+                     info    => $result->[2],
+                     time    => $result->[3] } : '';
 }
 
-# dbh
+# $lock
 sub sql_delete_locks_held_by_this_pid {
-  my $sth = $_[0]->prepare ( 'DELETE from comma_lock WHERE pid=' .
-                             $_[0]->quote($$) );
-  $sth->execute();
+  my $lock = shift;
+  my $dbh  = $lock->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ DELETE from comma_lock 
+            WHERE pid = ? ]
+  );
+  $sth->execute( $$ );
   $sth->finish();
 }
 
-# $dbh, $key - returns 1 if row-insert succeeds, 0 on duplicate
+# $lock, $key - returns 1 if row-insert succeeds, 0 on duplicate
 # key. throws error for any error other than duplicate key.
 sub sql_doc_lock {
-  # dbg '  -locking', $_[1];
-  my $hn = $_[0]->quote ( Sys::Hostname::hostname );
-  my $doc_key = $_[0]->quote ( $_[1] );
+  my ($lock, $key) = @_;
+  my $dbh = $lock->get_dbh_writer();
   eval { 
-    my $sth = $_[0]->prepare 
-      ( "INSERT INTO comma_lock ( doc_key, pid, time, info )
-                 VALUES ( $doc_key, $$, ${ \( time() ) }, $hn )" );
-    $sth->execute();
+    my $sth = $dbh->prepare_cached (
+      qq[ 
+          INSERT INTO comma_lock ( doc_key, pid, time, info )
+              VALUES ( ?, ?, ?, ? ) 
+      ]);
+    $sth->execute( $key, $$, time(), Sys::Hostname::hostname() );
     $sth->finish();
   }; if ( $@ ) {
     # dbg 'sql lock insert error', $@; we actually want to get an
@@ -193,20 +109,26 @@ sub sql_doc_lock {
   return 1;
 }
 
-# $dbh, $key
+# $lock, $key
 sub sql_doc_unlock {
-  # dbg 'un-locking', $_[1];
-  my $doc_key = $_[0]->quote ( $_[1] );
-  my $sth = $_[0]->prepare ( "DELETE FROM comma_lock WHERE doc_key = $doc_key" );
-  $sth->execute();
+  my ($lock, $key) = @_;
+  my $dbh  = $lock->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        DELETE FROM comma_lock 
+            WHERE doc_key = ? 
+    ]);
+  $sth->execute( $key );
   $sth->finish();
 }
 
 
 sub sql_get_hold {
+  die "sql_get_hold unimplemented";
 }
 
 sub sql_release_hold {
+  die "sql_release_hold unimplemented";
 }
 
 #
@@ -215,6 +137,7 @@ sub sql_release_hold {
 
 
 sub sql_create_index_tables_table {
+  die "sql_create_index_tables_table unimplemented";
 }
 
 #  table_type => const for the table_type column
@@ -225,41 +148,65 @@ sub sql_create_index_tables_table {
 #  textsearch => string for text_search column (if any)
 #  collection => name of collection being binary indexed (if any)
 sub sql_create_a_table {
-  my ( $index, %arg ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_doctype = $dbh->quote ( $index->doctype() );
-  my $q_index_name = $dbh->quote ( $index->element('name')->get() );
+  my ($index, %arg) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sort_spec  = $arg{sort_spec}  || '';
+  my $textsearch = $arg{textsearch} || '';
+  my $collection = $arg{collection} || '';
+  my $index_def  = $arg{index_def}  || '';
+  my $table_type = $arg{table_type} || '';
   my $name;
   my $table_def_sub = $arg{table_def_sub} || die "need table def sub";
-  my $index_def = $dbh->quote ( $arg{index_def} || '' );
-  my $sort_spec = $dbh->quote ( $arg{sort_spec} || '' );
-  my $textsearch = $dbh->quote ( $arg{textsearch} || '' );
-  my $collection = $dbh->quote ( $arg{collection} || '' );
 
   if ( ! $arg{existing_table_name} ) {
     # add an appropriate line to the index table
-    my $sth = $dbh->prepare ( "INSERT INTO index_tables ( doctype, index_name, last_modified, _comma_flag, index_def, sort_spec, textsearch, collection, table_type ) VALUES ( $q_doctype, $q_index_name, ${ \( time() ) }, 0, $index_def, $sort_spec, $textsearch, $collection, $arg{table_type} )" );
-    $sth->execute();
+    my $sth = $dbh->prepare_cached ( 
+      qq[ 
+          INSERT INTO index_tables ( doctype, index_name, last_modified, 
+                                     _comma_flag, index_def, sort_spec, 
+                                     textsearch, collection, table_type ) 
+            VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )
+      ]);
+    $sth->execute ( $index->doctype(), $index->element('name')->get(),
+                    time(), 0, $index_def, $sort_spec, $textsearch, 
+                    $collection, $table_type );
     $sth->finish();
+
     # make a name for that table
     my $stub = substr ( $index->doctype(), 0, 8 );
-    $sth = $dbh->prepare( "SELECT _sq FROM index_tables WHERE doctype=$q_doctype AND index_name=$q_index_name AND table_type=$arg{table_type} AND index_def=$index_def AND sort_spec=$sort_spec AND textsearch=$textsearch AND collection=$collection" );
-    $sth->execute();
+    $sth = $dbh->prepare_cached ( 
+      qq[
+          SELECT _sq FROM index_tables 
+            WHERE doctype = ? 
+              AND index_name = ? 
+              AND table_type = ?
+              AND index_def  = ? 
+              AND sort_spec  = ?
+              AND textsearch = ?
+              AND collection = ?
+      ]);
+    $sth->execute ( $index->doctype(), $index->element('name')->get(),
+                    $table_type, $index_def, $sort_spec, 
+                    $textsearch, $collection );
     my $s = $sth->fetchrow_arrayref()->[0];
+    $sth->finish();
     $name = $stub . '_' . sprintf ( "%04s", $s );
-    my $q_t_name = $dbh->quote ( $name );
-    $sth = $dbh->prepare 
-      ( "UPDATE index_tables SET table_name=$q_t_name WHERE _sq=$s" );
-    $sth->execute();
+    $sth = $dbh->prepare_cached (
+
+      qq[
+          UPDATE index_tables 
+            SET table_name = ? 
+            WHERE _sq = ?
+      ]);
+    $sth->execute( $name, $s );
     $sth->finish();
   } else {
     $name = $arg{existing_table_name};
   }
 
   # now make the table
-  # dbg 'create table command', $index->$table_def_sub($name);
   eval {
-    my $sth = $dbh->prepare ( $index->$table_def_sub($name,%arg) );
+    my $sth = $dbh->prepare_cached ( $index->$table_def_sub( $name, %arg ) );
     $sth->execute();
     $sth->finish();
   };
@@ -279,28 +226,39 @@ sub sql_create_data_table {
 }
 
 sub sql_data_table_definition {
+  die "sql_data_table_definition is not implemented";
 }
 
 sub sql_data_table_name {
-my $index = shift();
-my $dbh = $index->get_dbh();
-my $sth = $dbh->prepare (
-"SELECT table_name from index_tables WHERE doctype=${ \( $dbh->quote($index->doctype()) ) } AND index_name=${ \($dbh->quote($index->element('name')->get()) ) } AND table_type=${ \( XML::Comma::Indexing::Index->DATA_TABLE_TYPE() )}" );
-$sth->execute();
-my $result = $sth->fetchrow_arrayref();
-return $result ? $result->[0] : die "FIX: no data table name found\n";
+  my $index = shift();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached (
+    qq[
+        SELECT table_name FROM index_tables 
+          WHERE doctype  = ? 
+          AND index_name = ? 
+          AND table_type = ? 
+    ]);
+  $sth->execute( $index->doctype(), $index->element('name')->get(), 
+                 XML::Comma::Indexing::Index->DATA_TABLE_TYPE() );
+  my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
+  return $result ? $result->[0] : die "FIX: no data table name found\n";
 }
 
 
 sub sql_get_def {
   my $index = shift();
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare
-    ( 'SELECT index_def FROM index_tables WHERE doctype=' .
-      $dbh->quote($index->doctype()) . ' AND index_name=' .
-      $dbh->quote($index->element('name')->get()) . ' AND table_type=' .
-      $index->DATA_TABLE_TYPE() );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        SELECT index_def FROM index_tables 
+          WHERE doctype  = ?
+          AND index_name = ?
+          AND table_type = ?
+    ]);
+  $sth->execute( $index->doctype(), $index->element('name')->get(), 
+                 $index->DATA_TABLE_TYPE() );
   my $result = $sth->fetchrow_arrayref();
   $sth->finish();
   return $result ? $result->[0] : '';
@@ -308,10 +266,14 @@ sub sql_get_def {
 
 sub sql_update_def_in_tables_table {
   my $index = shift();
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare 
-    ( "UPDATE index_tables SET index_def=${ \( $dbh->quote($index->to_string()) ) } WHERE table_name=${ \( $dbh->quote($index->data_table_name()) ) }" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        UPDATE index_tables 
+          SET index_def = ?
+          WHERE table_name = ?
+    ]);
+  $sth->execute( $index->to_string(), $index->data_table_name() );
   $sth->finish();
 }
 
@@ -320,16 +282,22 @@ sub sql_update_def_in_tables_table {
 # column type, and this is a modify.
 sub sql_alter_data_table_drop_or_modify {
   my ( $index, $field_name, $field_type ) = @_;
-#  dbg 'dropping/modifying', $field_type, $field_type || '';
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
   if ( $field_type ) {
-    my $sth = $index->get_dbh()->prepare
-      ( "ALTER TABLE " . $index->data_table_name() .
-        " MODIFY $field_name $field_type" );
+    my $sth = $dbh->prepare_cached ( 
+      qq[
+          ALTER TABLE $data_table
+              MODIFY $field_name $field_type
+      ]);
     $sth->execute();
     $sth->finish();
   } else {
-    my $sth = $index->get_dbh()->prepare
-      ( "ALTER TABLE " . $index->data_table_name() . " DROP $field_name" );
+    my $sth = $dbh->prepare_cached ( 
+      qq[
+          ALTER TABLE $data_table
+            DROP $field_name
+      ]);
     $sth->execute();
     $sth->finish();
   }
@@ -337,40 +305,86 @@ sub sql_alter_data_table_drop_or_modify {
 
 sub sql_alter_data_table_add {
   my ( $index, $field_name, $field_type ) = @_;
-  my $string = "ALTER TABLE ${ \($index->data_table_name()) } " .
-                        "ADD $field_name $field_type";
-  # dbg 'alter/add command', $string;
-  my $sth = $index->get_dbh()->prepare ( $string );
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
+  my $sth = $dbh->prepare_cached (
+    qq[
+        ALTER TABLE $data_table
+            ADD $field_name $field_type
+    ]);
+  $sth->execute();
+  $sth->finish();
+}
+
+sub sql_alter_data_table_change_primary_key {
+  my ( $index, @fields ) = @_;
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
+
+  my $new_key;
+  if ( $index->doc_id_sql_type =~ /\((\d+)\)/ ) {
+    $new_key = "doc_id($1), ";
+  } else {
+    $new_key = "doc_id(100), ";
+  }
+  $new_key .= join ", ", map { "$_(100)" } @fields;
+
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        ALTER TABLE $data_table
+            DROP PRIMARY KEY
+    ]);
+  $sth->execute();
+  $sth->finish();
+
+  $sth = $dbh->prepare_cached ( 
+    qq[
+        ALTER TABLE $data_table
+            ADD PRIMARY KEY ( $new_key )
+    ]);
   $sth->execute();
   $sth->finish();
 }
 
 sub sql_alter_data_table_add_collection {
   my ( $index, $field_name ) = @_;
-  my $sth = $index->get_dbh()->prepare 
-    ( "ALTER TABLE ${ \($index->data_table_name()) } " . 
-      "ADD $field_name TEXT" );
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
+  my $sth = $dbh->prepare_cached (
+    qq[
+        ALTER TABLE $data_table
+            ADD $field_name TEXT
+    ]);
   $sth->execute();
   $sth->finish();
 }
 
 sub sql_alter_data_table_add_index {
   my ( $index, $sql_index ) = @_;
+  my $dbh = $index->get_dbh_writer();
   my $unique = ( $sql_index->element('unique')->get() ? 'UNIQUE' : '' );
   my $fields = $sql_index->element( 'fields' )->get();
   my $sql_index_name = $sql_index->element('name')->get() ||
     die "sql_index must have a name\n";
-  my $data_table_name = $index->data_table_name();
-  my $sth = $index->get_dbh()->prepare 
-    ( "CREATE $unique INDEX $sql_index_name ON $data_table_name ($fields)" );
+  my $data_table = $index->data_table_name();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        CREATE $unique INDEX $sql_index_name 
+          ON $data_table ($fields)
+    ]);
   $sth->execute();
   $sth->finish();
 }
 
 sub sql_alter_data_table_drop_index {
+  my ( $index, $sql_index ) = @_;
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
   eval {
-    my $sth = $_[0]->get_dbh()->prepare
-      ( "DROP INDEX $_[1] ON ${ \( $_[0]->data_table_name() ) }" );
+    my $sth = $dbh->prepare_cached ( 
+      qq[
+          DROP INDEX $sql_index ON $data_table
+      ]);
     $sth->execute();
     $sth->finish();
   }; if ( $@ ) {
@@ -378,8 +392,6 @@ sub sql_alter_data_table_drop_index {
   }
 }
 
-
-# FIX: is always dbh-quoting the doc_id the right thing?
 sub sql_insert_into_data {
   my ( $index, $doc, $comma_flag ) = @_;
   $comma_flag ||= 0;
@@ -389,6 +401,7 @@ sub sql_insert_into_data {
   # special case where we want the doc_id to get its value here,
   # during the write, from the _sq number.
   my ( $doc_make_id_flag, $doc_id ) = ( undef, $doc->doc_id() );
+  #dbg 'insert_into_data', $doc_id;
   if ( $doc->doc_id() eq 'COMMA_DB_SEQUENCE_SET' ) {
     $doc_id = 0;
     $doc_make_id_flag = 1;
@@ -396,23 +409,26 @@ sub sql_insert_into_data {
 
   # the core logic -- insert the row into the data table with all
   # columns properly filled
-  my $dbh = $index->get_dbh();
-  my $dtn = $index->data_table_name();
-  my $qdoc_id = $dbh->quote ( $doc_id );
+  my $dbh        = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
 
   my @columns = $index->columns();
   my $columns_list = join ( ',', 'doc_id', @columns );
-  my $columns_values =
-    join ( ',', $qdoc_id,
-           map {
-             $dbh->quote ( $index->column_value($_, $doc,) )
-           } @columns );
 
-  my $string = 'INSERT INTO ' . $dtn .
-    " ( _comma_flag, record_last_modified, $columns_list ) VALUES ( $comma_flag, ${\( time() )}, $columns_values )";
-  #dbg 'sql', $string;
-  my $sth = $dbh->prepare ( $string );
-  $sth->execute();
+  my @columns_values = $doc_id;
+  push @columns_values, map { $index->column_value($_, $doc,) } @columns;
+  my $placeholders = join( ", ", ('?') x @columns_values );
+
+  # dbg 'sql', $string;
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        INSERT INTO $data_table
+            ( _comma_flag, record_last_modified, $columns_list ) 
+          VALUES 
+            ( ?, ?, $placeholders )
+    ]);
+  #dbg 'columns', @columns_values;
+  $sth->execute($comma_flag, time(), @columns_values );
   $sth->finish();
 
   # and, finally set the id field correctly, both in the db and in the
@@ -421,14 +437,21 @@ sub sql_insert_into_data {
   # take responsibility for making all of the doc's storage_info stuff
   # right.
   if ( $doc_make_id_flag ) {
-    my $sth = $dbh->prepare ( "SELECT _sq from $dtn WHERE doc_id = $qdoc_id" );
-    $sth->execute();
+    $sth = $dbh->prepare_cached ( 
+      qq[
+          SELECT _sq FROM $data_table 
+          WHERE doc_id = ? 
+      ]);
+    $sth->execute( $doc_id );
     $doc_id = $sth->fetchrow_arrayref->[0];
-    $qdoc_id = $dbh->quote ( $doc_id );
     $sth->finish();
-    $sth = $dbh->prepare
-      ( "UPDATE $dtn SET doc_id = $qdoc_id WHERE _sq = $doc_id" );
-    $sth->execute();
+
+    $sth = $dbh->prepare_cached ( 
+      qq[
+          UPDATE $data_table SET doc_id = ?
+          WHERE _sq = ?
+      ]);
+    $sth->execute( $doc_id, $doc_id );
     $sth->finish();
     $doc->set_storage_info ( undef, undef, $doc_id );
   }
@@ -437,27 +460,56 @@ sub sql_insert_into_data {
 sub sql_update_in_data {
   my ( $index, $doc, $comma_flag ) = @_;
   $comma_flag = $comma_flag || 0;
-  my $dbh = $index->get_dbh();
+  my $dbh = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
 
   my $columns_sets = join 
-    ( ',', "_comma_flag=$comma_flag",
-      "record_last_modified=${\( time() )}",
+    ( ',', "_comma_flag = ?",
+      "record_last_modified = ?",
       map {
-        $_ . '=' . $dbh->quote( $index->column_value($_,$doc) )
+        $_ . '=' . ' ?'
       } $index->columns() );
 
-  my $sth = $dbh->prepare ( "UPDATE ${ \( $index->data_table_name ) } SET $columns_sets WHERE doc_id = ${ \( $dbh->quote($doc->doc_id()) ) }" );
-  $sth->execute();
+  my $where = $index->sql_get_where_pk( $doc );
+
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        UPDATE $data_table
+        SET $columns_sets 
+            $where
+    ]);
+  $sth->execute( $comma_flag, time(), 
+                 ( map { $index->column_value($_,$doc) } $index->columns() ));
   $sth->finish();
 }
 
 sub sql_delete_from_data {
   my ( $index, $doc ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare 
-    ( "DELETE FROM ${ \( $index->data_table_name() ) } WHERE doc_id = ${ \( $dbh->quote($doc->doc_id()) ) }" );
+  my $dbh = $index->get_dbh_writer();
+  my $data_table = $index->data_table_name();
+  my $where = $index->sql_get_where_pk( $doc );
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        DELETE FROM $data_table
+          $where
+    ]);
   $sth->execute();
   $sth->finish();
+}
+
+# TODO: come back here and work some trickery to return a statement with 
+# placeholders? 
+sub sql_get_where_pk {
+  my ( $index, $doc ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my %key_fields;
+  @key_fields{ qw( doctype store id ) } = map { $dbh->quote( $_ ) } 
+    XML::Comma::Storage::Util->split_key( $doc->doc_key() );
+  my $sql = "WHERE doc_id = " . $key_fields{ id };
+  foreach my $extra ( @{ $index->{ _Index_extra_pk_fields } } ) {
+    $sql .= " AND $extra = " . $key_fields{ $extra };
+  }
+  return $sql;
 }
 
 sub sql_create_sort_table {
@@ -469,60 +521,83 @@ sub sql_create_sort_table {
 }
 
 sub sql_sort_table_definition {
+  die "sql_sort_table_definition is not implemented";
 }
 
-
 sub sql_get_sort_table_for_spec {
-my ( $index, $sort_spec ) = @_;
-my $dbh = $index->get_dbh();
-my $q_doctype = $dbh->quote ( $index->doctype() );
-my $q_index_name = $dbh->quote ( $index->element('name')->get() );
-my $q_sort_spec = $dbh->quote ( $sort_spec );
-my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE doctype=$q_doctype AND index_name=$q_index_name AND sort_spec=$q_sort_spec" );
-$sth->execute();
-my $result = $sth->fetchrow_arrayref();
-return  $result ? $result->[0] : '';
+  my ( $index, $sort_spec ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        SELECT table_name FROM index_tables 
+            WHERE doctype  = ? 
+            AND index_name = ?
+            AND sort_spec  = ?
+    ]);
+  $sth->execute( $index->doctype(), $index->element('name')->get(), 
+                 $sort_spec );
+  my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
+  return  $result ? $result->[0] : '';
 }
 
 sub sql_get_sort_spec_for_table {
-my ( $index, $table_name ) = @_;
-my $dbh = $index->get_dbh();
-my $sth = $dbh->prepare (
-"SELECT sort_spec FROM index_tables WHERE table_name=${ \( $dbh->quote($table_name) ) }" );
-$sth->execute();
-my $result = $sth->fetchrow_arrayref();
-return  $result ? $result->[0] : '';
+  my ( $index, $table_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached (
+    qq[
+        SELECT sort_spec FROM index_tables 
+          WHERE table_name = ?
+    ]);
+  $sth->execute( $table_name );
+  my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
+  return  $result ? $result->[0] : '';
 }
 
 # sort_name is optional -- if not given, just returns all sort tables
 sub sql_get_sort_tables {
-my ( $index, $sort_name ) = @_;
-my $dbh = $index->get_dbh();
-my $sth = $dbh->prepare (
-"SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype()) ) } AND index_name=${ \( $dbh->quote($index->element('name')->get()) ) } AND table_type=${ \( $index->SORT_TABLE_TYPE() ) } " .
-  ($sort_name ? ('AND sort_spec LIKE ' . $dbh->quote($index->make_sort_spec($sort_name,'') . '%')) : '') );
-$sth->execute();
-return  map { $_->[0] } @{$sth->fetchall_arrayref()};
+  my ( $index, $sort_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sql = 
+    qq[
+        SELECT table_name FROM index_tables 
+          WHERE doctype  = ? 
+          AND index_name = ? 
+          AND table_type = ? 
+      ];
+  $sql .= $sort_name ? qq[ AND sort_spec LIKE ? ] : '';
+  my $sth = $dbh->prepare_cached ( $sql );
+  my @values = ( $index->doctype(), $index->element('name')->get(),
+                 $index->SORT_TABLE_TYPE );
+  push @values, $index->make_sort_spec( $sort_name, '' ) . '%' if $sort_name;
+  $sth->execute( @values );
+  return map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
 
 
 sub sql_insert_into_sort {
-  my ( $index, $qdoc_id, $sort_table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare ( "INSERT INTO $sort_table_name ( _comma_flag, doc_id ) VALUES ( 0, $qdoc_id )" );
-  $sth->execute();
+  my ( $index, $doc_id, $sort_table_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        INSERT INTO $sort_table_name ( _comma_flag, doc_id ) 
+          VALUES ( ?, ? )
+      ]
+  );
+  $sth->execute( 0, $doc_id );
   $sth->finish();
 }
 
 # returns the number of rows deleted
 sub sql_delete_from_sort {
-  my ( $index, $qdoc_id, $sort_table_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare 
-    ( "DELETE FROM $sort_table_name WHERE doc_id=$qdoc_id" );
-  $sth->execute();
+  my ( $index, $doc_id, $sort_table_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ DELETE FROM $sort_table_name WHERE doc_id = ? ] );
+  $sth->execute( $doc_id );
   $sth->finish();
 }
-
 
 sub sql_create_bcollection_table {
   my ( $index, $collection_name, $bcoll_el ) = @_;
@@ -534,20 +609,32 @@ sub sql_create_bcollection_table {
 }
 
 sub sql_bcollection_table_definition {
+  die "sql_bcollection_table_definition is not implemented";
 }
 
 sub sql_drop_bcollection_table {
   my ( $index, $collection_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE collection=${ \( $dbh->quote($collection_name) ) } AND doctype=${ \( $dbh->quote($index->doctype()) )}" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT table_name 
+          FROM index_tables 
+          WHERE collection = ?
+          AND doctype      = ?
+      ]
+  );
+  $sth->execute( $collection_name, $index->doctype() );
   while ( my $row = $sth->fetchrow_arrayref() ) {
     my $table_name = $row->[0];
-    my $sth = $dbh->prepare ( "DROP TABLE $table_name" );
+    my $sth = $dbh->prepare_cached ( qq[ DROP TABLE $table_name ] );
     $sth->execute();
     $sth->finish();
-    $sth = $dbh->prepare ( "DELETE FROM index_tables WHERE table_name=${ \( $dbh->quote($table_name) ) }" );
-    $sth->execute();
+    $sth = $dbh->prepare_cached ( 
+      qq[
+          DELETE FROM index_tables 
+            WHERE table_name = ? 
+        ]
+    );
+    $sth->execute( $table_name );
     $sth->finish();
   }
 }
@@ -555,13 +642,21 @@ sub sql_drop_bcollection_table {
 # name is optional -- if not given, returns all bcollection table names
 sub sql_get_bcollection_table {
   my ( $index, $name ) = @_;
-  my $dbh = $index->get_dbh();
-
-  my $sth = $dbh->prepare (
-"SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype()) ) } AND index_name=${ \( $dbh->quote($index->element('name')->get()) ) } AND table_type=${ \( $index->BCOLLECTION_TABLE_TYPE() ) } " .
-  ($name ? ('AND collection='.$dbh->quote($name)) : '') );
-
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sql = 
+    qq[
+        SELECT table_name 
+          FROM index_tables 
+          WHERE doctype  = ? 
+          AND index_name = ? 
+          AND table_type = ?
+     ];
+  $sql .= qq[ AND collection = ? ] if $name;
+  my @values = ( $index->doctype(), $index->element('name')->get(),
+                 $index->BCOLLECTION_TABLE_TYPE );
+  push @values, $name if $name;
+  my $sth = $dbh->prepare_cached ( $sql );
+  $sth->execute( @values );
   my $result = $sth->fetchall_arrayref();
   if ( wantarray ) {
     return map { $_->[0] } @{$result};
@@ -571,25 +666,36 @@ sub sql_get_bcollection_table {
 }
 
 sub sql_insert_into_bcollection {
-  my ( $index, $table_name, $qdoc_id, $col_str, $col_extra ) = @_;
-  my $dbh = $index->get_dbh();
-  my $qvalue = $dbh->quote ( $col_str );
-  my $sth;
+  my ( $index, $table_name, $doc_id, $col_str, $col_extra ) = @_;
+  my $dbh = $index->get_dbh_writer();
   if ( $col_extra ) {
-    my $qextra = $dbh->quote ( $col_extra );
-    $sth = $dbh->prepare ( "INSERT INTO $table_name ( _comma_flag, doc_id, value, extra ) VALUES ( 0, $qdoc_id, $qvalue, $qextra )" );
+    my $sth = $dbh->prepare_cached ( 
+      qq[
+          INSERT INTO $table_name ( _comma_flag, doc_id, value, extra ) 
+            VALUES ( ?, ?, ?, ? )
+        ]
+    );
+    $sth->execute( 0, $doc_id, $col_str, $col_extra );
+    $sth->finish();
   } else {
-    $sth = $dbh->prepare ( "INSERT INTO $table_name ( _comma_flag, doc_id, value ) VALUES ( 0, $qdoc_id, $qvalue )" );
+    my $sth = $dbh->prepare_cached (
+      qq[
+          INSERT INTO $table_name ( _comma_flag, doc_id, value ) 
+            VALUES ( ?, ?, ? )
+        ]
+    );
+    $sth->execute( 0, $doc_id, $col_str );
+    $sth->finish();
   }
-  $sth->execute();
-  $sth->finish();
 }
 
 sub sql_delete_from_bcollection {
-  my ( $index, $qdoc_id, $table_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "DELETE FROM $table_name WHERE doc_id=$qdoc_id" );
-  $sth->execute();
+  my ( $index, $doc_id, $table_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ DELETE FROM $table_name WHERE doc_id = ? ] 
+  );
+  $sth->execute( $doc_id );
   $sth->finish();
 }
 
@@ -607,53 +713,78 @@ sub sql_create_textsearch_tables {
 }
 
 sub sql_textsearch_index_table_definition {
+  die "sql_textsearch_index_table_definition is not implemented";
 }
 
 sub sql_textsearch_defers_table_definition {
+  die "sql_textsearch_defers_table_definition is not implemented";
 }
 
 
 sub sql_drop_textsearch_tables {
   my ( $index, $textsearch_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype) ) } AND textsearch=${ \( $dbh->quote($textsearch_name) ) }" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        SELECT table_name 
+          FROM index_tables 
+          WHERE doctype  = ? 
+          AND textsearch = ? 
+      ]
+  );
+  $sth->execute( $index->doctype(), $textsearch_name );
   while ( my $row = $sth->fetchrow_arrayref() ) {
     my $table_name = $row->[0];
-    my $sth = $dbh->prepare ( "DROP TABLE $table_name" );
+    my $sth = $dbh->prepare_cached ( "DROP TABLE $table_name" );
     $sth->execute();
     $sth->finish();
-    $sth = $dbh->prepare ( "DELETE FROM index_tables WHERE table_name=${ \( $dbh->quote($table_name) ) }" );
-    $sth->execute();
+    $sth = $dbh->prepare_cached ( 
+      qq[
+          DELETE FROM index_tables 
+            WHERE table_name = ? 
+        ]
+    );
+    $sth->execute( $table_name );
     $sth->finish();
   }
 }
 
 sub sql_get_textsearch_tables {
   my ( $index, $textsearch_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE doctype=${ \( $dbh->quote($index->doctype) ) } AND textsearch=${ \( $dbh->quote($textsearch_name) ) } ORDER BY table_type" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        SELECT table_name 
+          FROM index_tables 
+          WHERE doctype  = ? 
+          AND textsearch = ? 
+            ORDER BY table_type
+      ] 
+  );
+  $sth->execute( $index->doctype(), $textsearch_name );
   return map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
 
 sub sql_textsearch_word_lock {
+  die "sql_textsearch_word_lock is not implemented";
 }
 
 sub sql_textsearch_word_unlock {
+  die "sql_textsearch_word_unlock is not implemented";
 }
 
 sub sql_textsearch_pack_seq_list {
+  die "sql_textsearch_pack_seq_list is not implemented";
 }
 
 sub sql_textsearch_unpack_seq_list {
+  die "sql_textsearch_unpack_seq_list is not implemented";
 }
 
 # pass EITHER a single doc_id or a list of doc_seqs.
 sub sql_update_in_textsearch_index_table {
   my ( $index, $i_table_name, $word, $doc_id, $clobber, @doc_seqs ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_word = $dbh->quote ( $word );
+  my $dbh = $index->get_dbh_writer();
   # generate a sequence if we were passed an id
   if ( $doc_id ) {
     @doc_seqs = ( $index->sql_get_sq_from_data_table($doc_id) );
@@ -665,27 +796,37 @@ sub sql_update_in_textsearch_index_table {
   my $packed = $index->sql_textsearch_pack_seq_list ( @doc_seqs );
   $index->sql_textsearch_word_lock ( $i_table_name, $word );
   # modify row
-  my $sth =
-    $dbh->prepare ( "SELECT seqs FROM $i_table_name WHERE word=$q_word" );
-  $sth->execute();
+  my $sth =$dbh->prepare_cached ( 
+     qq[ SELECT seqs FROM $i_table_name WHERE word = ? ] );
+  $sth->execute( $word );
   my $result = $sth->fetchrow_arrayref();
   $sth->finish();
   if ( $result ) {
     # if found, update
     my $new_seqs_string;
     if ( $result->[0] and ! $clobber ) {
-      $new_seqs_string = $dbh->quote ( $result->[0] . $packed);
+      $new_seqs_string = $result->[0] . $packed;
     } else {
-      $new_seqs_string = $dbh->quote ( $packed );
+      $new_seqs_string = $packed ;
     }
-    my $sth = $dbh->prepare 
-      ( "UPDATE $i_table_name SET seqs=$new_seqs_string WHERE word=$q_word" );
-    $sth->execute();
+    my $sth = $dbh->prepare_cached (
+      qq[ 
+          UPDATE $i_table_name 
+            SET seqs = ?
+            WHERE word = ? 
+        ]
+    );
+    $sth->execute( $new_seqs_string, $word );
     $sth->finish();
   } else {
     # else insert
-    my $sth = $dbh->prepare ( "INSERT INTO $i_table_name ( word, seqs ) VALUES ( $q_word, ${ \( $dbh->quote($packed) ) } )" );
-    $sth->execute();
+    my $sth = $dbh->prepare_cached ( 
+      qq[
+          INSERT INTO $i_table_name ( word, seqs ) 
+            VALUES ( ?, ? )
+        ]
+    );  
+    $sth->execute( $word, $packed );
     $sth->finish();
   }
   $index->sql_textsearch_word_unlock ( $i_table_name, $word );
@@ -693,14 +834,17 @@ sub sql_update_in_textsearch_index_table {
 
 sub sql_get_sq_from_data_table {
   my ( $index, @doc_ids ) = @_;
+  my @caller = caller(1);
   my @list;
-  my $dbh = $index->get_dbh();
+  my $dbh = $index->get_dbh_writer();
   my $data_table_name = $index->data_table_name();
   foreach my $id ( @doc_ids ) {
-    my $q_id = $dbh->quote ( $id );
-    my $sth = $dbh->prepare ( "SELECT _sq from $data_table_name WHERE doc_id=$q_id" );
-    $sth->execute();
+    my $sth = $dbh->prepare_cached (
+      qq[ SELECT _sq from $data_table_name WHERE doc_id = ? ]
+    );
+    $sth->execute( $id );
     my $result = $sth->fetchrow_arrayref();
+    $sth->finish();
     push ( @list, $result->[0] )  if  $result;
   }
   return @list;
@@ -708,35 +852,44 @@ sub sql_get_sq_from_data_table {
 
 sub sql_delete_from_textsearch_index_table {
   my ( $index, $ts_table_name, $doc_id ) = @_;
-  my ( $sq ) = $index->sql_get_sq_from_data_table($doc_id);
+  my ( $sq ) = $index->sql_get_sq_from_data_table( $doc_id );
   # shortcut to return if this doc isn't indexed
   return if ! $sq;
   my $packed_sq = $index->sql_textsearch_pack_seq_list ( $sq );
   # loop over all entries conatining $doc's id
   #dbg 'trying to delete', $doc_id, $ts_table_name;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT word FROM $ts_table_name WHERE seqs LIKE ${ \( $dbh->quote('%'.$packed_sq.'%') ) }" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT word 
+          FROM $ts_table_name 
+          WHERE seqs LIKE ?
+      ]
+  );
+  $sth->execute( $packed_sq . '%' );
   while ( my $row = $sth->fetchrow_arrayref() ) {
     my $word = $row->[0];
-    my $q_word = $dbh->quote ( $word );
     # get lock
     $index->sql_textsearch_word_lock ( $ts_table_name, $word );
     # fetch seqs column now that we have lock
-    my $locked_sth =
-      $dbh->prepare ( "SELECT seqs FROM $ts_table_name WHERE word=$q_word" );
-    $locked_sth->execute();
-    my $result = $locked_sth->fetchrow_arrayref();
-    $locked_sth->finish();
+    my $sth = $dbh->prepare_cached ( 
+      qq[ SELECT seqs FROM $ts_table_name WHERE word = ? ]
+    );
+    $sth->execute( $word );
+    my $result = $sth->fetchrow_arrayref();
+    $sth->finish();
     # remove the seq in question and re-put
     my %seqs = map { $_=>1 }
       $index->sql_textsearch_unpack_seq_list ( $result->[0] );
     delete $seqs{$sq};
-    my $q_packed_seqs = $dbh->quote
-      ( $index->sql_textsearch_pack_seq_list(keys %seqs) );
-    my $sth = $dbh->prepare 
-      ( "UPDATE $ts_table_name SET seqs=$q_packed_seqs WHERE word=$q_word" );
-    $sth->execute();
+    my $packed_seqs = $index->sql_textsearch_pack_seq_list( keys %seqs );
+    $sth = $dbh->prepare_cached (
+      qq[
+          UPDATE $ts_table_name 
+            SET seqs   = ?
+            WHERE word = ? 
+        ] 
+    );
+    $sth->execute( $packed_seqs, $word );
     $sth->finish();
     # release lock
     $index->sql_textsearch_word_unlock ( $ts_table_name, $word );
@@ -748,112 +901,189 @@ sub sql_delete_from_textsearch_index_table {
 
 sub sql_textsearch_defer_delete {
   my ( $index, $d_table_name, $doc_id ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_doc_id = $dbh->quote ( $doc_id );
-  my $sth = $dbh->prepare 
-    ( "INSERT INTO $d_table_name ( doc_id, action ) VALUES ( $q_doc_id, 1 )" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ INSERT INTO $d_table_name ( doc_id, action ) 
+          VALUES ( ?, ? )
+      ]
+  );
+  $sth->execute( $doc_id, 1 );
   $sth->finish();
 }
 
 sub sql_textsearch_defer_update {
   my ( $index, $d_table_name, $doc_id, $frozen_words ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_doc_id = $dbh->quote ( $doc_id );
-  my $q_text = $dbh->quote ( $frozen_words );
-  my $sth = $dbh->prepare ( "INSERT INTO $d_table_name ( doc_id, action, text ) VALUES ( $q_doc_id, 2, $q_text )" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        INSERT INTO $d_table_name ( doc_id, action, text ) 
+          VALUES ( ?, ?, ? )
+      ]
+  );
+  $sth->execute( $doc_id, 2, $frozen_words );
   $sth->finish();
 }
 
 sub sql_get_textsearch_defers_sth {
   my ( $index, $d_table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare ( "SELECT doc_id, action, _sq, text FROM $d_table_name ORDER BY _sq" );
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT doc_id, action, _sq, text FROM $d_table_name ORDER BY _sq ]
+  );
   $sth->execute();
   return $sth;
 }
 
 sub sql_delete_from_textsearch_defers_table {
   my ( $index, $d_table_name, $doc_id, $seq ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_doc_id = $dbh->quote ( $doc_id );
-  my $sth = $index->get_dbh()->prepare
-    ( "DELETE FROM $d_table_name WHERE doc_id=$q_doc_id AND _sq <= $seq" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached (
+    qq[ DELETE FROM $d_table_name WHERE doc_id = ? AND _sq <= ? ] 
+  );
+  $sth->execute( $doc_id, $seq );
   $sth->finish();
 }
 
 sub sql_get_textsearch_indexed_words {
   my ( $index, $i_table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare ( "SELECT word FROM $i_table_name" );
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( qq[ SELECT word FROM $i_table_name ] );
   $sth->execute();
   return map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
 
 sub sql_get_textsearch_index_packed {
   my ( $index, $i_table_name, $word ) = @_;
-  my $dbh = $index->get_dbh();
-  my $q_word = $dbh->quote ( $word );
-  my $sth = $dbh->prepare ( "SELECT seqs FROM $i_table_name WHERE word=$q_word");
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT seqs FROM $i_table_name WHERE word = ? ]
+  );
+  $sth->execute( $word );
   my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
   return  $result ? $result->[0] : '';
+}
+
+# returns count
+sub sql_key_indexed_p {
+  # we have to accept the key and the id here.  doc_key() isn't available 
+  # during the update() call for index only documents, and doc_id() isn't
+  # enough to go on for update()'s effected by <docytpe /> and <store />
+  my ( $index, $key, $ionly_id ) = @_;
+  if ( ! $key ) {
+    return 0 if $ionly_id eq 'COMMA_DB_SEQUENCE_SET';
+    die "internal index error: update without storage info";
+  }
+  my ( $doctype, $store, $id ) = XML::Comma::Storage::Util->split_key( $key );
+  my $AND = ''; # silence 'uninitialized' warnings
+  my @values;
+  if ( $index->element('doctype')->get() ) {
+    $AND .= qq[ AND doctype = ? ];
+    push @values, $doctype;
+  }
+  if ( $index->element('store')->get() ) {
+    $AND .= qq[ AND store = ? ];
+    push @values, $store;
+  }
+  my $dbh = $index->get_dbh_writer();
+  my $table_name = $index->data_table_name();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        SELECT count(*) from $table_name 
+          WHERE doc_id = ? 
+          $AND
+      ]
+  );
+  $sth->execute( $id, @values );
+  my $count = $sth->fetchrow_arrayref->[0];
+  $sth->finish();
+  return $count;
 }
 
 # returns count
 sub sql_id_indexed_p {
   my ( $index, $id ) = @_;
   return 0 if $id eq 'COMMA_DB_SEQUENCE_SET';
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT count(*) from ${ \( $index->data_table_name() ) } WHERE doc_id = ${ \( $dbh->quote($id) ) }" );
-  $sth->execute();
+  my $table_name = $index->data_table_name();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        SELECT count(*) FROM $table_name 
+          WHERE doc_id = ? 
+      ] 
+  );
+  $sth->execute( $id );
   return $sth->fetchrow_arrayref->[0];
 }
 
 # returns count
 sub sql_seq_indexed_p {
   my ( $index, $seq ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "SELECT count(*) from ${ \( $index->data_table_name() ) } WHERE _sq = ${ \( $dbh->quote($seq) ) }" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $table_name = $index->data_table_name();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT count(*) FROM $table_name 
+          WHERE _sq = ? 
+      ]
+  );
+  $sth->execute( $seq );
   return $sth->fetchrow_arrayref->[0];
 }
 
 # args: $index, $table_name
 sub sql_simple_rows_count {
   my ( $index, $table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare ( "SELECT count(*) from $table_name" );
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( qq[ SELECT count(*) from $table_name ] );
   $sth->execute();
-  return $sth->fetchrow_arrayref()->[0];
+  my $count = $sth->fetchrow_arrayref()->[0];
+  $sth->finish();
+  return $count;
 }
 
 # both drops the table and removes the index_tables entry
 sub sql_drop_table {
   my ( $index, $table_name ) = @_;
-  my $dbh = $index->get_dbh();
-  my $sth = $dbh->prepare ( "DROP TABLE $table_name" );
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( qq[ DROP TABLE $table_name ] );
   $sth->execute();
   $sth->finish();
-  $sth = $dbh->prepare ( 'DELETE FROM index_tables WHERE table_name=' .
-                         $dbh->quote ($table_name) );
-  $sth->execute();
+  $sth = $dbh->prepare_cached ( 
+    qq[ 
+        DELETE FROM index_tables 
+          WHERE table_name = ?
+      ]
+  );
+  $sth->execute( $table_name );
   $sth->finish();
 }
 
 sub sql_update_timestamp {
   my ( $index, $table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare 
-    ("UPDATE index_tables SET last_modified=${ \( time() ) } WHERE table_name = '$table_name'" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached( 
+    qq[
+        UPDATE index_tables 
+          SET last_modified = ?
+          WHERE table_name  = ?
+      ]
+  );
+  $sth->execute( time(), $table_name );
   $sth->finish();
 }
 
 # returns timestamp -- (also used to check whether a table exists)
 sub sql_get_timestamp {
   my ( $index, $table_name ) = @_;
-  my $sth = $index->get_dbh()->prepare 
-    ( "SELECT last_modified FROM index_tables WHERE table_name = '$table_name'" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached (
+    qq[
+        SELECT last_modified 
+          FROM index_tables 
+          WHERE table_name = ? 
+      ]
+  );
+  $sth->execute( $table_name );
   my $result = $sth->fetchrow_arrayref();
   $sth->finish();
   return  $result ? $result->[0] : '';
@@ -862,78 +1092,128 @@ sub sql_get_timestamp {
 
 # returns flag value
 sub sql_get_table_comma_flag {
-  my ( $dbh, $table_name ) = @_;
-  my $sth = $dbh->prepare ( "SELECT _comma_flag FROM index_tables WHERE table_name = '$table_name'" );
-  $sth->execute();
+  my ( $self, $dbh, $table_name ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        SELECT _comma_flag 
+          FROM index_tables 
+          WHERE table_name = ? 
+      ]
+  );
+  $sth->execute( $table_name );
   my $result = $sth->fetchrow_arrayref();
+  $sth->finish();
   return $result ? $result->[0] : '';
 }
 
 sub sql_set_table_comma_flag {
-  my ( $dbh, $table_name, $flag_value ) = @_;
-  my $sth = $dbh->prepare ( "UPDATE index_tables SET _comma_flag=$flag_value WHERE table_name = '$table_name'" );
-}
+  my ( $self, $dbh, $table_name, $flag_value ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[ UPDATE index_tables 
+          SET _comma_flag  = ?
+          WHERE table_name = ?
+      ]
+  );
+  $sth->execute( $flag_value, $table_name );
+  $sth->finish();
+} 
 
 sub sql_set_all_table_comma_flags_politely {
   my ( $index, $flag_value ) = @_;
-  my $dbh = $index->get_dbh();
-  my $index_name = $dbh->quote( $index->element('name')->get() );
-  my $doctype = $dbh->quote ( $index->doctype() );
-  my $sth = $dbh->prepare ( "UPDATE index_tables SET _comma_flag=$flag_value WHERE index_name=$index_name AND doctype=$doctype AND _comma_flag=0" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        UPDATE index_tables 
+          SET _comma_flag  = ?
+          WHERE index_name = ?
+          AND doctype      = ?
+          AND _comma_flag  = ?
+      ]
+  );
+  $sth->execute( $flag_value, $index->element('name')->get(), 
+                 $index->doctype(), 0 );
   $sth->finish();
 }
 
 sub sql_get_all_tables_with_comma_flags_set {
   my ( $index, $ignore_flag ) = @_;
-  my $dbh = $index->get_dbh();
-  my $index_name = $dbh->quote( $index->element('name')->get() );
-  my $doctype = $dbh->quote ( $index->doctype() );
-  my $sth = $dbh->prepare ( "SELECT table_name FROM index_tables WHERE index_name=$index_name AND doctype=$doctype AND ((_comma_flag != 0) AND (_comma_flag != $ignore_flag))" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        SELECT table_name 
+          FROM index_tables 
+          WHERE index_name = ?
+          AND doctype      = ?
+          AND ((_comma_flag != ? ) AND (_comma_flag != ? ))
+      ]
+  );
+  $sth->execute( $index->element('name')->get(), $index->doctype(), 0,
+                 $ignore_flag );
   return  map { $_->[0] } @{$sth->fetchall_arrayref()};
 }
 
 sub sql_unset_all_table_comma_flags {
   my ( $index ) = @_;
-  my $dbh = $index->get_dbh();
-  my $index_name = $dbh->quote( $index->element('name')->get() );
-  my $doctype = $dbh->quote ( $index->doctype() );
-  my $sth = $dbh->prepare ( "UPDATE index_tables SET _comma_flag=0 WHERE index_name=$index_name AND doctype=$doctype" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ 
+        UPDATE index_tables 
+          SET _comma_flag = ?
+          WHERE index_name = ?
+          AND doctype      = ?
+      ]
+  );
+  $sth->execute( 0, $index->element('name')->get(), $index->doctype() );
   $sth->finish();
 }
 
 sub sql_unset_table_comma_flag {
-  my ( $dbh, $table_name ) = @_;
-  my $sth = $dbh->prepare ( "UPDATE index_tables SET _comma_flag=0 WHERE table_name = '$table_name'" );
-  $sth->execute();
+  my ( $self, $dbh, $table_name ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        UPDATE index_tables 
+          SET _comma_flag  = ?
+          WHERE table_name = ?
+      ]
+  );
+  $sth->execute( 0, $table_name );
   $sth->finish();
 }
 
 sub sql_set_all_comma_flags {
   my ( $index, $table_name, $flag_value ) = @_;
-  my $sth = $index->get_dbh()->prepare ( "UPDATE $table_name SET _comma_flag=$flag_value" );
-  $sth->execute();
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ UPDATE $table_name SET _comma_flag = ? ]
+  );
+  $sth->execute( $flag_value );
   $sth->finish();
 }
 
 sub sql_clear_all_comma_flags {
-  my ( $dbh, $table_name ) = @_;
-  my $sth = $dbh->prepare ( "UPDATE $table_name SET _comma_flag=0" );
-  $sth->execute();
+  my ( $self, $dbh, $table_name ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[ UPDATE $table_name SET _comma_flag = ? ] 
+  );
+  $sth->execute( 0 );
   $sth->finish();
 }
 
 sub sql_clean_find_orphans {
-  my ( $table_name, $data_table_name ) = @_;
-  return "SELECT $table_name.doc_id FROM $table_name WHERE $table_name.doc_id NOT IN (SELECT $data_table_name.doc_id FROM $data_table_name)";
+  my ( $self, $table_name, $data_table_name ) = @_;
+  return qq[ 
+             SELECT $table_name.doc_id 
+               FROM $table_name 
+               WHERE $table_name.doc_id NOT IN ( 
+                 SELECT $data_table_name.doc_id 
+                   FROM $data_table_name
+               )
+  ];
 }
 
 sub sql_set_comma_flags_for_clean_first_pass {
-  my ( $dbh, $data_table_name, $table_name, $erase_where_clause,
+  my ( $index, $dbh, $data_table_name, $table_name, $erase_where_clause,
        $flag_value ) = @_;
-  my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax};
 
   ## orphan rows in the sort tables. these can be created in small
   ## numbers by the normal fact of entries being cleaned from the data
@@ -941,83 +1221,133 @@ sub sql_set_comma_flags_for_clean_first_pass {
   ## be created in large numbers by an aborted rebuild() or other
   ## large operation.
   if ( $table_name ne $data_table_name ) {
-    my $convoluted_getting_of_subname = "XML::Comma::SQL::$syntax" .
-      '::sql_clean_find_orphans ($table_name, $data_table_name);';
-    my $sql = eval $convoluted_getting_of_subname;
-    my $sth = $dbh->prepare ( $sql );
+    my $sql = $index->sql_clean_find_orphans( $table_name, $data_table_name );
+    my $sth = $dbh->prepare_cached ( $sql );
     $sth->execute();
     while ( my $row = $sth->fetchrow_arrayref() ) {
       my $orphan_id = $row->[0];
       # print ( "orphan($table_name:$orphan_id)..." );
-      my $sth = $dbh->prepare 
-        ( "UPDATE $table_name SET _comma_flag=$flag_value WHERE doc_id="
-          . $dbh->quote($orphan_id) );
-      $sth->execute();
+      my $sth = $dbh->prepare_cached (
+        qq[ 
+            UPDATE $table_name 
+              SET _comma_flag = ?
+              WHERE doc_id    = ? 
+          ]
+      );
+      $sth->execute( $flag_value, $orphan_id );
       $sth->finish();
     }
   }
 
   ## rows matching the erase_where_clause
   if ( $erase_where_clause ) {
-    my $sth = $dbh->prepare ("UPDATE $table_name SET _comma_flag=$flag_value WHERE $erase_where_clause");
-    $sth->execute();
+    # TODO: come back here and shoehorn $erase_where_clause into using
+    # placeholders?
+    my $sth = $dbh->prepare_cached (
+      qq[
+          UPDATE $table_name 
+            SET _comma_flag = ?
+            WHERE $erase_where_clause
+        ]
+    );
+    $sth->execute( $flag_value );
     $sth->finish();
   }
 }
 
 sub sql_set_comma_flags_for_clean_second_pass {
-  my ( $dbh, $table_name, $order_by, $sort_spec, $doctype, $indexname,
+  my ( $self, $dbh, $table_name, $order_by, $sort_spec, $doctype, $indexname,
        $size_limit, $flag_value ) = @_;
+
+  # dbg 'table_name', $table_name;
+  # dbg 'order_by', $order_by;
+  # dbg 'size_limit', $size_limit;
 
   # get the index so we can make an iterator
   my $index = XML::Comma::Def->read ( name=>$doctype )->get_index( $indexname );
   # now set the flag for everything after the first size_limit entries
   my $i = $index->iterator ( order_by => $order_by,
                              sort_spec => $sort_spec );
+                           
+  # dbg 'doc_ids after refresh', $_->doc_id() while ( $_ = $i++ );
   $i->iterator_refresh ( 0xffffff, $size_limit ); # blech, hack
+
   while ( $i->iterator_next() ) {
     my $id = $i->doc_id();
-    my $sth = $dbh->prepare
-      ("UPDATE $table_name SET _comma_flag=$flag_value WHERE doc_id='$id'");
-    $sth->execute();
+    my $sth = $dbh->prepare_cached (
+      qq[ 
+          UPDATE $table_name 
+            SET _comma_flag = ?
+            WHERE doc_id    = ?
+        ]
+    );
+    $sth->execute( $flag_value, $id );
     $sth->finish();
+    # dbg 'set_flag_second', "UPDATE $table_name SET _comma_flag=$flag_value WHERE doc_id='$id'";
   }
 }
 
 sub sql_delete_where_not_comma_flags {
-  my ( $dbh, $table_name, $flag_value ) = @_;
-  my $sth = $dbh->prepare ( "DELETE FROM $table_name WHERE _comma_flag != $flag_value" );
-  $sth->execute();
+  my ( $self, $dbh, $table_name, $flag_value ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        DELETE FROM $table_name 
+          WHERE _comma_flag != ?
+      ]
+  );
+  $sth->execute( $flag_value );
   $sth->finish();
 }
 
 
 sub sql_delete_where_comma_flags {
-  my ( $dbh, $table_name, $flag_value ) = @_;
-  my $sth = $dbh->prepare ( "DELETE FROM $table_name WHERE _comma_flag = $flag_value" );
-  $sth->execute();
+  my ( $index, $dbh, $table_name, $flag_value ) = @_;
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        DELETE FROM $table_name 
+          WHERE _comma_flag = ?
+      ]
+  );
+  $sth->execute( $flag_value );
   $sth->finish();
 }
 
-
+# XXX not called from anywhere (dug)
 sub sql_select_aggregate {
-my ( $index, $aggregate, $field_name, $table_name ) = @_;
-my $sth = $index->get_dbh()->prepare (
-"SELECT $aggregate($field_name) FROM $table_name" );
-$sth->execute();
-my $result = $sth->fetchall_arrayref();
-return $result ? $result->[0]->[0] : '';
+  my ( $index, $aggregate, $field_name, $table_name ) = @_;
+  my $dbh = $index->get_dbh_writer();
+  my $sth = $dbh->prepare_cached (
+    qq[ SELECT $aggregate($field_name) FROM $table_name ] 
+  );
+  $sth->execute();
+  my $result = $sth->fetchall_arrayref();
+  return $result ? $result->[0]->[0] : '';
 }
 
 sub sql_select_returns_count {
   return;
 }
 
+sub sql_select_distinct_field {
+  my ( $it, $index, $field_name, $where ) = @_;
+  my $dbh = $index->get_dbh_reader();
+  my $data_table_name = $index->data_table_name();
+  my $str =  qq[ SELECT DISTINCT $field_name FROM $data_table_name ];
+  if ( $where ) {
+    $str .= qq[ WHERE $where ];
+  }
+  my $sth = $dbh->prepare_cached ( $str );
+  return $sth;
+}
+
 ##
 # complex select statement build -- for iterator
 #
+# It would take more tricks than I currently have in my bag to coerce 
+# this method into using placeholders (deparsing user specified SQL 
+# before re-packing it with placeholders). [dug]
 sub sql_select_from_data {
-  my ( $self, $order_by_expressions, $from_tables,
+  my ( $iterator, $index, $order_by_expressions, $from_tables,
        $where_clause, $having_clause,
        $distinct, $order_by, $limit_number, $limit_offset,
        $columns_list,
@@ -1026,8 +1356,17 @@ sub sql_select_from_data {
        $do_count_only,
        $aggregate_function ) = @_;
 
-  my $data_table_name = $self->data_table_name();
-  my $dbh = $self->get_dbh();
+  #dbg 'select_from_data', $where_clause;
+  my $data_table_name = $index->data_table_name();
+  # more hard-coded crappyness.  If we aliased the tables for a 
+  # binary collection search we need to make $data_table_name match the 
+  # alias.
+  foreach my $tbl ( @{ $from_tables } ) {
+    if ( $tbl =~ /^\s*$data_table_name AS t01$/ ) {
+      $data_table_name = 't01';  last;
+    }
+  }
+  my $dbh = $index->get_dbh_writer();
 
   my $distinct_string;
   if ( $distinct ) {
@@ -1098,7 +1437,7 @@ sub sql_select_from_data {
   }
 
   # limit what the db server gives back
-  my $limit = $self->sql_limit_clause ( $limit_number, $limit_offset );
+  my $limit = $index->sql_limit_clause ( $limit_number, $limit_offset );
 
   # return either a regular statement, a count() statement, or an
   # aggregate statement
@@ -1106,7 +1445,7 @@ sub sql_select_from_data {
     # aggregate ignores limit stuff
     return $select . $from . $where;
   } elsif ( $do_count_only ) {
-    # count_only ignores limit stuff
+    # count_only ignores order_by stuff
     return $select . $from . $where . $group_by;
   } else {
     # my ( $package, $filename, $line ) = caller(2);
@@ -1133,8 +1472,8 @@ sub sql_limit_clause {
 
 sub sql_create_textsearch_temp_table {
   my ( $index, $ts_index_table_name, $word ) = @_;
-  # dbg 'tcreate', $word;
-  my $dbh = $index->get_dbh();
+  #dbg 'tcreate', $word;
+  my $dbh = $index->get_dbh_writer();
   my $packed =
     $index->sql_get_textsearch_index_packed ( $ts_index_table_name, $word ) ||
       return ( '', 0 );
@@ -1146,37 +1485,45 @@ sub sql_create_textsearch_temp_table {
   close ( $temp_fh );
   chmod 0644, $temp_filename;
 
-  my $temp_table_name = $index->sql_create_textsearch_temp_table_stmt ( $dbh );
-  $index->sql_load_data ( $dbh, $temp_table_name, $temp_filename );
+  my $temp_table_name = $index->sql_create_textsearch_temp_table_stmt();
+  $index->sql_load_data ( $temp_table_name, $temp_filename );
 
   unlink ( $temp_filename );
 
-  # dbg $$, "created temp table $temp_table_name for $word";
+  #dbg $$, "created temp table $temp_table_name for $word";
   return ( $temp_table_name, $#unpacked );
 }
 
 sub sql_create_textsearch_temp_table_stmt {
-  my ( $index, $dbh ) = @_;
+  my $index = shift;
+  my $dbh   = $index->get_dbh_writer();
   my $temp_table_name = '_temp_' . $$ . '_' . int(rand(0xffffffff));
-  my $sth = $dbh->prepare ( "CREATE TEMPORARY TABLE $temp_table_name ( id VARCHAR(255) PRIMARY KEY ) TYPE=HEAP" );
+  my $sth = $dbh->prepare_cached ( 
+    qq[
+        CREATE TEMPORARY TABLE $temp_table_name 
+          ( id VARCHAR(255) PRIMARY KEY ) 
+          TYPE=HEAP
+    ]);
   $sth->execute();
   $sth->finish();
   return $temp_table_name;
 }
 
 sub sql_load_data {
+  die "sql_load_data is not implemented";
 }
 
 sub sql_drop_any_temp_tables {
-  my ( $index, $it, @tables_list ) = @_;
-  my $dbh = $index->get_dbh();
+  my ( $iterator, $index, $iterator_string, @tables_list ) = @_;
+  my $dbh = $index->get_dbh_writer();
   foreach my $t ( grep { /^_temp/ } @tables_list ) {
-    # XML::Comma::Log->warn ( "$$ dropping $t for $it\n" );
-    my $sth = $dbh->prepare ( "drop table $t" );
+    # XML::Comma::Log->warn ( "$$ dropping $t for $iterator_string\n" );
+    my $sth = $dbh->prepare_cached ( qq[ drop table $t ] );
     $sth->execute();
     $sth->finish();
   }
 }
+
 
 1;
 

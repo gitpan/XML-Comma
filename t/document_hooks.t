@@ -3,6 +3,8 @@ use File::Path;
 
 print "1..7\n";
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 

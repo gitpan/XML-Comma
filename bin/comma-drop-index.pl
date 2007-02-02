@@ -1,4 +1,7 @@
 #!/usr/bin/perl -w
+
+eval 'exec /usr/bin/perl -w -S $0 ${1+"$@"}'
+    if 0; # not running under some shell
 use strict;
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -6,12 +9,20 @@ use XML::Comma::Util qw( dbg );
 use Getopt::Long;
 my $doc_type;
 my $index_name;
+my $module;
 my %args = ( 'type=s', \$doc_type,
-             'index=s', \$index_name );
+             'index=s', \$index_name,
+             'module=s', \$module );
 &GetOptions ( %args );
 
+if ( $module ) {
+  eval "use $module";
+  if ( $@ ) { die "bad module load: $@\n" }
+  $module->new();
+}
+
 if ( ! $doc_type or ! $index_name ) {
-  die "usage: drop-index.pl -type <document_type> -index <index_name>\n"
+  die "usage: drop-index.pl -module <module to load/new()> ] -type <document_type> -index <index_name>\n"
 }
 
 my $index = XML::Comma::Def->read(name=>$doc_type)->get_index($index_name);

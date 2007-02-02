@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2005, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -34,12 +34,14 @@ sub split_key {
   return split ( /\|/, $_[1] );
 }
 
-sub gmt_yyy_mm_dd {
-  my ($day, $month, $year) = (gmtime())[3..5];
+sub gmt_yyyy_mm_dd {
+  my $time = $_[1] || time;
+#  my $time = time;
+  my ($day, $month, $year) = (gmtime($time))[3..5];
   # increment and/or trim as necessary
   $year+=1900; $month++;
   $month = substr ( "00$month", -2 ); $day = substr ( "00$day", -2 );
-  return ( $year, $month, $day );
+  return ( $year, $month, $day, $time );
 }
 
 1;

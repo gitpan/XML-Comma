@@ -1,0 +1,70 @@
+are we working with cpan's auto-dependency install system?
+	if not, fix it.
+
+release notes:
+- http://www.mail-archive.com/dbi-users@perl.org/msg28459.html
+    this is harmless, but if you don't like it, upgrade to
+    DBD::mysql > 3.0007
+  prepare_cached(
+          SELECT table_name 
+            FROM index_tables 
+            WHERE doctype  = ? 
+            AND textsearch = ? 
+              ORDER BY table_type
+        ) statement handle DBI::st=HASH(0x8b2b390) still Active at 
+  .test/lib//XML/Comma/SQL/Base.pm line 755
+- postgres support has been dropped for the moment. if you want to
+    make it work again, please help!
+
+RELEASE TODO:
+- read, understand, document the 1.20 -> DEVEL changes
+- make sure perl Makefile.PL && make && make test && sudo make install
+  works out of the box w/o problems or errors. also do this on a 1.x
+  upgrade install
+
+- element-specific locking for when whole body lock is unnec. and too
+  heavy weight?
+- maybe use ExtUtils::MakeMaker::prompt for automated testers
+- it'd be nice to have "iterators" on nested plural elements
+- test cases for $blob_el->{append|set}() combinations
+- make $blob_el->set() more efficient by nuking the fcopy and
+  instead keep the appendage and the original data seperate
+  use _set_was_called for this
+- audit for SQL queries => parameterized queries, e.g.:
+  my $sth = $dbh->prepare_cached ( "SELECT bla FROM foo WHERE key = \"$key\"");
+  $sth->execute();
+becomes:
+  my $sth = $dbh->prepare_cached ( "SELECT bla FROM foo WHERE key = ? ");
+  $sth->execute( $key );
+this is MUCH more secure and less error prone. it appears most of the
+SQL code we have (if not all) already does this, but since I just 
+discovered it, I want to make sure it ALL does...
+
+- t/indexing.t sometimes fails because of an incomplete previous run, or
+	cruft in the database. make it more robust.
+	### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
+	think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
+
+- XML::Comma::Doc->store () could use exclude_hooks and include_hooks
+	instead of just no_hooks => 0/1 ... we happen to luck out with cache_static
+	macro and Gadgets's Post.def, but it'd be nice to say WHICH hooks to exlude
+
+- make postgres support work again. introduction of transaction support in DBD::Pg
+  seems to have broken most everything, yuck.
+- postgres support in comma-create-config.pl
+- add some support for locking an entire table
+    (there are common defs which which have race condition pre_store_hooks (other
+     hooks?) without this)
+   (ie, die "duplicate" if ($self->def()->get_index("main")->single(where_clause => 
+    "special_key = '$this_docs_key'"));
+    #here another thread calls store...
+    #when we leave the pre_store_hook, we are written to disk & index, and we have a dupe)
+- lazy allocation of doc structure (ie, do nothing on call to read/retrieve(), but on
+  subsequent call to $doc->somefield, grab from db if poss. else grab from disk for 
+  speed reasons. allow old behavior with read(slow => 1), but I'm not sure why you'd
+  need that except debugging)
+  this will also allow things like my @docs = $it->all() - right now you couldn't do
+  that without calling a read_doc on each item, which is verrrrry slow...
+- it'd be nice if we could do some SQL-ish things with storage iterators... but best to
+  read up on the progress (or is that lack of progress) with SQLite first...
+

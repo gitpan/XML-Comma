@@ -37,28 +37,29 @@ use DBI;
 use Storable qw( freeze thaw );
 use File::Temp qw( tempfile );
 use XML::Comma::Util qw( dbg arrayref_remove );
+use XML::Comma::Storage::Util;
 use XML::Comma::SQL::DBH_User;
-use XML::Comma::SQL::Base;
-use XML::Comma::Indexing::Iterator;
 use XML::Comma::Indexing::Clean;
+use XML::Comma::Indexing::Iterator;
 use XML::Comma::Pkg::Textsearch::Preprocessor_En;
 
 use strict;
 
-BEGIN {
-  # suppress warnings (subroutine redefined warnings are expected)
-  local $^W = 0;
-  if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
-    # try to use()
-    eval "use XML::Comma::SQL::$syntax";
-    # report failure
-    if ( $@ ) {
-      XML::Comma::Log->err ( 'SQL_IMPORT_ERROR',
-                             "trouble importing $syntax: $@\n" );
-    }
-  }
-}
-
+##
+# BEGIN {
+#   # suppress warnings (subroutine redefined warnings are expected)
+#   local $^W = 0;
+#   if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
+#     # try to use()
+#     eval "use XML::Comma::SQL::$syntax";
+#     # report failure
+#     if ( $@ ) {
+#       XML::Comma::Log->err ( 'SQL_IMPORT_ERROR',
+#                              "trouble importing $syntax: $@\n" );
+#     }
+#   }
+# }
+##  
 
 # _Index_doctype
 
@@ -78,6 +79,9 @@ BEGIN {
 #                                           'binary table'
 #                                           'many tables'
 
+# _Index_extra_pk_fields : [] primary key fields other than "id"
+#                             qw( store doctype )
+
 ##
 # called on init by the def loader
 #
@@ -86,7 +90,7 @@ BEGIN {
 sub init_and_cast {
   my ( $self, $type ) = @_;
   $self->{_Index_doctype} = $type;
-  bless ( $self, "XML::Comma::Indexing::Index" );
+  XML::Comma::SQL::DBH_User::decorate_and_bless ( $self, __PACKAGE__ );
   $self->allow_hook_type ( 'index_hook', 'stop_rebuild_hook' );
   $self->_init_Index_variables();
   $self->_config_dispatcher();
@@ -95,11 +99,11 @@ sub init_and_cast {
   return $self;
 }
 
-sub DATA_TABLE_TYPE { return 1 };
-sub SORT_TABLE_TYPE { return 2 };
-sub TEXTSEARCH_INDEX_TABLE_TYPE { return 3 };
+sub DATA_TABLE_TYPE              { return 1 };
+sub SORT_TABLE_TYPE              { return 2 };
+sub TEXTSEARCH_INDEX_TABLE_TYPE  { return 3 };
 sub TEXTSEARCH_DEFERS_TABLE_TYPE { return 4 };
-sub BCOLLECTION_TABLE_TYPE { return 5 };
+sub BCOLLECTION_TABLE_TYPE       { return 5 };
 
 sub _init_Index_variables {
   my $self = shift();
@@ -113,6 +117,17 @@ sub _init_Index_variables {
   # fields
   foreach my $field ( $self->elements('field') ) {
     $self->_init_make_column_entry ( $field, 'field' );
+  }
+  # sneak store and doctype index variables in under 'field'
+  # store
+  if ( $self->element('store')->get() ) {
+    push @{ $self->{ _Index_extra_pk_fields } }, "store";
+    $self->_init_make_column_entry ( 'store', 'field' );
+  }
+  # doctype
+  if ( $self->element('doctype')->get() ) {
+    push @{ $self->{ _Index_extra_pk_fields } }, "doctype";
+    $self->_init_make_column_entry ( 'doctype', 'field' );
   }
   # collections
   foreach my $collection ( $self->elements('collection'),
@@ -176,18 +191,33 @@ sub _init_check_for_double_defines {
 
 sub _init_make_column_entry {
   my ( $self, $el, $type ) = @_;
-  my $index_name = $self->element('name')->get();
-  my $name = $self->_init_check_for_double_defines ( $index_name, $el );
-  my ($code_element) = $el->elements('code');
+  my ( $name, $index_name, $code_element );
+  if ( $el eq 'store' || $el eq 'doctype' ) {
+    $name = $el; # ignore double_defines
+  } else {
+    $index_name = $self->element('name')->get();
+    $name = $self->_init_check_for_double_defines ( $index_name, $el );
+    ($code_element) = $el->elements('code');
+  }
   my $code_ref;
   if ( $code_element ) {
     $code_ref = eval $code_element->get();
-    die "error with code block of $type '$name' for index '$index_name': $@\n"
-      if $@;
+    die "error with code block of $type '$name' " .
+        "for index '$index_name': $@\n" if $@;
   } else {
-    $code_ref = eval "sub { \$_[0]->auto_dispatch('$name') }";
-    die "error with code block of $type '$name' for index '$index_name': $@\n"
-      if $@;
+    if ( $el eq 'store' ) { 
+      $code_ref = eval "sub { \$_[0]->doc_store()->name() }";
+      die "error with code block of $type '$name' " .
+          "for index '$index_name': $@\n" if $@;
+    } elsif ( $el eq 'doctype' ) {
+      $code_ref = eval "sub { \$_[0]->doc_store()->doctype() }";
+      die "error with code block of $type '$name' " .
+          "for index '$index_name': $@\n" if $@;
+    } else {
+      $code_ref = eval "sub { \$_[0]->auto_dispatch('$name') }";
+      die "error with code block of $type '$name' " .
+          "for index '$index_name': $@\n" if $@;
+    }
   }
   die "could not get a code reference of $type '$name' in index '$index_name'\n"
     unless $code_ref;
@@ -305,6 +335,14 @@ sub get_collection {
 
 sub update {
   my ( $self, $doc, $comma_flag, $defer_textsearches ) = @_;
+
+  # ensure this document is allowed to update the index it's trying to
+  $self->_can_alter_index_p( $doc ) or 
+    XML::Comma::Err->( 
+      'INDEX_UPDATE_ERROR', $doc->doc_key() . 
+      " can't update index '" . $self->name() . "'"
+    );
+
 #    # user must have -w access to $doc to be allowed to update the index
 #    if ( ! -w $doc->storage_filename() ) {
 #      XML::Comma::Log->err ( 'INDEX_PERMISSION_DENIED',
@@ -319,16 +357,16 @@ sub update {
   }; if ( $@ ) {
     # (okay, check to see if this doc was already in the index, and if
     # so, remove it.
-    if ( sql_id_indexed_p($self, $doc->doc_id()) ) {
+    if ( $self->sql_key_indexed_p( $doc->doc_key(), $doc->doc_id()) ) {
       $doc->index_remove ( index => $self->name() );
     }
     return;
   }
 
-  if ( ! sql_id_indexed_p($self, $doc->doc_id()) ) {
+  if ( ! $self->sql_key_indexed_p( $doc->doc_key(), $doc->doc_id()) ) {
     # this is a new insert
-    sql_insert_into_data ( $self, $doc, $comma_flag );
-    sql_update_timestamp ( $self, $self->data_table_name() );
+    $self->sql_insert_into_data ( $doc, $comma_flag );
+    $self->sql_update_timestamp ( $self->data_table_name() );
 
     while ( my ($cname,$cref) = each %{$self->{_Index_collections}} ) {
       $self->_do_collection ( $doc, $cname, $cref );
@@ -345,8 +383,8 @@ sub update {
 
   } else {
     # this is an update of an existing record
-    sql_update_in_data ( $self, $doc, $comma_flag );
-    sql_update_timestamp ( $self, $self->data_table_name() );
+    $self->sql_update_in_data ( $doc, $comma_flag );
+    $self->sql_update_timestamp ( $self->data_table_name() );
 
     while ( my ($cname,$cref) = each %{$self->{_Index_collections}} ) {
       $self->_undo_collection ( $doc, $cname, $cref);
@@ -382,8 +420,8 @@ sub delete {
     $self->_undo_textsearch ( $doc, $textsearch );
   }
   # data tables
-  sql_delete_from_data ( $self, $doc );
-  sql_update_timestamp ( $self, $self->data_table_name() );
+  $self->sql_delete_from_data ( $doc );
+  $self->sql_update_timestamp ( $self->data_table_name() );
 
   while ( my ($cname,$cref) = each %{$self->{_Index_collections}} ) {
     $self->_undo_collection ( $doc, $cname, $cref);
@@ -395,6 +433,27 @@ sub delete {
   1;
 }
 
+sub _can_alter_index_p {
+  my ( $self, $doc ) = @_;
+  
+  # index_only is special
+  $doc->doc_id() eq 'COMMA_DB_SEQUENCE_SET' and return 1;
+  
+  my ( $doctype, $store, $id ) = 
+    XML::Comma::Storage::Util->split_key( $doc->doc_key() );
+  
+  my @doctypes = map { eval $_->get() } $self->elements( 'doctype' ); 
+  my @stores   = map { eval $_->get() } $self->elements( 'store' ); 
+  push @doctypes, $self->doctype();
+  push @stores, $self->store();
+    
+  my ( $dmatch, $smatch );
+  
+  my $doctype_match = grep { $_ eq '*' or $_ eq $doctype } @doctypes;  
+  my $store_match   = grep { $_ eq '*' or $_ eq $store   } @stores;
+
+  return $doctype_match && $store_match;
+}
 
 sub iterator {
   my ( $self, %args ) = @_;
@@ -462,11 +521,21 @@ sub aggregate {
   return $count;
 }
 
+sub distinct_field_values {
+  my ( $self, $field_name, %args ) = @_;
+  my @list = eval {
+    XML::Comma::Indexing::Iterator->distinct_field_values
+        ( index => $self, _field_name => $field_name, %args ); 
+  };
+  if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
+  return @list;
+}
+
 
 # calls sql_drop_table to drop the table and remove the index_tables entry
 sub drop_table {
   my ( $self, $table_name ) = @_;
-  sql_drop_table ( $self, $table_name );
+  $self->sql_drop_table ( $table_name );
 }
 
 
@@ -485,7 +554,7 @@ sub fully_qualified_name {
 }
 
 sub data_table_name {
-  return $_[0]->{_Index_data_table_name} ||= sql_data_table_name($_[0])
+  return $_[0]->{_Index_data_table_name} ||= $_[0]->sql_data_table_name()
     || die "no data table name\n";
 }
 
@@ -517,9 +586,9 @@ sub collection_table_name {
   die "bad collection name '$sort_name'\n"  unless  defined $cref;
   $table_name = $self->data_table_name()
     if  $cref->{type} eq 'stringified';
-  $table_name = sql_get_bcollection_table ( $self, $sort_name )
+  $table_name = $self->sql_get_bcollection_table ( $sort_name )
     if  $cref->{type} eq 'binary table';
-  $table_name = sql_get_sort_table_for_spec ( $self, $sort_spec )
+  $table_name = $self->sql_get_sort_table_for_spec ( $sort_spec )
     if $cref->{type} eq 'many tables';
   return $self->{_Index_collection_table_names}->{$sort_spec} ||= $table_name;
 }
@@ -534,7 +603,7 @@ sub last_modified_time {
     } else {
       $table_name = $self->data_table_name();
     }
-    return sql_get_timestamp ( $self, $table_name );
+    return $self->sql_get_timestamp ( $table_name );
   }; if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
   return $ret;
 }
@@ -545,44 +614,53 @@ sub last_modified_time {
 ## when a record is "touched". then erase every item with the flag
 ## set.
 #
-# args: verbose=>1, size=>n, workers =>n
+# args: verbose=>1, size=>n, workers =>n, stores=>[doctype:store, ...]
 sub rebuild {
   my ( $self, %args ) = @_;
+  my @stores = $self->_get_stores_for_rebuild ( %args );
   local $SIG{INT} = sub {
     print "Received interrupt signal during rebuild: cleaning up...\n";
-    sql_unset_all_table_comma_flags ( $self );
+    $self->sql_unset_all_table_comma_flags();
     print "Okay, exiting. note that the rebuild did not complete\n";
     print "  due to the Ctrl-C. you may want to run rebuild() again.\n";
     exit ( 0 );
   };
   my $rebuild_flag = int( rand(127) );
   # we need to wait for all flags to be clear before we can proceed
-  sql_set_all_table_comma_flags_politely ( $self, $rebuild_flag );
+  $self->sql_set_all_table_comma_flags_politely ( $rebuild_flag );
   while ( my @in_use =
-          sql_get_all_tables_with_comma_flags_set($self,$rebuild_flag) ) {
+          $self->sql_get_all_tables_with_comma_flags_set($rebuild_flag) ) {
     print "waiting for tables: (flag $rebuild_flag) " .
       join ( ',', @in_use ) . "\n";
-    sql_set_all_table_comma_flags_politely ( $self, $rebuild_flag );
+    $self->sql_set_all_table_comma_flags_politely ( $rebuild_flag );
     sleep 5;
   }
   # set all the _comma_flags in the data table to our rebuild value
-  sql_set_all_comma_flags ( $self, $self->data_table_name(), $rebuild_flag );
+  $self->sql_set_all_comma_flags ( $self->data_table_name(), $rebuild_flag );
   # do the looping, inside an eval so we can unset the flag on any error
-  eval { $self->_rebuild_loop ( $rebuild_flag, %args ); };
-   if ( $@ ) {
-    my $error = $@;
-    eval { sql_unset_all_table_comma_flags ( $self ); };
-    die "error while rebuilding: $error\n";
+  foreach my $store ( @stores ) {
+    if ( $args{verbose} ) {
+      print "beginning re-index from store " . $store->name() . "...\n";
+    }
+    eval { $self->_rebuild_loop ( $rebuild_flag, $store, %args ); };
+     if ( $@ ) {
+      my $error = $@;
+      eval { $self->sql_unset_all_table_comma_flags(); };
+      die "error while rebuilding: $error\n";
+    }
+    if ( $args{verbose} ) {
+      print "finished re-index from store " . $store->name() . "...\n";
+    }
   }
   if ( $args{verbose} ) {
     print "done re-indexing...\n";
     print "deleting entries not added by rebuild...\n";
   }
-  sql_delete_where_comma_flags ( $self->get_dbh(),
+  $self->sql_delete_where_comma_flags ( $self->get_dbh_writer(),
                                  $self->data_table_name(),
                                  $rebuild_flag );
-  sql_clear_all_comma_flags ( $self->get_dbh(), $self->data_table_name() );
-  sql_unset_all_table_comma_flags ( $self );
+  $self->sql_clear_all_comma_flags ( $self->get_dbh_writer(), $self->data_table_name() );
+  $self->sql_unset_all_table_comma_flags();
   print "cleaning...\n"  if  $args{verbose};
   # complete clean will get rid of entries in sort tables that are not
   # in data table
@@ -590,10 +668,7 @@ sub rebuild {
 }
 
 sub _rebuild_loop {
-  my ( $self, $rebuild_flag, %args ) = @_;
-  # we need to fetch our store
-  my $store = XML::Comma::Def->read(name=>$self->doctype())
-    ->get_store($self->store());
+  my ( $self, $rebuild_flag, $store, %args ) = @_;
   # don't do anything if there's nothing stored (avoids "can't stat" warning)
   return  if  ! -d $store->base_directory();
   # get iterator
@@ -604,7 +679,9 @@ sub _rebuild_loop {
   # setup and loop
   my $doc = $iterator->prev_read();
   my $count = $offset + 1;
-  my $name = $self->element('name')->get();
+
+  my $index_doctype = $self->doctype(); # the def's doctypetype
+  my $index_name    = $self->element('name')->get();
 
   my $stopped;
   while ( $doc && ! $stopped  ) {
@@ -612,7 +689,10 @@ sub _rebuild_loop {
       if ( $args{verbose} ) {
         print "updating " . $doc->doc_id() . " (" . $count . ")\n";
       }
-      $doc->index_update ( index      => $name,
+      # use doctype:index syntax to account for updating from a doctype other 
+      # than what our iterator was based on
+      # $doc->index_update ( index      => "$index_doctype:$index_name",
+      $doc->index_update ( index      => "$index_name",
                            comma_flag => 0,
                            defer_textsearches => 1 );
       # run stop_rebuild_hooks, passing $doc and $self. if any of the subs
@@ -624,7 +704,7 @@ sub _rebuild_loop {
         }
       }
       # set in-use flags again, in case we've created sort tables
-      sql_set_all_table_comma_flags_politely ( $self, $rebuild_flag );
+      $self->sql_set_all_table_comma_flags_politely ( $rebuild_flag );
       # periodically write out textsearches cache, to avoid a big
       # memory/db-size bottleneck
       unless ( $count % 2000 ) {
@@ -654,7 +734,7 @@ sub _rebuild_loop {
   }
 
 
-  dbg "done updating\n";
+  #dbg "done updating\n";
   # say goodbye if I'm a child, my work is done
   exit ( 0 )  if  $im_a_child;
   # wait on all my beloved children
@@ -669,9 +749,9 @@ sub _rebuild_fork {
   my $im_a_child = 0;
   my $offset = 0;
   foreach ( 1 .. ($workers - 1) ) {
-    dbg 'forking';
+    #dbg 'forking';
     unless ( my $pid = fork() ) {
-      $self->get_dbh();
+      $self->get_dbh_writer();
       $im_a_child = 1;
       $offset = $_;
       $SIG{INT} = 'DEFAULT';
@@ -682,6 +762,69 @@ sub _rebuild_fork {
   return ( $im_a_child, $offset );
 }
 
+# Ensure that the rebuild process has valid stores to rebuild, either
+# as specified by a stores => [] argument or as implied by the index
+# declaration in the def
+sub _get_stores_for_rebuild {
+  my ( $self, %args ) = @_;
+
+  my @doctypes = grep { !/^$/ } map { eval $_->get() } 
+    $self->elements( 'doctype' );
+  my @stores   = grep { !/^$/ } map { eval $_->get() } 
+    $self->elements( 'store' );
+
+  push @doctypes, $self->doctype();
+  push @stores  , $self->store();
+  
+  my $any_doctype = grep { /^\*$/ } @doctypes; 
+  my $any_store   = grep { /^\*$/ } @stores; 
+
+  # if the doctype or store specification in an <index> block 
+  # is wildcarded, we throw an exception unless we get a 
+  # stores => [] argument rather than trying to guess what the 
+  # user meant.
+  if ( ($any_doctype || $any_store) and ! $args{stores} ) {
+    XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', 
+                          "no stores specified in rebuild() for index '" . 
+                          $self->element('name')->get() . "'"
+                        );
+  }
+  
+  my %stores;
+
+  if ( $args{ stores } ) { 
+    foreach my $store_arg ( @{ $args{ stores } } ) {
+      my ( $doctype, $store );
+      if ( $store_arg =~ /:/ ) {
+        ( $doctype, $store ) = split /:/, $store_arg;
+      } else {
+        $doctype = $self->doctype();
+        $store   = $store_arg;
+      }
+      unless ( (grep { /^$doctype$/ } @doctypes or $any_doctype) and 
+               (grep { /^$store$/   } @stores   or $any_store  ) ) { 
+        XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', "Index '" .
+                              $self->element('name')->get . "'" . 
+                              " can't rebuild from '$store_arg'" );
+      }
+      eval {
+        $stores{ "$doctype$store" } = XML::Comma::Def->read( name => $doctype )
+                                                     ->get_store( $store );
+      }; if ( $@ ) {
+        XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', $@ );
+      }
+    }
+  } else {
+    foreach my $doctype ( @doctypes ) {
+      foreach my $store ( @stores ) {
+        $stores{ "$doctype$store" } =  XML::Comma::Def->read( name => $doctype )
+                                                 ->get_store( $store );
+      }
+    }
+  }
+  return values %stores;
+}
+
 # if called with no arguments, cleans the data table, and everything
 # else, too. otherwise, call with sort_table_name
 # indicating which sort table to clean
@@ -690,7 +833,7 @@ sub clean {
   my $clean_element;
 
   if ( $table_name ) {
-    my $sort_spec = sql_get_sort_spec_for_table ( $self, $table_name );
+    my $sort_spec = $self->sql_get_sort_spec_for_table ( $table_name );
     my ( $sort_name, $sort_string ) = $self->split_sort_spec ( $sort_spec );
     # quote the sort_spec because it might have spaces (yech, blech)
     $sort_spec = "'$sort_spec'";
@@ -705,7 +848,7 @@ sub clean {
         init_and_cast ( element => $clean_element,
                         doctype => $self->{_Index_doctype},
                         index_name => $self->name(),
-                        dbh => $self->get_dbh(),
+                        dbh => $self->get_dbh_writer(),
                         order_by =>
                           $clean_element->element('order_by')->get() ||
                             $self->element('default_order_by')->get(),
@@ -722,12 +865,12 @@ sub clean {
       # define a clean that only has an erase_where_clause warn
       #       "overall clean doesn't have a to_size\n" if !
       #         $clean_element->to_size(); clean data table
-      my @bctns = sql_get_bcollection_table($self);
+      my @bctns = $self->sql_get_bcollection_table();
       XML::Comma::Indexing::Clean->
           init_and_cast ( element => $clean_element,
                           doctype => $self->{_Index_doctype},
                           index_name => $self->name(),
-                          dbh => $self->get_dbh(),
+                          dbh => $self->get_dbh_writer(),
                           order_by =>
                             $clean_element->element('order_by')->get() ||
                               $self->element('default_order_by')->get(),
@@ -735,12 +878,12 @@ sub clean {
                           data_table_name => $table_name,
                           bcollection_table_names => \@bctns )->clean();
       # now loop through and call ourself again to clean everything else
-      foreach my $table ( sql_get_sort_tables($self) ) {
+      foreach my $table ( $self->sql_get_sort_tables() ) {
         $self->clean ( $table );
       }
     }; if ( $@ ) {
       my $error = $@;
-      eval { sql_clear_all_comma_flags ( $self->get_dbh(), 'index_tables' ); };
+      eval { $self->sql_clear_all_comma_flags ( $self->get_dbh_writer(), 'index_tables' ); };
       die "error while doing a complete clean: $error\n";
     }
   }
@@ -762,7 +905,7 @@ sub split_sort_spec {
 
 sub table_exists {
   my ( $self, $table_name ) = @_;
-  return sql_get_timestamp ( $self,$table_name );
+  return $self->sql_get_timestamp ( $table_name );
 }
 
 ##
@@ -775,9 +918,8 @@ sub _do_collection {
   # binary table
   if ( $cref->{type} eq 'binary table' ) {
     my %seen = ();
-    my $qdoc_id = $self->get_dbh()->quote ( $doc->doc_id() );
     my $table_name =
-      sql_get_bcollection_table ( $self, $cname ) ||
+      $self->sql_get_bcollection_table ( $cname ) ||
         die "bad collection table fetch for $cname\n";
 
     my $extra_name;
@@ -797,8 +939,8 @@ sub _do_collection {
       # dbg 'col:', $col, $col_str, $extra;
       unless ( $seen{$col_str}++ ) {
         eval {
-          sql_insert_into_bcollection
-            ( $self, $table_name, $qdoc_id, $col_str, $extra );
+          $self->sql_insert_into_bcollection
+            ( $table_name, $doc->doc_id(), $col_str, $extra );
         }; if ( $@ ) {
           # ignore unless debugging?
           XML::Comma::Log->warn ( "collection (binary) error: $@" );
@@ -809,7 +951,6 @@ sub _do_collection {
   # many tables
   elsif ( $cref->{type} eq 'many tables' ) {
     my %seen = ();
-    my $qdoc_id = $self->get_dbh()->quote ( $doc->doc_id() );
     foreach my $col_string ( $cref->{code}->($doc) ) {
       unless ( $seen{$col_string}++ ) {
         my $table_name = $self->_maybe_create_sort_table ($cname, $col_string);
@@ -818,9 +959,9 @@ sub _do_collection {
         # to die.) wille can catch and ignore errors, here, on the theory
         # that a slightly-wrong sort table isn't the end of the world.
         eval {
-          sql_insert_into_sort ( $self, $qdoc_id, $table_name );
+          $self->sql_insert_into_sort ( $doc->doc_id(), $table_name );
           $self->_maybe_clean ( $table_name, $cname );
-          sql_update_timestamp ( $self, $table_name );
+          $self->sql_update_timestamp ( $table_name );
         }; if ( $@ ) {
           # ignore unless debugging?
           XML::Comma::Log->warn ( "collection (sort) error: $@" );
@@ -837,18 +978,17 @@ sub _do_collection {
 sub _undo_collection {
   my ( $self, $doc, $cname, $cref ) = @_;
   return  if  $cref->{type} eq 'stringified';
-  my $qdoc_id = $self->get_dbh()->quote ( $doc->doc_id() );
   # binary table
   if ( $cref->{type} eq 'binary table' ) {
-    my $table_name = sql_get_bcollection_table ( $self, $cname ) ||
+    my $table_name = $self->sql_get_bcollection_table ( $cname ) ||
       die "bad collection table fetch for '$cname'\n";
-    sql_delete_from_bcollection ( $self, $qdoc_id, $table_name );
+    $self->sql_delete_from_bcollection ( $doc->doc_id(), $table_name );
   }
   # many tables
   elsif ( $cref->{type} eq 'many tables' ) {
-    foreach my $table_name ( sql_get_sort_tables($self,$cname) ) {
-      my $rows = sql_delete_from_sort ( $self, $qdoc_id, $table_name );
-      sql_update_timestamp ( $self, $table_name )  if  $rows > 0;
+    foreach my $table_name ( $self->sql_get_sort_tables( $cname ) ) {
+      my $rows = $self->sql_delete_from_sort ( $doc->doc_id(), $table_name );
+      $self->sql_update_timestamp ( $table_name )  if  $rows > 0;
     }
   }
   # we shouldn't ever get here
@@ -876,7 +1016,7 @@ sub _maybe_create_sort_table {
     $table_name = $self->collection_table_name ( $sort_name, $sort_string );
     unless ( $table_name ) {
       my $sort_spec = $self->make_sort_spec( $sort_name, $sort_string );
-      $table_name = sql_create_sort_table ( $self, $sort_spec );
+      $table_name = $self->sql_create_sort_table ( $sort_spec );
       $self->{_Index_collection_table_names}->{$sort_name} = $table_name;
     }
     # release the hold
@@ -911,14 +1051,13 @@ sub _maybe_create_sort_table {
 sub _do_textsearch {
   my ( $self, $doc, $textsearch ) = @_;
   my $name = $textsearch->element('name')->get();
-  my ( $i_table_name ) = sql_get_textsearch_tables ( $self, $name );
+  my ( $i_table_name ) = $self->sql_get_textsearch_tables ( $name );
   die "fatal error: no textsearch_index table found for '$name'\n"
     if ! $i_table_name;
   # inverted index records
   foreach my $word ( $self->_get_textsearch_words($doc, $textsearch) ) {
-    sql_update_in_textsearch_index_table
-      ( $self,
-        $i_table_name,
+    $self->sql_update_in_textsearch_index_table
+      ( $i_table_name,
         $word,
         $doc->doc_id() );
   }
@@ -926,30 +1065,30 @@ sub _do_textsearch {
 
 sub _defer_do_textsearch {
   my ( $self, $doc, $textsearch ) = @_;
-  my ( $i_table_name, $d_table_name ) = sql_get_textsearch_tables
-    ( $self, $textsearch->element('name')->get() );
+  my ( $i_table_name, $d_table_name ) = $self->sql_get_textsearch_tables
+    ( $textsearch->element('name')->get() );
   my @words = $self->_get_textsearch_words($doc, $textsearch);
-  sql_textsearch_defer_update 
-    ( $self, $d_table_name, $doc->doc_id(), freeze(\@words) );
+  $self->sql_textsearch_defer_update 
+    ( $d_table_name, $doc->doc_id(), freeze(\@words) );
 }
 
 sub _undo_textsearch {
   my ( $self, $doc, $textsearch ) = @_;
   my $name = $textsearch->element('name')->get();
-  my ( $i_table_name ) = sql_get_textsearch_tables ( $self, $name );
+  my ( $i_table_name ) = $self->sql_get_textsearch_tables ( $name );
   die "fatal error: no textsearch_index table found for '$name'\n"
     if ! $i_table_name;
   # inverted index records
-  sql_delete_from_textsearch_index_table ( $self,
+  $self->sql_delete_from_textsearch_index_table ( 
                                            $i_table_name,
                                            $doc->doc_id() );
 }
 
 sub _defer_undo_textsearch {
   my ( $self, $doc, $textsearch ) = @_;
-  my ( $i_table_name, $d_table_name ) = sql_get_textsearch_tables 
-    ( $self, $textsearch->element('name')->get() );
-  sql_textsearch_defer_delete ( $self, $d_table_name, $doc->doc_id() );
+  my ( $i_table_name, $d_table_name ) = $self->sql_get_textsearch_tables 
+    ( $textsearch->element('name')->get() );
+  $self->sql_textsearch_defer_delete ( $d_table_name, $doc->doc_id() );
 }
 
 sub _get_textsearch_words {
@@ -989,12 +1128,12 @@ sub sync_deferred_textsearches {
     # $words->{ <word> }-> [ doc_id, doc_id, doc_id ... ]
     my $words = {};
     # get the defers_table name
-    my ( $i_table_name, $d_table_name ) = sql_get_textsearch_tables
-    ( $self, $textsearch->element('name')->get() );
+    my ( $i_table_name, $d_table_name ) = $self->sql_get_textsearch_tables
+    ( $textsearch->element('name')->get() );
 
     # dbg ( "textsearch tables", $i_table_name, $d_table_name );
     # group
-    my $sth = sql_get_textsearch_defers_sth ( $self, $d_table_name );
+    my $sth = $self->sql_get_textsearch_defers_sth ( $d_table_name );
     while ( my $row = $sth->fetchrow_arrayref() ) {
       push @{$grp->{$row->[0]}}, { action      => $row->[1],
                                    _sq         => $row->[2],
@@ -1004,17 +1143,17 @@ sub sync_deferred_textsearches {
     foreach my $id ( keys %{$grp} ) {
       # first, remove all of the entries that we've pulled from the
       # defers table
-      sql_delete_from_textsearch_defers_table ( $self, $d_table_name,
+      $self->sql_delete_from_textsearch_defers_table ( $d_table_name,
                                                 $id, $grp->{$id}->[-1]->{_sq} );
 
       if ( $grp->{$id}->[-1]->{action} == 1 ) {  # (delete action const is 1)
         # case 1 - last entry is 'delete': just delete
-        sql_delete_from_textsearch_index_table ( $self, $i_table_name, $id );
+        $self->sql_delete_from_textsearch_index_table ( $i_table_name, $id );
       } else {
         if ( grep { $_->{action} == 1 } @{$grp->{$id}} ) {
           # case 2 - last entry is 'update' and there are previous 'deletes':
           #  delete then update
-          sql_delete_from_textsearch_index_table ( $self, $i_table_name, $id );
+          $self->sql_delete_from_textsearch_index_table ( $i_table_name, $id );
           $self->_textsearch_cache_text ( $textsearch,
                                           $id,
                                           $words,
@@ -1031,7 +1170,7 @@ sub sync_deferred_textsearches {
     }
     # do textsearch updates from cache
     foreach my $word ( keys %{$words} ) {
-      sql_update_in_textsearch_index_table ( $self,
+      $self->sql_update_in_textsearch_index_table ( 
                                              $i_table_name,
                                              $word,
                                              undef,   # doc_id
@@ -1048,9 +1187,9 @@ sub clean_textsearches {
     # data structure for caching seq number, so we don't have to go to
     # the database each and ever time.
     my %cached;  # each key is a sequence, 1 = not-in-data, 2 = in-data
-    my ( $i_table_name ) = sql_get_textsearch_tables
-      ( $self, $textsearch->element('name')->get() );
-    my @words = sql_get_textsearch_indexed_words ( $self, $i_table_name );
+    my ( $i_table_name ) = $self->sql_get_textsearch_tables
+      ( $textsearch->element('name')->get() );
+    my @words = $self->sql_get_textsearch_indexed_words ( $i_table_name );
     print "processing " . scalar(@words) . " entries for textsearch '" .
       $textsearch->element('name')->get() . "'\n";
     my $count;
@@ -1059,10 +1198,10 @@ sub clean_textsearches {
       my $altered;
       my %seqs = map { $_=>1 }
         unpack ( "l*",
-                 sql_get_textsearch_index_packed($self, $i_table_name, $word) );
+                 $self->sql_get_textsearch_index_packed($i_table_name, $word) );
       foreach my $s ( keys %seqs ) {
         if ( ! defined $cached{$s} ) {
-          $cached{$s} = sql_seq_indexed_p ( $self, $s );
+          $cached{$s} = $self->sql_seq_indexed_p ( $s );
         }
         if ( ! $cached{$s} ) {
           $altered = 1;
@@ -1071,7 +1210,7 @@ sub clean_textsearches {
       }
       if ( $altered ) {
         # dbg 'clobbering', $word, keys(%seqs);
-        sql_update_in_textsearch_index_table ( $self,
+        $self->sql_update_in_textsearch_index_table ( 
                                                $i_table_name,
                                                $word,
                                                undef,
@@ -1085,7 +1224,7 @@ sub clean_textsearches {
 
 sub _textsearch_cache_text {
   my ( $self, $textsearch, $doc_id, $words, $frozen_text ) = @_;
-  my ( $seq ) = sql_get_sq_from_data_table ( $self, $doc_id );
+  my ( $seq ) = $self->sql_get_sq_from_data_table ( $self, $doc_id );
   return if ! $seq;
   foreach my $word ( @{thaw($frozen_text)} ) {
     push @{$words->{$word}}, $seq;
@@ -1115,7 +1254,7 @@ sub _maybe_clean {
   }
 
   return  if  ! $trigger;
-  if ( sql_simple_rows_count($self,$table_name) >= $trigger ) {
+  if ( $self->sql_simple_rows_count($table_name) >= $trigger ) {
     $self->clean ( $clean_arg );
   }
 }
@@ -1131,7 +1270,7 @@ sub _check_db {
     # go ahead and try to create the index_tables table -- we'll just
     # assume that any error the database throws is just letting us know
     # that there's already a table here.
-    eval { sql_create_index_tables_table($self); };
+    eval { $self->sql_create_index_tables_table( ); };
     #if ( $@ ) { warn "$@\n"; }
 
     # see if there is an entry for this index's data table.
@@ -1145,7 +1284,7 @@ sub _check_db {
 
 sub _get_def_from_db {
   my $self = shift();
-  my $def_string = sql_get_def ( $self );
+  my $def_string = $self->sql_get_def();
   # Doc-ify
   my $def;
   if ( $def_string ) {
@@ -1174,14 +1313,45 @@ sub _check_tables {
     # dbg "old def and new def are not the same", $self->name();
     # store the new def in the info table, so we'll have it next time
     #dbg 'storing def in info table', $self->name();
-    sql_update_def_in_tables_table ( $self );
+    $self->sql_update_def_in_tables_table();
     # now compare the old def fields, collections and sql_indexes
+    $self->_check_store ( $old_def );
+    $self->_check_doctype ( $old_def );
     $self->_check_fields ( $old_def );
     $self->_check_collections ( $old_def );
     $self->_check_data_table_sql_indexes ( $old_def );
     $self->_check_textsearches ( $old_def );
   } else {
     #dbg "old def and new def match", $self->name();
+  }
+}
+
+# _check_store and _check_doctype get to be pretty basic
+sub _check_store {
+  my ( $self, $old_def ) = @_;
+  my $store     = 1 if $self->element('store')->get();
+  my $old_store = 1 if $old_def->element('store')->get();
+  if ( $store and !$old_store ) {
+    $self->sql_alter_data_table_add( 'store', 'VARCHAR(255) NOT NULL' );
+    $self->sql_alter_data_table_change_primary_key( 'store' );
+  } elsif ( !$store and $old_store ) {
+    $self->sql_alter_data_table_drop_or_modify( 'store' );
+  } else {
+    # no-op, they didn't change
+  }
+}
+
+sub _check_doctype {
+  my ( $self, $old_def ) = @_;
+  my $doctype     = 1 if $self->element('doctype')->get();
+  my $old_doctype = 1 if $old_def->element('doctype')->get();
+  if ( $doctype and !$old_doctype ) {
+    $self->sql_alter_data_table_add( 'doctype', 'VARCHAR(255) NOT NULL' );
+    $self->sql_alter_data_table_change_primary_key( 'doctype' );
+  } elsif ( !$doctype and $old_doctype ) {
+    $self->sql_alter_data_table_drop_or_modify( 'doctype' );
+  } else {
+    # no-op, they didn't change
   }
 }
 
@@ -1200,17 +1370,17 @@ sub _check_fields {
   #  drop any old fields that aren't present in the new def
   foreach my $name ( keys %old_fields ) {
     if ( ! defined $new_fields{$name} ) {
-      sql_alter_data_table_drop_or_modify ( $self, $name );
+      $self->sql_alter_data_table_drop_or_modify ( $name );
     }
   }
   #  check each new field against the old ones
   foreach my $name ( keys %new_fields ) {
     if ( ! defined $old_fields{$name} ) {
       #dbg 'adding', $name;
-      sql_alter_data_table_add ( $self, $name, $new_fields{$name} );
+      $self->sql_alter_data_table_add ( $name, $new_fields{$name} );
     } elsif ( $old_fields{$name} ne $new_fields{$name} ) {
       #dbg 'altering', $name;
-      sql_alter_data_table_drop_or_modify ( $self, $name, $new_fields{$name} );
+      $self->sql_alter_data_table_drop_or_modify ( $name, $new_fields{$name} );
     } else {
       #dbg 'unchanged', $name;
     }
@@ -1248,16 +1418,15 @@ sub _check_collections {
              $new_field_hash eq $el_field_hash ) {
       #dbg 'dropping old collection', $name, $type, $sql_type;
       if ( $type eq 'stringified' ) {
-        sql_alter_data_table_drop_or_modify ( $self, $name );
+        $self->sql_alter_data_table_drop_or_modify ( $name );
       } elsif ( $type eq 'binary table' ) {
-        sql_drop_bcollection_table ( $self, $name );
+        $self->sql_drop_bcollection_table ( $name );
       }
     }
   }
   # add any new collections that aren't in the old def or that have
   # changed their type
   while ( my ($name,$el) = each %new_collections ) {
-    #dbg "checking new collection", $name;
     my $type = $el->element('type')->get();
     next  if  $type eq 'many tables';
     my $old_field_hash =
@@ -1273,9 +1442,9 @@ sub _check_collections {
              $old_field_hash eq $el_field_hash ) {
       #dbg 'adding new collection', $name, $type, $el_field_hash;
       if ( $type eq 'stringified' ) {
-        sql_alter_data_table_add_collection ( $self, $name );
+        $self->sql_alter_data_table_add_collection ( $name );
       } elsif ( $type eq 'binary table' ) {
-        sql_create_bcollection_table ( $self, $name, $el );
+        $self->sql_create_bcollection_table ( $name, $el );
       }
     }
   }
@@ -1295,7 +1464,7 @@ sub _check_data_table_sql_indexes {
     if (! defined $new_indexes{$name} or
         $new_indexes{$name}->to_string() ne $old_indexes{$name}->to_string()) {
       #dbg 'dropping old/changed index', $name;
-      sql_alter_data_table_drop_index ( $self, $name );
+      $self->sql_alter_data_table_drop_index ( $name );
     }
   }
   # add any new collections that aren't in the old, or that have changed
@@ -1303,7 +1472,7 @@ sub _check_data_table_sql_indexes {
     if (! defined $old_indexes{$name} or
         $new_indexes{$name}->to_string() ne $old_indexes{$name}->to_string()) {
       #dbg 'adding new/changed index', $name;
-      sql_alter_data_table_add_index ( $self, $new_indexes{$name} );
+      $self->sql_alter_data_table_add_index ( $new_indexes{$name} );
     }
   }
 }
@@ -1322,7 +1491,7 @@ sub _check_textsearches {
     if (! defined $new_tses{$name} or
         $new_tses{$name}->to_string() ne $old_tses{$name}->to_string()) {
       #dbg 'dropping old/changed ts', $name;
-      sql_drop_textsearch_tables ( $self, $name );
+      $self->sql_drop_textsearch_tables ( $name );
     }
   }
   # add any new textsearches that aren't in the old, or that have changed
@@ -1330,11 +1499,10 @@ sub _check_textsearches {
     if (! defined $old_tses{$name} or
         $new_tses{$name}->to_string() ne $old_tses{$name}->to_string()) {
       #dbg 'adding new/changed ts', $name;
-      sql_create_textsearch_tables ( $self, $new_tses{$name} );
+      $self->sql_create_textsearch_tables ( $new_tses{$name} );
     }
   }
 }
-
 
 #  # FIX!!!!!
 #  sub _check_bcollections {
@@ -1373,27 +1541,49 @@ sub _check_textsearches {
 # stuff.)
 sub _create_new_data_table {
   my ( $self, $existing_table_name ) = @_;
-  sql_create_data_table ( $self, $existing_table_name );
+  $self->sql_create_data_table ( $existing_table_name );
+  my ( $store, $doctype );
+  $store   = 'store'   if $self->element('store')->get(); 
+  $doctype = 'doctype' if $self->element('doctype')->get();
+  if ( $store || $doctype ) {
+    if ( $store ) {
+      my $name = 'store';
+      my $type = 'VARCHAR(255) NOT NULL'; # XXX dug does this belong 
+                                          # in Bootstrap?
+      $self->sql_alter_data_table_add ( $name, $type );
+    }
+    if ( $doctype ) {
+      my $name = 'doctype';
+      my $type = 'VARCHAR(255) NOT NULL'; # XXX dug does this belong 
+                                          # in Bootstrap?
+      $self->sql_alter_data_table_add ( $name, $type );
+    }
+    my @pkeys = grep { defined } ( $store, $doctype );
+    # ick, gack, yuck. indexes that allow storage from multiple 
+    # doctypes or stores can't use doc_id as the primary key.  Is 
+    # this the best way? 
+    $self->sql_alter_data_table_change_primary_key( @pkeys );
+  }
   foreach my $field ( $self->elements('field') ) {
     my $name = $field->element('name')->get();
     my $type = $field->element('sql_type')->get();
-    sql_alter_data_table_add ( $self, $name, $type );
+    $self->sql_alter_data_table_add ( $name, $type );
   }
   foreach my $collection ( $self->elements('collection') ) {
     my $name = $collection->element('name')->get();
     my $type = $collection->element('type')->get();
     if ( $type eq 'stringified' ) {
-      sql_alter_data_table_add_collection ( $self, $name );
+      $self->sql_alter_data_table_add_collection ( $name );
     } elsif ( $type eq 'binary table' ) {
-      sql_create_bcollection_table ( $self, $name, $collection );
+      $self->sql_create_bcollection_table ( $name, $collection );
     }
   }
   foreach my $sql_index ( $self->elements('sql_index') ) {
-    sql_alter_data_table_add_index ( $self, $sql_index );
+    $self->sql_alter_data_table_add_index ( $sql_index );
   }
   if ( ! $existing_table_name ) {
     foreach my $textsearch ( $self->elements('textsearch') ) {
-      sql_create_textsearch_tables ( $self, $textsearch );
+      $self->sql_create_textsearch_tables ( $textsearch );
     }
   }
 }

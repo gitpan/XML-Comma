@@ -12,7 +12,7 @@ pre { background-color: #ddddff }
 </head>
 <body>
 
-<!-- synced with Comma version 1.00 -->
+<!-- synced with Comma version 1.20 -->
 
 <h1>Introduction</h1>
 
@@ -64,9 +64,12 @@ HTML and PDF form. The PDF is generated from the HTML by
 relational database be installed in order to function properly. The
 Perl version must be 5.005 or greater. The basic required CPAN modules
 (more may be used by additional parts of Comma) are
-<b>Proc::ProcessTable</b>, <b>DBI</b>, the <b>DBD::</b> module that
-matches your database and the <b>Digest::</b> module of your
-choice. The database can by mySQL or postgreSQL, with support for
+<b>Inline</b>, <b>Lingua::Stem</b>, <b>Crypt::Twofish</b>, 
+<b>Crypt::CBC</b>, <b>Digest::HMAC_MD5</b>, <b>String::CRC</b>,
+<b>Math::BaseCalc</b>, <b>Class::ClassDecorator</b>, <b>DBI</b>, 
+the <b>DBD::</b> module that matches your database and 
+<b>DBD::SQLite</b> for running the test suite.  The database can 
+by SQLite or mySQL or postgreSQL, with support for
 other databases available whenever someone asks for it. </p>
 
 <p> Comma installs in the usual <code>make</code>, <code>make
@@ -179,7 +182,8 @@ includes. The convention is <code>.include</code>. </li>
 whether we should call <b>validate()</b>
 on a document when we create it with
 <code>XML::Comma::Doc->new()</code> with either
-a <i>file</i> or <i>block</i> argument. This can be overridden by passing a 
+a <i>file</i> or <i>block</i> argument. This can be overridden by 
+passing a
 validate argument, e.g.
 <code>XML::Comma::Doc->new(block => "...", validate => [0/1]).</code>
 The default is to validate() these documents with versions of comma
@@ -346,7 +350,7 @@ elements. If we add an <i>address</i> element to the Doc, it might look like thi
     &lt;street1&gt;922 M Street SE&lt;/street1&gt;
     &lt;city&gt;Washington&lt;/city&gt;
     &lt;state&gt;DC&lt;/state&gt;
-    &amp;lt;zip&gt;20003&lt;/zip&gt;
+    &lt;zip&gt;20003&lt;/zip&gt;
   &lt;/address&gt;
 &lt;/User&gt;
 </pre>
@@ -984,12 +988,12 @@ allows an element to be flagged as CDATA-fied, meaning that on output
 the entire contents will be wrapped in a CDATA section. Comma treats
 this CDATA facility as high-impact and coarse-grained. As a result the
 declaration is a one-way street: once a CDATA element, always a CDATA
-element. The <b>wrap_cdata()</b> method flips the switch, so to
+element. The <b>cdata_wrap()</b> method flips the switch, so to
 speak. </p>
 
 <pre>
 # configure the bio element so that it always CDATA-wraps its content
-$doc-&gt;element('bio')-&gt;wrap_cdata();
+$doc-&gt;element('bio')-&gt;cdata_wrap();
 # now we can set() with impunity
 $doc-&gt;set ( $messy_html );
 </pre>
@@ -2237,9 +2241,9 @@ capabilities of platforms such as MySQL, Postgres or Oracle. </p>
 <h2>A <code>User</code> Index Definition</h2>
 
 <p> An index allows a collection of Docs to be searched and sorted
-according to their elements' contents. An index may hold only one type
-of Doc. We'll build an index for our <code>User</code> Docs to
-demonstrate the basic features of the indexing framework. </p>
+according to their elements' contents. We'll build an index for 
+our <code>User</code> Docs to demonstrate the basic features of 
+the indexing framework. </p>
 
 <p> An index defines one or more <b>fields</b>, with each field
 normally corresponding to an element or method in the document
@@ -2298,6 +2302,14 @@ an <b>index=></b> argument. </p>
 # delete this Doc's record in the 'main' index
 $doc-&gt;index_remove ( index=>'main' );
 </pre>
+
+<h2>Indexing from different stores and defs</h2>
+
+<p> Sometimes it can be useful to index different document types
+or documents from multiple stores in the same document type into
+a single index.  Comma allows one to do this by introducing the
+<b>&lt;store&gt;</b> and <b>&lt;doctype&gt;</b> directives within
+ an index. </p>
 
 <h2>Querying the Index: Iterators</h2>
 
@@ -4427,10 +4439,7 @@ non-nested element, or doc. The element <b>validate()</b>,
 <b>validate_content()</b>,
 <b>set()</b>, and <b>append()</b> methods trigger the execution of
 these hooks, as does the nested element <b>validate()</b>
-method, and the <b>new()</b> method when called with a 
-<b>block</b> or <b>file</b> argument and a true or nonexistent
-<b>validate</b> argument. If any
-<b>validate_hook()</b> throws an error, the validate
+method. If any <b>validate_hook()</b> throws an error, the validate
 operation is halted and a <code>BAD_CONTENT</code> or
 <code>VALIDATE_ERROR</code> is propogated. The hook is passed one or
 two arguments: the element to which the hook is attached and (for
@@ -4484,8 +4493,8 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
   <li>XML::Comma::Doc
     <ul>
     <li>$doc = XML::Comma::Doc-&gt;new ( type =&gt; )</li>
-    <li>$doc = XML::Comma::Doc-&gt;new ( block =&gt;, [validate=&gt;] )</li>
-    <li>$doc = XML::Comma::Doc-&gt;new ( file =&gt;, [validate=&gt;] )</li>
+    <li>$doc = XML::Comma::Doc-&gt;new ( block =&gt; )</li>
+    <li>$doc = XML::Comma::Doc-&gt;new ( file =&gt; )</li>
     <li>$doc = XML::Comma::Doc-&gt;retrieve ( key, [timeout=&gt;&lt;seconds&gt;] )</li>
     <li>$doc = XML::Comma::Doc-&gt;retrieve ( store =&gt;, type =&gt;, id =&gt;, [timeout=&gt;&lt;seconds&gt;] )</li>
     <li>$doc || undef = XML::Comma::Doc-&gt;retrieve_no_wait ( key )</li>

@@ -16,4 +16,10 @@ $self->add_hook ( 'set_hook',
   }
 );
 
+$self->add_method ( 'toggle',
+  sub {
+    $_[0]->set( ! $_[0]->get() );
+  }
+);
+
 1;

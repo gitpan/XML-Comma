@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2005, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -50,7 +50,7 @@ sub make_id {
   if ( $struct->{overflow} ) {
     die "GMT_3layer_dir full\n";
   }
-  my ( $year, $month, $day ) = XML::Comma::Storage::Util->gmt_yyy_mm_dd();
+  my ( $year, $month, $day ) = XML::Comma::Storage::Util->gmt_yyyy_mm_dd();
   return ( "$year$month$day",                         # id piece
            File::Spec->catdir($year, $month, $day),   # location piece
          );

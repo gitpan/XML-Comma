@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2005, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -21,10 +21,24 @@
 ##
 
 package XML::Comma::SQL::DBH_User;
+@ISA = qw( XML::Comma::SQL::Base );
 
 use strict;
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
+use XML::Comma::SQL::Base;
+use Class::ClassDecorator;
+
+# inherit from our sql syntax class
+# my $sql_class;
+# BEGIN {
+#   my $which_db = XML::Comma->system_db();
+#   my $db_struct = XML::Comma->$which_db();
+#   $sql_class = "XML::Comma::SQL::" . $db_struct->{ sql_syntax };
+#   dbg 'using syntax', $sql_class;
+# }
+
+#use base $sql_class;
 
 ###
 #
@@ -52,11 +66,26 @@ use XML::Comma::Util qw( dbg );
 #                       sure db schemas are still what we think they
 #                       are, et.
 
+##
+# this may need to be modified as we begin to separate writer and
+##reader functionalities, and when we settle on a syntax handling
+##different databases.
+sub decorate_and_bless {
+  my ( $self, $class, %args ) = @_;
+  my $sql_definition = XML::Comma->system_db();
+  my $sql_class = 'XML::Comma::SQL::' .
+    XML::Comma->$sql_definition->{ sql_syntax };
+  eval "require $sql_class";
+  my $composite_class = Class::ClassDecorator::decorate ( $class, $sql_class );
+  bless ( $self, $composite_class );
+}
+
 sub ping_writer {}
 sub ping_reader {}
 
 sub ping {
   my $self = shift();
+  dbg 'ping from dbh_user';
   # if not pingable, do a connect
   if ( ! $self->get_dbh()->ping() ) {
     $self->_connect();
@@ -64,14 +93,19 @@ sub ping {
   return 1;
 }
 
-sub get_dbh_writer {}
-sub get_dbh_reader {}
+sub get_dbh_writer {
+  shift->get_dbh();
+}
+
+sub get_dbh_reader {
+  shift->get_dbh();
+}
 
 sub get_dbh {
   if ( $_[0]->{_DBH} and $_[0]->{_DBH_pid} == $$ ) {
     return $_[0]->{_DBH};
   } else {
-    #dbg 'connecting', $$, $_[0]->{_DBH}||'', $_[0]->{_DBH_pid}||'';
+    # dbg 'connecting', $$, $_[0]->{_DBH}||'', $_[0]->{_DBH_pid}||'';
     return $_[0]->_connect();
   }
 }
@@ -108,6 +142,8 @@ sub _connect {
       XML::Comma::Log->err ( 'DB_CONNECTION_ERROR', "$@" );
     }
   }
+
+  #DBI->trace( 3, "trace.out" );
 
   $self->{_DBH_pid} = $$;
   #dbg 'setting pid to', $self->{_DBH_pid};

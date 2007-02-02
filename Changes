@@ -1,7 +1,50 @@
 Revision history for XML::Comma modules:
 
 -------------------------
-1.25  2007/01/31
+1.90  2007/02/01
+-------------------------
+
+  - Changed inheritance structure of SQL::* modules.
+
+  - Allow operator overloading on storage iterators, ie:
+      while(++$sit) { my $doc = $sit->read_doc(); ... };
+
+  - Fix longstanding bug with storage iterators grabbing docs from the
+    wrong directory when a store spanned multiple top level directories
+
+  - add date_8 to unix_time macro
+
+  - add no_mtime optional argument to $doc->store()
+
+  - allow slashes in derived_file <location>s
+
+  - added better support for 'binary table' collection type, deprecated
+    'many tables' and 'stringified' collection types.
+
+  - add support for lazy field evaluation in iterators, ie:
+      my $it = XML::Comma::Def->d->get_index("i")->
+        iterator(fields => [ "a", "b" ]);
+      $it->a(); #fast
+      $it->b(); #fast
+      $it->c(); #slow, but works
+
+  - add Timestamped_random locations for pseudo-random document
+    name keyed of system time.
+
+  - fix index_only storage to allow derive_from 
+
+  - add -module flags to comma-load-and-store-doc.pl, comma-drop-index.pl
+
+  - add $iterator->select_count() for efficiently determining the number
+    of elements in indexing iterators (mysql support only)
+
+  - fix race conditions in next_sequential_id pointed out by Bill
+    Herrin
+
+  - fix tmp blob copy/move bug
+
+-------------------------
+1.22  2007/01/31
 -------------------------
 
   - Performance, correctness/security fix in XML::Comma::Log
@@ -11,7 +54,7 @@ Revision history for XML::Comma modules:
     override via validate => [0,1] argument or for system-wide
     default, set validate_new in Configuration.pm
 
-  - added include_for_hash, which is like ignore_for_hash but  
+  - added include_for_hash, which is like ignore_for_hash but
     assumes the default is to exclude, not include an element
     from the hash. handy for defs under active development, or
     defs that must be "future-proofed"

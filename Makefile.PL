@@ -29,13 +29,12 @@ END
 
 package main;
 
-my @cmd_line_utils = qw(
 
+my @cmd_line_utils = qw(
 bin/comma-drop-index.pl
 bin/comma-load-doc.pl
 bin/comma-load-and-store-doc.pl
 bin/comma-load-and-index-doc.pl
-
 );
 
 WriteMakefile(
@@ -44,19 +43,39 @@ WriteMakefile(
     'EXE_FILES'    => \@cmd_line_utils,
     'VERSION_FROM' => 'lib/XML/Comma.pm',
     'PREREQ_PM'    =>
-              { Inline                   => 0,
-                Fcntl                    => 0,
+              # need Storable to run bin/comma-create-config.pl
+              # but that's ok since it's been in core since 5.007003
+              # (5.8 came out around 2002)
+              { Storable                 => 0,
+                Inline                   => 0,
                 Lingua::Stem             => 0,
-                Crypt::Twofish           => 0,
+                Crypt::Blowfish          => 0,
                 Crypt::CBC               => 0,
                 Digest::HMAC_MD5         => 0,
                 String::CRC              => 0,
                 Math::BaseCalc           => 0,
                 Class::ClassDecorator    => 0,
-                Compress::Zlib           => 0,
                 DBI                      => 0,
+                DBD::mysql               => 0,
+                Compress::Zlib           => 0,
+                PAR                      => 0,
               },
     #'clean' => {
     #  'FILES' => 'lib/XML/Comma.pm'
     #}
 );
+
+#install base macros, defs, includes, etc.
+use misc::MakeMakerMod;
+misc::MakeMakerMod::add_steps(
+   step => "install",
+   what => "perl misc/install-extras.pl"
+);
+
+eval { require XML::Comma::Configuration; };
+if ( $@ ) {
+  my $ret = system qw( perl bin/comma-create-config.pl );
+  $ret >>= 8;
+  die "bin/comma-create-config.pl failed with error code $ret" if $ret;
+}
+

@@ -1,19 +1,21 @@
 use strict;
 use File::Path;
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 use File::Spec;
 $|++;
 
-print "1..124\n";
+print "1..154\n";
 
 my $def = XML::Comma::Def->read ( name => '_test_storage' );
 
 ## test getting storage names from the def
 my $names_string = join ( ',', sort $def->store_names() );
 print "ok 1\n"  if  $names_string eq 
-  'eight,eleven,five,four,nine,one,seven,six,ten,three,twelve,two';
+  'eight,eleven,five,four,fourteen,nine,one,seven,six,ten,thirteen,three,twelve,two';
 
 #####
 # test storage one -- two sequential_dirs and a sequential_file
@@ -359,10 +361,10 @@ print "ok 98\n"  if  $doc2->el() eq '11111';
 # storage two - gmt dir and a sequential file
 
 my $storage_two = $def->get_store ( 'two' );
+my ( $year, $month, $day ) = XML::Comma::Storage::Util->gmt_yyyy_mm_dd();
 my $two_base_loc = File::Spec->catdir 
-  ( $storage_two->base_directory(),
-    XML::Comma::Storage::Util->gmt_yyy_mm_dd() );
-my $two_base_id = join ( '', XML::Comma::Storage::Util->gmt_yyy_mm_dd() );
+  ( $storage_two->base_directory(), $year, $month, $day );
+my $two_base_id = join ( '', $year, $month, $day );
 
 rmtree ( $storage_two->base_directory(), 0 );
 
@@ -486,6 +488,87 @@ $doc->copy();
 print "ok 123\n"  if  $doc->doc_id() eq 'zab';
 $doc->copy();
 print "ok 124\n"  if  $doc->doc_id() eq 'zac';
+
+####
+# Timestamped randoms
+####
+rmtree  $def->get_store('thirteen')->base_directory();
+$doc = XML::Comma::Doc->new ( type => '_test_storage' );
+$doc->el ( '0xfoo' );
+$doc->store ( store => 'thirteen' );
+my $id = $doc->doc_id;
+print "ok 125\n"  if  length($id) == 16;
+$doc2 = XML::Comma::Doc->read ( $doc->doc_key );
+print "ok 126\n"  if  $doc2->doc_id eq $id;
+rmtree  $def->get_store('fourteen')->base_directory();
+$doc = XML::Comma::Doc->new ( type => '_test_storage' );
+$doc->el ( '0xbar' );
+$doc->store ( store => 'fourteen' );
+$id = $doc->doc_id;
+print "ok 127\n"  if  length($id) == 17;
+$doc2 = XML::Comma::Doc->read ( $doc->doc_key );
+print "ok 128\n"  if  $doc2->doc_id eq $id;
+
+###
+# test for the iterator with size offset across a multi-directory store problem
+###
+$it = $storage_one->iterator( size => 2 );
+print "ok 129\n" if($it->prev_id eq '2210');
+print "ok 130\n" if($it->prev_id eq '2209');
+$it = $storage_one->iterator( size => 2, pos => '-' );
+print "ok 131\n" if($it->next_id eq '1102');
+print "ok 132\n" if($it->next_id eq '1104');
+
+###
+# check overloading for while(++$it)
+###
+$it = $storage_one->iterator();
+$doc = $it->read_doc;
+print "ok 133\n" if $doc->doc_id eq '2210';
+$it++; $doc = $it->read_doc; #first ++ is a null op for while(++$it) setups
+print "ok 134\n" if $doc->doc_id eq '2210';
+$it++; $doc = $it->read_doc;
+print "ok 135\n" if $doc->doc_id eq '2209';
+$it++; $doc = $it->read_doc;
+print "ok 136\n" if $doc->doc_id eq '2208';
+$it--; $doc = $it->read_doc;
+print "ok 137\n" if $doc->doc_id eq '2209';
+print "ok 138\n" if $it; #we've still got more in here...
+
+$it = $storage_one->iterator( pos => '-');
+$doc = $it->read_doc;
+print "ok 139\n" if $doc->doc_id eq '1102';
+$it++; $doc = $it->read_doc; #first ++ is a null op for while(++$it) setups
+print "ok 140\n" if $doc->doc_id eq '1102';
+$it++; $doc = $it->read_doc;
+print "ok 141\n" if $doc->doc_id eq '1104';
+$it++; $doc = $it->read_doc;
+print "ok 142\n" if $doc->doc_id eq '1105';
+$it--; $doc = $it->read_doc;
+print "ok 143\n" if $doc->doc_id eq '1104';
+print "ok 144\n" if $it; #we've still got more in here...
+
+$it = $storage_one->iterator( size => 2 );
+$doc = $it->read_doc;
+print "ok 145\n" if $doc->doc_id eq '2210';
+$it++; $doc = $it->read_doc; #first ++ is a null op for while(++$it) setups
+print "ok 146\n" if $doc->doc_id eq '2210';
+$it++; $doc = $it->read_doc;
+print "ok 147\n" if $doc->doc_id eq '2209';
+print "ok 148\n" if $it; #one more left
+$it++;
+print "ok 149\n" if !$it; #nothing left
+
+$it = $storage_one->iterator( size => 2, pos => '-' );
+$doc = $it->read_doc;
+print "ok 150\n" if $doc->doc_id eq '1102';
+$it++; $doc = $it->read_doc; #first ++ is a null op for while(++$it) setups
+print "ok 151\n" if $doc->doc_id eq '1102';
+$it++; $doc = $it->read_doc;
+print "ok 152\n" if $doc->doc_id eq '1104';
+print "ok 153\n" if $it; #one more left
+$it++;
+print "ok 154\n" if !$it; #nothing left
 
 #  ####
 #  # test next_in_list function

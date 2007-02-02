@@ -28,7 +28,6 @@ use strict;
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 use XML::Comma::SQL::DBH_User;
-use XML::Comma::SQL::Base;
 
 my $PROC_PTABLE_AVAILABLE;
 eval {
@@ -38,44 +37,30 @@ eval {
 
 my $LOCK_LOOP_WAIT_SECONDS = 3;
 
-BEGIN {
-  # suppress warnings (subroutine redefined warnings are expected)
-  local $^W = 0;
-  if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
-    # try to use()
-    eval "use XML::Comma::SQL::$syntax";
-    # report failure
-    if ( $@ ) {
-      XML::Comma::Log->err ( 'SQL_IMPORT_ERROR',
-                             "trouble importing $syntax: $@\n" );
-    }
-  }
-}
-
 sub new {
-  my $class = shift();
+  my $base_class = shift();
   my $self = {};
-  bless $self, $class;
+  XML::Comma::SQL::DBH_User::decorate_and_bless ( $self, $base_class );
   my $dbh = $self->get_dbh();
   # check for hold table -- setup if necessary
-  eval { sql_get_hold($self, '_startup_test_hold_');
-         sql_release_hold($self, '_startup_test_hold_'); };
+  eval { $self->sql_get_hold('_startup_test_hold_');
+         $self->sql_release_hold('_startup_test_hold_'); };
   if ( $@ ) {
     # dbg 'hold error', $@;
     # release hold to "commit" the aborted transaction
-    sql_create_hold_table($dbh);
-    sql_release_hold($self,'_startup_test_hold_');
+    $self->sql_create_hold_table($dbh);
+    $self->sql_release_hold('_startup_test_hold_');
   }
   # check for lock table -- setup if necessary
-  eval { sql_get_lock_record($dbh,'++') };
+  eval { $self->sql_get_lock_record('++') };
   if ( $@ ) {
-    sql_get_hold($self, '_startup_create_lock_');
+    $self->sql_get_hold('_startup_create_lock_');
     # check again
-    eval { sql_get_lock_record($dbh,'++') };
+    eval { $self->sql_get_lock_record('++') };
     if ( $@ ) {
-      sql_create_lock_table($dbh);
+      $self->sql_create_lock_table();
     }
-    sql_release_hold($self, '_startup_create_lock_');
+    $self->sql_release_hold('_startup_create_lock_');
   }
   return $self;
 }
@@ -85,12 +70,12 @@ sub lock {
   my ( $self, $key, $no_block, $timeout ) = @_;
   # dbg 'locking', $key;
   my $dbh = $self->get_dbh();
-  my $locked = sql_doc_lock ( $dbh, $key );
+  my $locked = $self->sql_doc_lock ( $key );
   if ( $locked || $no_block ) {
     return $locked;
   }
   my $waited = 0;
-  my $lr = sql_get_lock_record ( $dbh, $key );
+  my $lr = $self->sql_get_lock_record ( $key );
   # recurse if the doc was unlocked out from under this routine
   unless ( $lr ) {
     $self->lock ( $key, $no_block, $timeout );
@@ -100,7 +85,7 @@ sub lock {
     # check to see if we're allowed to treat this lock as expired
     $self->maybe_unlock ( $lr->{pid}, $key );
     # try to lock again
-    if ( sql_doc_lock($dbh,$key) ) { return 1; }
+    if ( $self->sql_doc_lock($key) ) { return 1; }
     # sleep and keep going round and round
     sleep $LOCK_LOOP_WAIT_SECONDS;
     $waited += $LOCK_LOOP_WAIT_SECONDS;
@@ -111,15 +96,15 @@ sub lock {
 # $self, $key
 sub unlock {
   # dbg 'unlocking', $_[1];
-  sql_doc_unlock ( $_[0]->get_dbh(), $_[1] );
+  $_[0]->sql_doc_unlock ( $_[1] );
 }
 
 sub maybe_unlock {
   my ( $self, $pid, $key ) = @_;
   return  unless  $PROC_PTABLE_AVAILABLE;
-  my $lr = sql_get_lock_record($self->get_dbh(), $key);
+  my $lr = $self->sql_get_lock_record($key);
   return unless $lr;
-  if ( $lr->{info} eq Sys::Hostname::hostname ) {
+  if ( $lr->{info} eq Sys::Hostname::hostname() ) {
     my $plist = Proc::ProcessTable->new();
     foreach my $p ( @{$plist->table()} ) {
       return  if  $p->pid() == $pid;
@@ -139,15 +124,15 @@ sub maybe_unlock {
 # generic, string-based "hold". this can be used to implement a
 # temporary lock without using the special doc lock table.
 sub wait_for_hold {
-  sql_get_hold ( $_[0], $_[1] );
+  $_[0]->sql_get_hold ( $_[1] );
 }
 
 sub release_hold {
-  sql_release_hold ( $_[0], $_[1] );
+  $_[0]->sql_release_hold ( $_[1] );
 }
 
 sub release_all_my_locks {
-  sql_delete_locks_held_by_this_pid ( $_[0]->get_dbh() );
+  $_[0]->sql_delete_locks_held_by_this_pid ();
 }
 
 ##

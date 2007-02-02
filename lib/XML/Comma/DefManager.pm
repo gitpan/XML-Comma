@@ -135,7 +135,7 @@ sub _modified_since {
 sub _make_def {
   my $doc_type = shift();
   my $def_source = _find_source ( $doc_type,
-  XML::Comma->defs_extension() );
+                                  XML::Comma->defs_extension() );
   die "cannot find definition file for '$doc_type'\n"  unless
   $def_source;
 
@@ -169,7 +169,7 @@ sub _find_source {
   # if we're allowed to, try a generic PAR load
   if ( XML::Comma->defs_from_PARs() ) {
     my $source = PAR::read_file 
-   ( File::Spec->canonpath(File::Spec->catfile('comma', $name . $extension)) );
+    ( File::Spec->canonpath(File::Spec->catfile('comma', $name . $extension)) );
     return { source => $source }  if  $source;
   }
   # well, no luck

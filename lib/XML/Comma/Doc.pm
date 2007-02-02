@@ -338,6 +338,7 @@ sub store {
   }
   # do the write -- and do it differently depending on whether this is
   # a first-time store, a copy between two stores, or a re-store
+
   eval {
     my $store = $self->doc_store();
     my $store_arg = $arg{store} || '';
@@ -471,17 +472,40 @@ sub index_update {
     XML::Comma::Log->err ( 'DOC_INDEX_ERROR',
                            "no index name given to Doc->index_update()" );
   }
-  my $ret = eval {
-    $self->def()->get_index($arg{index})->update ( $self,
-                                                   $arg{comma_flag},
-                                                   $arg{defer_textsearches} );
-  };
-  if ( $@ ) {
-    my $error = $@;
-    my $doc_id;
-    eval { $doc_id = $self->doc_id; };
-    XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
-  return $ret;
+
+  # possible $doc->index_update( "doctype:index" ) syntax
+  my ( $def_name, $index_name ) = split /:/, $arg{ index };
+
+  my $ret;
+  if ( $def_name && $index_name ) {
+    $ret = eval { 
+      XML::Comma::Def->read( name => $def_name )
+                     ->get_index( $index_name )
+                     ->update( $self,
+                               $arg{comma_flag},
+                               $arg{defer_textsearches},
+			     );
+    };
+    if ( $@ ) {
+      my $error = $@;
+      my $doc_id;
+      eval { $doc_id = $self->doc_id; };
+      XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
+      return $ret;
+  } else { 
+    $ret = eval {
+      $self->def()->get_index($arg{index})
+                  ->update ( $self,
+                             $arg{comma_flag},
+                             $arg{defer_textsearches} );
+    };
+    if ( $@ ) {
+      my $error = $@;
+      my $doc_id;
+      eval { $doc_id = $self->doc_id; };
+      XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
+    return $ret;
+  }
 }
 
 sub index_remove {
@@ -491,13 +515,32 @@ sub index_remove {
     XML::Comma::Log->err ( 'DOC_INDEX_ERROR',
                            "no index-name given to Doc->index_remove()" );
   }
-  my $ret = eval { $self->def()->get_index($arg{index})->delete($self); };
-  if ( $@ ) {
-    my $error = $@;
-    my $doc_id;
-    eval { $doc_id = $self->doc_id; };
-    XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
-  return $ret;
+
+  # possible $doc->index_remove( "doctype:index" ) syntax
+  my ( $def_name, $index_name ) = split /:/, $arg{ index };
+  
+  my $ret;
+  if ( $def_name && $index_name ) {
+    $ret = eval { 
+      XML::Comma::Def->read( name => $def_name )
+                     ->get_index( $index_name )
+                     ->delete( $self );
+    };
+    if ( $@ ) {
+      my $error = $@;
+      my $doc_id;
+      eval { $doc_id = $self->doc_id; };
+      XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
+      return $ret;
+  } else { 
+    $ret = eval { $self->def()->get_index($arg{index})->delete($self); };
+    if ( $@ ) {
+      my $error = $@;
+      my $doc_id;
+      eval { $doc_id = $self->doc_id; };
+      XML::Comma::Log->err ( 'DOC_INDEX_ERROR', $error, $doc_id ); }
+    return $ret;
+  }
 }
 
 

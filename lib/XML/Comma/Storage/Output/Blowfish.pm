@@ -20,10 +20,10 @@
 #
 ##
 
-package XML::Comma::Storage::Output::Twofish;
+package XML::Comma::Storage::Output::Blowfish;
 
 use Crypt::CBC;
-use Crypt::Twofish;
+use Crypt::Blowfish;
 use Digest::MD5 qw( md5_hex );
 use XML::Comma::Util qw( dbg );
 
@@ -32,19 +32,19 @@ use XML::Comma::Util qw( dbg );
 sub new {
   my ( $class, %args ) = @_;
   my $self = {}; bless ( $self, $class );
-  XML::Comma::Log->err ( 'ENCRYPTION_ERROR', "couldn't get twofish key" )
+  XML::Comma::Log->err ( 'ENCRYPTION_ERROR', "couldn't get blowfish key" )
       unless ( $args{key} );
   XML::Comma::Log->err ( 'ENCRYPTION_ERROR', "couldn't get key checking hash" )
       unless ( $args{key_hash} );
   XML::Comma::Log->err ( 'ENCRYPTION_ERROR',
                          "key doesn't match hash '$args{key_hash}'" )
       unless $args{key_hash} eq md5_hex($args{key});
-  $self->{_cipher} = Crypt::CBC->new ( $args{key}, 'Twofish' );
+  $self->{_cipher} = Crypt::CBC->new ( $args{key}, 'Blowfish' );
   return $self;
 }
 
 sub output {
-  # Twofish doesn't always gracefully pad binary data -- which we
+  # Blowfish doesn't always gracefully pad binary data -- which we
   # might be receiving from a previous output chain. So we need to pad
   # the string so that we feed Twofish an even number of blocks of
   # data, and append our length so that we can trim on the input

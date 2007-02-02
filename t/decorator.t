@@ -1,5 +1,7 @@
 use strict;
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Pkg::DecoratorTest::Talker;
 use XML::Comma::Pkg::DecoratorTest::Shouter;

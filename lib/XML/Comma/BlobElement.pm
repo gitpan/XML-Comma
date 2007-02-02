@@ -39,7 +39,13 @@ use XML::Comma::Util qw( dbg trim );
 #                           :    perhaps in addition to the two above
 # _Blob_content_while_parsing
 #
+# _set_was_called           : indicates whether to clobber or append when we
+#                           : copy the tmpfile back (currently not used, but
+#                           : eventually could be used to avoid expensive
+#                           : copy() before append
+#
 # Doc_storage               :
+
 
 
 ########
@@ -51,6 +57,17 @@ use XML::Comma::Util qw( dbg trim );
 
 sub set {
   my ( $self, $content, %args ) = @_;
+  $self->{_set_was_called} = 1;
+  $self->set_or_append($content, "set", %args);
+}
+
+sub append {
+  my ( $self, $content, %args ) = @_;
+  $self->set_or_append($content, "append", %args);
+}
+
+sub set_or_append {
+  my ( $self, $content, $action, %args ) = @_;
   $self->assert_not_read_only();
 
   eval {
@@ -64,10 +81,14 @@ sub set {
     # write or "unwrite"
     if ( defined $content ) {
       $self->_maybe_create_temp();
+      copy($self->{_Blob_location}, $self->{_Blob_tmpfname}) if($action eq "append");
       $self->{_Blob_tmperase} = 0;
       my $fh = $self->{_Blob_tmpfhand};
-      seek ( $fh, 0, 0 );
+      #seek to EOF (2) to append, else seek to start of file (0)
+      seek ( $fh, 0, (($action eq "set") ? 0 : 2) );
+      XML::Comma::Log->warn ( "$action-ing $content to: ".$self->{_Blob_tmpfname}."\n" );
       print { $fh }  $content;
+      truncate( $fh, length($content) ) if($action eq "set");
       seek ( $fh, 0, 0 );
     } else {
       # set an 'erased' flag
@@ -150,11 +171,19 @@ sub get_location {
   return $self->{_Blob_tmpfname} || $self->{_Blob_location} || '';
 }
 
+# you really don't want to call this unless you know what you're
+# doing. this clears out the location pointer from this blob without
+# marking the file for erase or changing tmp status
+sub clear_location {
+  $_[0]->{_Blob_location} = '';
+}
+
 # call erase on temp file and/or _Blob_location.
 sub scrub {
   my $self = shift();
 
   if ( $self->{_Blob_location} ) {
+    # print "actually erasing\n";
     $self->{Doc_storage}->{store}->erase_blob( $self, $self->{_Blob_location} );
     $self->{_Blob_location} = undef;
   }
@@ -178,25 +207,30 @@ sub scrub {
 sub store {
   my ( $self, %arg ) = @_;
 
+  $self->{_set_was_called} = undef;
+
   if ( $arg{copy} ) {
     if ( $self->{_Blob_tmperase} ) {
       # don't copy erased blobs
     } elsif ( $self->{_Blob_tmpfname} ) {
-      $self->_store_from_tmp();
+      # print "TMP BLOB STORE for " . $self->{_Blob_location} . "\n";
+      $self->_store_from_tmp ( copy => $arg{copy} );
     } else {
+      # print "IN BLOB STORE for " . $self->{_Blob_location} . "\n";
       $self->{_Blob_location} =
-        $self->{Doc_storage}->{store}->write_blob
+        $self->{Doc_storage}->{store}->copy_to_blob
           ( $self->{Doc_storage}->{location},
             $self->{Doc_storage}->{id},
             $self,
-            $self->get(),
-            1 );
+            $self->{_Blob_location} );
+      # print "NEW LOCATION " . $self->{_Blob_location} . "\n";
     }
     return 1;
   }
 
   # rest of code in this method handles normal (non-copy) case
   if ( $self->{_Blob_tmperase} ) {
+    print "store - calling scrub\n";
     $self->scrub();
     return 1;
   } elsif ( $self->{_Blob_tmpfname} ) {
@@ -207,8 +241,13 @@ sub store {
 }
 
 sub _store_from_tmp {
-  my $self = shift;
-  my $to_location = $self->{_Blob_location} || undef;
+  my ( $self, %arg ) = @_;
+  my $to_location;
+  if ( $arg{copy} ) {
+    $to_location = undef;
+  } else {
+    $to_location = $self->{_Blob_location} || undef;
+  }
   seek ( $self->{_Blob_tmpfhand}, 0, 0 );
   $self->{_Blob_location} =
     $self->{Doc_storage}->{store}->copy_to_blob
@@ -258,7 +297,7 @@ sub to_string {
 #
 sub auto_dispatch {
   my ( $self, $m, @args ) = @_;
-  if ( my $method = $self->method_code($m) ) {
+  if ( my $method = $self->can($m) || $self->method_code($m) ) {
     $method->( $self, @args );
   } else {
     XML::Comma::Log->err ( 'UNKNOWN_ACTION',
@@ -293,6 +332,7 @@ sub finish_initial_read {
 # on deletion, set to empty
 #
 sub call_on_delete {
+  print "call on delete\n";
   $_[0]->{_Blob_tmperase} = 1;
 }
 

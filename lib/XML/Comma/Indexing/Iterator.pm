@@ -23,8 +23,11 @@
 package XML::Comma::Indexing::Iterator;
 
 use vars '$AUTOLOAD';
-use XML::Comma::SQL::Base;
+
+@ISA = ( 'XML::Comma::SQL::DBH_User' );
+
 use XML::Comma::Util qw( dbg arrayref_remove );
+use XML::Comma::SQL::DBH_User;
 
 use strict;
 
@@ -41,26 +44,13 @@ use overload bool => \&iterator_has_stuff,
   }
 ;
 
-BEGIN {
-  # suppress warnings (subroutine redefined warnings are expected)
-  local $^W = 0;
-  if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
-    # try to use()
-    eval "use XML::Comma::SQL::$syntax";
-    # report failure 
-    if ( $@ ) {
-      die "trouble importing: $@\n";
-    }
-  }
-}
-
 use Parse::RecDescent;
 my $spec_parser =
   Parse::RecDescent->new ( $XML::Comma::Indexing::Iterator::spec_grammar );
 
 # _Iterator_index
 # _Iterator_columns_pos     : {} column_name => pos
-# _Iterator_columns_lst     : [] column names
+# _Iterator_columns_list     : [] column names
 
 # _Iterator_from_tables : [] of tables to select from, includes data table and
 #                         whatever is in the sort_spec and textsearch_spec
@@ -81,7 +71,7 @@ my $spec_parser =
 # _Iterator_current_row
 # _Iterator_select_returnval : whatever value the select statement statement
 #                              returned. (MySQL seems to return the total
-#                              number of rows, which is useful.)
+#                              number of rows, which is useful.) 
 # _Iterator_select_count   : for a database like MySQL that will give
 #                            us the number of rows returned by our select,
 #                            we cache that value here, but only for non-limit
@@ -93,6 +83,9 @@ my $spec_parser =
 # _Iterator_distinct : flag turned on when sql generation routines recognize
 #                    : that a multi-way joing that may create duplicate rows
 #                    : has been constructed.
+#
+# _Iterator_doc_cache : {} doc_key => $doc cache documents that are lazily read
+#                       by asking for a non-indexed doc element from an iterator
 
 sub new {
   my ( $class, %args ) = @_;
@@ -133,26 +126,29 @@ sub new {
   return $self;
 }
 
+
 sub count_only {
   my ( $class, %args ) = @_;
   my $sth;
   my $self;
   if ( ref $class ) {
     $self = $class;
-    eval {
-      $self->_make_textsearch_spec();
-    }; if ( $@ ) { XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); }
+    eval { $self->_make_textsearch_spec(); }; if ( $@ ) { 
+      XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ );
+    }
   } else {
     $self = $class->new ( %args );
     eval {
       ( $self->{_Iterator_textsearch_spec},
         $self->{_Iterator_stopwords},
         $self->{_Iterator_notfoundwords} ) = $self->_make_textsearch_spec();
-    }; if ( $@ ) { XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); }
+    }; if ( $@ ) { 
+      XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ );
+    }
   }
   eval {
     my $order_by = $self->_fill_order_expressions();
-    my $string = sql_select_from_data
+    my $string = $self->sql_select_from_data
       ( $self->{_Iterator_index},
         $self->{_Iterator_order_expressions},
         $self->{_Iterator_from_tables},
@@ -160,20 +156,22 @@ sub count_only {
         $self->{_Iterator_having_clause},
         $self->{_Iterator_distinct},
         $order_by,
-        0, 0, # limits
+        0, 0,
         [],   # columns list
         $self->{_Iterator_collection_spec},
         $self->{_Iterator_textsearch_spec},
         'do count only' );
     #  dbg 'sql-count', $string;
-    $sth = $self->{_Iterator_index}->get_dbh()->prepare ( $string );
+    $sth = $self->{_Iterator_index}->get_dbh_reader()->prepare ( $string );
     $sth->execute();
-  }; if ( $@ ) { XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); }
-  #return $sth->fetchrow_arrayref()->[0];
+  }; if ( $@ ) { 
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ );
+  }
   my $ret = $sth->fetchrow_arrayref()->[0];
-  $sth->finish; undef $sth; # avoid global destruction warning
+  $sth->finish();
   return $ret;
 }
+
 
 sub aggregate {
   my ( $class, %args ) = @_;
@@ -185,7 +183,7 @@ sub aggregate {
     ( $self->{_Iterator_textsearch_spec},
       $self->{_Iterator_stopwords},
       $self->{_Iterator_notfoundwords} ) = $self->_make_textsearch_spec();
-    my $string = sql_select_from_data
+    my $string = $self->sql_select_from_data
       ( $self->{_Iterator_index},
         $self->{_Iterator_order_expressions},
         $self->{_Iterator_from_tables},
@@ -200,10 +198,35 @@ sub aggregate {
         '',   # count only
         $function );
    # dbg 'sql-aggr', $string;
-    $sth = $self->{_Iterator_index}->get_dbh()->prepare ( $string );
+    $sth = $self->{_Iterator_index}->get_dbh_reader()->prepare ( $string );
     $self->{_Iterator_select_returnval} = $sth->execute();
-  }; if ( $@ ) { XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); }
-  return $sth->fetchrow_arrayref()->[0];
+  }; 
+  if ( $@ ) { 
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); 
+  }
+  my $ret = $sth->fetchrow_arrayref()->[0];
+  $sth->finish();
+  return $ret;
+}
+
+sub distinct_field_values {
+  my ( $class, %args ) = @_;
+  my $self = $class->new ( %args );
+  my $sth;
+  eval {
+    my $order_by = $self->_fill_order_expressions();
+    $sth = $self->sql_select_distinct_field
+      ( $self->{_Iterator_index},
+        $args{_field_name},
+        $self->{_Iterator_where_clause},
+      );
+  };
+  if ( $@ ) { 
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); 
+  }
+  $sth->execute();
+  my $result = $sth->fetchall_arrayref([0]);
+  return map { $_->[0] } @$result;
 }
 
 sub iterator_refresh {
@@ -212,10 +235,10 @@ sub iterator_refresh {
     my $order_by = $self->_fill_order_expressions();
     $self->_make_textsearch_spec();
     my $index = $self->{_Iterator_index};
-    my $dbh = $index->get_dbh();
+    my $dbh = $index->get_dbh_reader();
     $self->{_Iterator_sth}->finish()  if  $self->{_Iterator_sth};
-    my $string = sql_select_from_data
-      ($index,
+    my $string = $self->sql_select_from_data (
+       $self->{_Iterator_index},
        $self->{_Iterator_order_expressions},
        $self->{_Iterator_from_tables},
        $self->{_Iterator_where_clause},
@@ -226,7 +249,8 @@ sub iterator_refresh {
        $limit_offset,
        $self->{_Iterator_columns_lst},
        $self->{_Iterator_collection_spec},
-       $self->{_Iterator_textsearch_spec} );
+       $self->{_Iterator_textsearch_spec} 
+    );
     #dbg 'refreshing', $self;
     #dbg 'sql', $string;
     $self->{_Iterator_sth} = $dbh->prepare ( $string );
@@ -304,25 +328,39 @@ sub textsearch_not_found {
 
 sub retrieve_doc {
   my $self = shift();
-  return XML::Comma::Doc->retrieve
-    ( type => $self->{_Iterator_index}->doctype(),
-      store => $self->{_Iterator_index}->store(),
-      id => $self->doc_id() );
+  return XML::Comma::Doc->retrieve( $self->doc_key() );
 }
 
 sub read_doc {
   my $self = shift();
-  return XML::Comma::Doc->read
-    ( type => $self->{_Iterator_index}->doctype(),
-      store => $self->{_Iterator_index}->store(),
-      id => $self->doc_id() );
+  return $self->{_Iterator_doc_cache}->{$self->doc_key} ||
+    XML::Comma::Doc->read( $self->doc_key() );
 }
 
+# alias doc_(read && retrieve) to (read && retrieve)_doc 
+# for API consistancy
+
+*doc_retrieve = \&retrieve_doc;
+*doc_read     = \&read_doc;
+  
 sub doc_key {
   my $self = shift();
+  # these will possibly be dispatched to the iterator to account for 
+  # <store>/<doctype> declarations.
+  my ( $type, $store );
+  if ( $self->{_Iterator_index}->element('doctype')->get() ) {
+    $type = $self->doctype();
+  } else {
+    $type = $self->{_Iterator_index}->doctype();
+  }
+  if ( $self->{_Iterator_index}->element('store')->get() ) {
+    $store = $self->store();
+  } else { 
+    $store = $self->{_Iterator_index}->store();
+  }
   return XML::Comma::Storage::Util->concat_key
-    ( type  => $self->{_Iterator_index}->doctype(),
-      store => $self->{_Iterator_index}->store(),
+    ( type  => $type,
+      store => $store,
       id    => $self->doc_id() );
 }
 
@@ -420,6 +458,12 @@ sub _make_collection_spec {
   my $chunks = $spec_parser->statement ( $arg . " )END OF STATEMENT" );
   die "bad collection spec: '$arg'\n"  unless  $chunks;
 
+  if ( $self->_is_binary_collection_spec($chunks) ) {
+    return $self->_make_binary_collection_spec($chunks);
+  }
+
+  warn "Use of 'many tables' or 'stringified' collection types is deprecated" unless($XML::Comma::_no_deprecation_warnings);
+
   foreach my $chunk ( @{$chunks} ) {
     my $NOT = ''; my $OP = '=';
     my ( $name, $value) = split /:/, $chunk, 2;
@@ -445,14 +489,14 @@ sub _make_collection_spec {
         my $partial =
           $self->{_Iterator_index}->collection_stringify_partial ( $value );
         $sql .= "$table_name.$name $NOT LIKE " .
-          $self->{_Iterator_index}->get_dbh()->quote ( "%$partial%" );
+          $self->{_Iterator_index}->get_dbh_reader()->quote ( "%$partial%" );
 
       } elsif ( $type eq 'binary table' ) {
         push @binary_tables, $table_name;
         die "can't use NOT with binary-tables-type collection '$name'\n"
           if $NOT;
         $sql .= "$table_name.value $OP " .
-          $self->{_Iterator_index}->get_dbh()->quote ( $value );
+          $self->{_Iterator_index}->get_dbh_reader()->quote ( $value );
         # we need to set the _distinct flag, if we use a partial
         # match, here, as there could be multiple records in the
         # binary table that will get joined in.
@@ -498,8 +542,8 @@ sub _make_collection_spec {
   # and throw an error if we see any binary table more than once.
   my %seen;
   foreach my $btn ( @binary_tables ) {
-    die "can't use one binary-type collection twice in spec\n" if $seen{$btn}++;
-    $sql .= " AND $dtn.doc_id=$btn.doc_id";
+    # die "can't use one binary-type collection twice in spec\n" if $seen{$btn}++;
+    $sql .= " AND $dtn.doc_id=$btn.doc_id"  unless  $seen{$btn}++;
   }
   # if we have an OR in our sql clause and have dealt with any tables
   # other than the data table, then we need to select DISTINCT. This
@@ -514,6 +558,100 @@ sub _make_collection_spec {
   return $sql;
 }
 
+sub _is_binary_collection_spec {
+  my ( $self, $chunks ) = @_;
+
+  foreach my $chunk ( @{$chunks} ) {
+    my ( $name, $value) = split /:/, $chunk, 2;
+    if ( $value ) { # we're dealing with a table
+      my $type = $self->{_Iterator_index}->collection_type ( $name );
+      return unless defined($type) && ($type eq 'binary table');
+    }
+  }
+
+  return 1;
+}
+
+sub _make_binary_collection_spec {
+  my ( $self, $chunks ) = @_;
+
+  my $sql = '(';
+  my $dtn = $self->{_Iterator_index}->data_table_name();
+  my @binary_tables;
+
+  foreach my $chunk ( @{$chunks} ) {
+    my $NOT = ''; my $OP = '=';
+    my ( $name, $value) = split /:/, $chunk, 2;
+
+    if ( $value ) {
+      $NOT = 'NOT'  if  $name =~ s/NOT //;
+      $OP = 'LIKE' if $value =~ /\%/;
+      my ( $table_name, $type );
+      $table_name =
+        $self->{_Iterator_index}->collection_table_name ($name,$value);
+
+      push @binary_tables, $table_name;
+      die "can't use NOT with binary-tables-type collection '$name'\n"
+        if $NOT;
+
+      # use the aliased table name that we haven't created yet, in the form
+      # of tNN.  remember that $dtn will be t01, so offset the sprintf.
+
+      my $btn = 't' . sprintf( "%02d", scalar @binary_tables + 1 );
+      $sql .= "$btn.value $OP " .
+        $self->{_Iterator_index}->get_dbh_reader()->quote ( $value );
+      # we need to set the _distinct flag, if we use a partial
+      # match, here, as there could be multiple records in the
+      # binary table that will get joined in.
+      unless ( defined $self->{_Iterator_distinct} ) {
+        $self->{_Iterator_distinct} = 1  if  $OP eq 'LIKE';
+      }
+      # finally, we'll need to make sure that we select for the
+      # 'extra' table, mapping it (using a sequel "as") to the name
+      # that its field was given in the def.
+      my $field = $self->{_Iterator_index}->collection_field ( $name );
+      if ( $field ) {
+        $self->{_Iterator_distinct} = 1;
+        push @{$self->{_Iterator_columns_lst}},
+          [ $table_name, $field->element('name')->get ];
+      }
+    } else {
+      # no ':' in chunk, so must be a paren or conjunction
+      $sql .= " $chunk ";
+    }
+  }
+  $sql .= ')';
+
+  # clobber unaliased _Iterator_from_tables
+  $self->{_Iterator_from_tables} = [];
+
+  # and set up aliases
+  push @{ $self->{_Iterator_from_tables} }, "$dtn AS t01";
+  my $t_num = 1;
+  foreach my $btn ( @binary_tables ) {
+    $t_num++;
+    push @{ $self->{_Iterator_from_tables} }, "$btn AS t" .
+                                                 sprintf( "%02d", $t_num );
+  }
+  # make a little bit more sql for all the binary tables to help mysql out
+  # with the matrix
+  $t_num = 1;
+  foreach my $btn ( @binary_tables ) {
+    $t_num++;
+    $sql .= " AND t01.doc_id=t" . sprintf( "%02d", $t_num ) . ".doc_id";
+  }
+  # if we have an OR in our sql clause and have dealt with any tables
+  # other than the data table, then we need to select DISTINCT. This
+  # can be overridden if we already have an explicit 0 in
+  # $self->{_Iterator_distinct}, which would presumably come from an
+  # instantiation argument.
+  if ( $sql =~ / or /i ) {
+    $self->{_Iterator_distinct} = 1 unless defined $self->{_Iterator_distinct};
+  }
+
+  # dbg 'collection sql', $sql;
+  return $sql;
+}
 
 # FIX: should a single term with no matches should stop the search,
 # ala google?
@@ -541,7 +679,7 @@ sub _make_textsearch_spec {
 
   my @stopwords;
   my @notfoundwords;
-  my $dbh = $self->{_Iterator_index}->get_dbh();
+  my $dbh = $self->{_Iterator_index}->get_dbh_reader();
   my $data_table_name = $self->{_Iterator_index}->data_table_name();
   my $sql_string='';
   my @temp_tables;
@@ -565,8 +703,9 @@ sub _make_textsearch_spec {
     my ($ts_table_name) =
       $self->{_Iterator_index}->sql_get_textsearch_tables($ts_name);
     die "no textsearch table found for $ts_name\n" if ! $ts_table_name;
-    my ($temp_table_name, $size) = $self->{_Iterator_index}
-      ->sql_create_textsearch_temp_table ( $ts_table_name, $stemmed_word );
+    my ($temp_table_name, $size) = 
+      $self->{_Iterator_index}
+           ->sql_create_textsearch_temp_table ($ts_table_name, $stemmed_word);
     if ( ! $temp_table_name ) {
       # arg record not found or empty
       push @notfoundwords, $word;
@@ -649,17 +788,31 @@ sub iterator_dispatch {
     } else {
       $value = $self->_current_element($m);
     }
-  }; if ( $@ ) { XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ); }
+  };
+
+  return $value unless $@;
+
+  # look to the doc if we didn't find anything in the index
+  my $prev_error = $@;  undef $@;
+  my $doc;
+  eval {
+    $doc = $self->read_doc();
+    $value = $doc->$m();
+  };
+
+  XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $prev_error ) if $@;
+
+  # cache read doc and return value
+  $self->{_Iterator_doc_cache}->{$doc->doc_key} = $doc;
   return $value;
 }
 
 sub DESTROY {
 #  dbg 'iterator destroy', $_[0],$_[0]->{_Iterator_index}||'<undef>';
   #  map { print "  $_ --> " . (${$_[0]}{$_} || '<undef>') . "\n" } keys(%{$_[0]});
-  # print "destroying $_[0]\n";
   $_[0]->{_Iterator_sth}->finish()  if  $_[0]->{_Iterator_sth};
-  $_[0]->{_Iterator_index}->sql_drop_any_temp_tables
-    ( scalar($_[0]), @{$_[0]->{_Iterator_from_tables}} )  if  $_[0]->{_Iterator_index};
+  $_[0]->sql_drop_any_temp_tables
+    ( $_[0]->{_Iterator_index}, scalar($_[0]), @{$_[0]->{_Iterator_from_tables}} )  if  $_[0]->{_Iterator_index};
 #  dbg 'done destroying iterator', $_[0]->{_Iterator_index}||'<undef>';
 }
 

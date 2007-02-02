@@ -1,5 +1,11 @@
-- go back to working on the mixin stuff. reread perlmonks post,
-  etc. (http://perlmonks.com/index.pl?node_id=304768)
+- document and write tests for Index->distinct_field_values
+
+- document decorator stuff
+
+- replace auto-loading of method calls with symbol table
+  manipulation. this will require making module stubs for each def --
+  not just mixins, but would allow methods in defs to overide 
+  methods defined in perl modules.
 
 - check whether simple index fields actually correspond to methods or
   elements. if index field names are misspelled, for example, indexing

@@ -25,41 +25,13 @@
 # fields need to store arrays of numbers, rather than to be packed, as in mysql.
 
 package XML::Comma::SQL::Pg;
+use strict;
 
 use XML::Comma::Util qw( dbg );
 use MIME::Base64;
 
-require Exporter;
-@ISA = qw ( Exporter );
-
-@EXPORT = qw(
-  sql_create_hold_table
-  sql_get_hold
-  sql_release_hold
-
-  sql_create_index_tables_table
-  sql_data_table_definition
-  sql_sort_table_definition
-  sql_bcollection_table_definition
-  sql_textsearch_index_table_definition
-  sql_textsearch_defers_table_definition
-  sql_index_only_doc_id_type
-
-  sql_textsearch_word_lock
-  sql_textsearch_word_unlock
-  sql_textsearch_pack_seq_list
-  sql_textsearch_unpack_seq_list
-
-  sql_clean_find_orphans
-  sql_limit_clause
-  sql_create_textsearch_temp_table_stmt
-  sql_load_data
-);
-
-use strict;
-
 sub sql_create_hold_table {
-  my $dbh = shift();
+  my ($self, $dbh) = @_;
   dbg 'creating hold table';
   $dbh->commit();
   my $sth = $dbh->prepare
@@ -189,7 +161,7 @@ sub sql_textsearch_word_unlock {
 
 
 sub sql_index_only_doc_id_type {
-  return 'INT4';
+  return 'VARCHAR( 255 )';
 }
 
 

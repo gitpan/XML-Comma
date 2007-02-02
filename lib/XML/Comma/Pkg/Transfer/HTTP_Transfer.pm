@@ -91,11 +91,10 @@ sub ping {
   my $ua = LWP::UserAgent->new();
   my $req = $self->_get_request ( 'ping' );
   my $response = $ua->request ( $req );
-  if ( $response && $response->is_success() ) {
+  if ( $response->is_success() ) {
     return $response->content();
   } else {
-    XML::Comma::Log->err ( 'TRANSFER_ERROR',
-                           'remote put error for' . $doc->doc_key() );
+    return;
   }
 }
 
@@ -113,7 +112,7 @@ sub get_and_store {
   my $req = $self->_get_request ( 'get_and_store',
                                   XML::Comma::Doc->parse_read_args(@args) );
   my $response = $ua->request ( $req );
-  if ( $response->is_success() ) {
+  if ( $response && $response->is_success() ) {
     return $self->_store ( thaw $response->content() )
       if $response->content_length();
   } else {

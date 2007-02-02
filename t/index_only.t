@@ -1,6 +1,8 @@
 use strict;
 $|++;
 
+use lib ".test/lib/";
+
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
@@ -14,11 +16,19 @@ print "ok 1\n";
 my $it = $index->iterator();
 while ( ++$it ) {
   my $doc = $it->retrieve_doc();
-  # dbg 'id', $doc->doc_id();
+  dbg 'id', $doc->doc_id();
   $doc->erase();
 }
 print "ok 2\n";
 
+my $second_index = XML::Comma::Def->_test_index_only->get_index ( "second" );
+
+my $second_it = $second_index->iterator();
+while ( ++$second_it ) {
+  my $doc = $second_it->retrieve_doc();
+  dbg 'id', $doc->doc_id();
+  $doc->erase();
+}
 
 my $doc = XML::Comma::Doc->new ( type => '_test_index_only' );
 print "ok 3\n";
@@ -69,6 +79,11 @@ print "ok 10\n";
 
 print "  (note: we created and stored $how_many docs in $seconds seconds)\n";
 
-
-
+foreach my $id ( 1 .. 10 ) {
+  $doc = XML::Comma::Doc->new( type => '_test_index_only' );
+  $doc->time( time );
+  $doc->string( $id );
+  $doc->store( store => 'second' );
+  # warn $doc->doc_id();
+}
 

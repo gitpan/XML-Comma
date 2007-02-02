@@ -31,25 +31,17 @@ my $lockfilename = '.lock';
 # success, or undef on overflow.
 sub next_sequential_id {
   my ( $class, $store, $dir, $extension, $max ) = @_;
-  my $lfn = File::Spec->catfile ( $dir, $lockfilename );
-  # "lock" using the wait_for_hold() method
-  XML::Comma->lock_singlet()->wait_for_hold ( $lfn );
   # does directory exist -- if not, try to create it
   if  ( ! (-w $dir) ) {
-    eval { $class->make_directory ( $store, $dir, 1 ); };
-    if ( $@ ) { 
-      XML::Comma->lock_singlet()->release_hold ( $lfn );
-      die $@;
-    }
+    $class->make_directory ( $store, $dir, 1 );
   }
-  unless (-d $dir and -w $dir) {
-    XML::Comma->lock_singlet()->release_hold ( $lfn );
-    die "bad storage directory: $dir\n";
-  } 
+  die "bad storage directory: $dir\n"  if  ! (-d $dir and -w $dir);
+  # "lock" using the wait_for_hold() method
+  my $lfn = File::Spec->catfile ( $dir, $lockfilename );
+  XML::Comma->lock_singlet()->wait_for_hold ( $lfn );
   # open to append (so that we can easily read and write)
   if ( ! open(LOCK, "+< $lfn") ) {
-    XML::Comma->lock_singlet()->release_hold ( $lfn );
-    die "can't open lockfile '$lfn': $!\n";
+      die "can't open lockfile '$lfn': $!\n";
   }
   # get current id
   my $id = <LOCK>;

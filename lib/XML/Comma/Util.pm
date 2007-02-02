@@ -38,6 +38,9 @@ require Exporter;
   dbg
   name_and_args_eval
   random_an_string
+  urlsafe_ascify_32bits
+  urlsafe_deascify_32bits
+  id_from_key
 );
 
 use strict;
@@ -166,14 +169,41 @@ sub name_and_args_eval {
   return ( $name, @args );
 }
 
+# for ascii-escaping encrypted data
+my @B64 = ( '-', 0 .. 9, 'A' .. 'Z', '_', 'a'..'z', );
+# for unescaping ascii-protected data
+my %B64 = map { $B64[$_] => $_ } 0 .. $#B64;
+
 sub random_an_string {
-  my $length = shift();
-  my @chars = ( 'a'..'z', 'A'..'Z', 0..9 );
+  my $length = shift;
   my $string;
   for ( 1..$length ) {
-    $string .= $chars[ rand(scalar @chars) ];
+    $string .= $B64[ rand(scalar @B64) ];
   }
   return $string;
+}
+
+sub urlsafe_ascify_32bits {
+  my $number = shift;
+  my $letters = '';
+  my $bits = sprintf ( '%b', $number ); # get a string of the form '100101'
+  # $bits = "0" x (6-length($bits)%6) . $bits;
+  $bits = "0" x (36-length($bits)) . $bits;
+  while ( length($bits) ) {
+    my $byte = substr $bits, 0, 6, '';
+    $letters .= $B64[eval "0b$byte"];
+  }
+  return $letters;
+}
+sub urlsafe_deascify_32bits {
+  my $str = shift;
+  my $binary_str = '';
+  while ( length($str) ) {
+    my $char = substr $str, 0, 1, '';
+    my $byte_b = unpack 'B*', pack('C',$B64{$char}); # string of 1s and 0s
+    $binary_str .= substr $byte_b, 2;
+  }
+  return eval "0b$binary_str";
 }
 
 sub attr_from_tag_string {
@@ -185,6 +215,11 @@ sub attr_from_tag_string {
     $attrs{$1} = $2;
   }
   return %attrs;
+}
+
+sub id_from_key {
+  my ( undef, undef, $foo ) = XML::Comma::Storage::Util->split_key ( shift );
+  return $foo;
 }
 
 1;

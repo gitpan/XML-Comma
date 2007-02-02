@@ -1,7 +1,9 @@
 use strict;
 use File::Path;
 
-print "1..106\n";
+print "1..108\n";
+
+use lib ".test/lib/";
 
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -248,29 +250,34 @@ print "ok 94\n"  if  ! $doc->element_is_required ( 'with_default' );
 # boolean macro
 print "ok 95\n"  if $doc->bool() == 0; # default 0
 
-$doc->bool ( 1 );
+$doc->element('bool')->toggle;
 print "ok 96\n"  if  $doc->bool() == 1;
-$doc->bool ( 'true' );
-print "ok 97\n"  if  $doc->bool() == 1;
-$doc->bool ( 'TRUE' );
+$doc->element('bool')->toggle;
+print "ok 97\n"  if  $doc->bool() == 0;
+
+$doc->bool ( 1 );
 print "ok 98\n"  if  $doc->bool() == 1;
+$doc->bool ( 'true' );
+print "ok 99\n"  if  $doc->bool() == 1;
+$doc->bool ( 'TRUE' );
+print "ok 100\n"  if  $doc->bool() == 1;
 
 $doc->bool ( 0 );
-print "ok 99\n"  if  $doc->bool() == 0 and $doc->bool() eq '0';
+print "ok 101\n"  if  $doc->bool() == 0 and $doc->bool() eq '0';
 $doc->bool ( 'false' );
-print "ok 100\n"  unless  $doc->bool();
+print "ok 102\n"  unless  $doc->bool();
 $doc->bool ( 'FALSE' );
-print "ok 101\n"  unless $doc->bool();
+print "ok 103\n"  unless $doc->bool();
 
-print "ok 102\n"  if $doc->bool_default_true();
+print "ok 104\n"  if $doc->bool_default_true();
 $doc->bool_default_true ( 'false' );
-print "ok 103\n"  unless  $doc->bool_default_true();
+print "ok 105\n"  unless  $doc->bool_default_true();
 $doc->bool_default_true ( 1 );
-print "ok 104\n"  if  $doc->bool_default_true();
+print "ok 106\n"  if  $doc->bool_default_true();
 
 my $long_to_truncate = "abcdefghijklmnop";
 $doc->truncated ( $long_to_truncate );
-print "ok 105\n"  if  $doc->truncated() eq 'abcdefg';
+print "ok 107\n"  if  $doc->truncated() eq 'abcdefg';
 my $short_to_truncate = "abc";
 $doc->truncated ( $short_to_truncate );
-print "ok 106\n"  if  $doc->truncated() eq 'abc';
+print "ok 108\n"  if  $doc->truncated() eq 'abc';

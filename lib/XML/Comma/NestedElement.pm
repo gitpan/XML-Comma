@@ -197,7 +197,16 @@ sub _delete_elements {
   }
   push @{$self->{_ne_blob_ghosts}},
     grep { $_->isa('XML::Comma::BlobElement') } @elements;
+  push @{$self->{_ne_blob_ghosts}}, map { $_->get_all_blobs }
+    grep { $_->isa('XML::Comma::NestedElement') } @elements;
 }
+
+sub call_on_delete {
+  foreach my $el ( @{$_[0]->{_nested_elements}} ) {
+    $el->call_on_delete;
+  }
+}
+
 
 ##
 # given a name, looks up the first element so named and deletes
@@ -301,7 +310,8 @@ sub element_is_plural {
 
 sub element_is_defined {
   # dbg '->', $_[0];
-  return $_[0]->def()->def_by_name($_[1]);
+  my $def = $_[0]->def();
+  return $def && $def->def_by_name($_[1]);
 }
 
 sub element_is_nested {
@@ -538,7 +548,7 @@ sub to_string {
 
 sub auto_dispatch {
   my ( $self, $m, @args ) = @_;
-  if ( my $method = $self->method_code($m) ) {
+  if ( my $method = $self->can($m) || $self->method_code($m) ) {
     $method->( $self, @args );
   } elsif ( $self->element_is_defined($m) ) {
     $self->_auto_element_dispatch ( $m, @args );
