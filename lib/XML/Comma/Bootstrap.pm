@@ -22,8 +22,6 @@
 
 package XML::Comma::Bootstrap;
 
-$XML::Comma::VERSION = '1.10'; #dummy to fake cpan/pause out
-
 use XML::Comma::Util qw( dbg trim );
 
 @ISA = ( 'XML::Comma::Def' );
