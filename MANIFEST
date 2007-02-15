@@ -94,6 +94,7 @@ lib/XML/Comma/docs/todo.ski
 manual-test.pl
 misc/install-extras.pl
 misc/MakeMakerMod.pm
+t/TODO.test_more
 t/aaa_test_setup.t
 t/bootstrap.t
 t/decorator.t

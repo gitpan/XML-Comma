@@ -1,5 +1,0 @@
-<DocumentDefinition>
-  <name>_test_parser_di_lst_eval_err</name>
-
-  <? #include {_test_parser_dyn_inc_2} "blue", "red ?>
-</DocumentDefinition>

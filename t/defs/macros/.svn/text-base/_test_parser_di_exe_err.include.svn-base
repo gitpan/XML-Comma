@@ -1,3 +1,0 @@
-sub {
-  die "ouch, I don't like blue"  if  shift eq 'blue';
-}
