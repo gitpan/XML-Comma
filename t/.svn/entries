@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="891"
+   name=""
+   committed-date="2007-02-14T01:26:13.214756Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/t"
+   last-author="ski"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="897"
+   name="util.t"
+   text-time="2007-02-15T17:40:15.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="45a47ff470ea9f301661f8a144e36e1c"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="878"
+   name="bootstrap.t"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2007-02-12T14:40:02.935902Z"
+   checksum="7afae0041325f1d413d83514234d4757"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="par_def.par"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="1400800ca85c311677a04fbb6525e097"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   name="defs"
+   kind="dir"/>
+<entry
+   committed-rev="878"
+   name="document_hooks.t"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2007-02-12T14:40:02.935902Z"
+   checksum="048fb53f4174ebe49e4299887ef626b4"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="894"
+   name="decorator.t"
+   text-time="2007-02-15T16:34:40.000000Z"
+   committed-date="2007-02-15T16:43:47.298450Z"
+   checksum="422999e55da8acf18e0d99361967fdc4"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"
+   revision="894"/>
+<entry
+   committed-rev="897"
+   name="validation.t"
+   text-time="2007-02-15T17:43:21.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="37ef32c8a5808375e1cc5abc23f9a9a1"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="897"
+   name="parser.t"
+   text-time="2007-02-15T17:14:58.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="2106749116f953d505aa657a1c9da573"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="677"
+   name="multi_store_doctype.t"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2006-08-19T18:49:57.808071Z"
+   checksum="f1308c899df3df24488e615842a906fa"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="1"
+   name="transfer.manual"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="b4e79a7c64e078ac992b4947be7e7506"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="897"
+   name="virtual_element.t"
+   text-time="2007-02-15T18:05:26.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="3456d9a95b897563ff26fc0252754500"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="677"
+   name="par_def.t"
+   text-time="2007-02-15T18:11:46.000000Z"
+   committed-date="2006-08-19T18:49:57.808071Z"
+   checksum="d39a6440864b5812057584eeedeef3d2"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="896"/>
+<entry
+   committed-rev="831"
+   name="aaa_test_setup.t"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2007-01-19T07:56:19.923904Z"
+   checksum="6c1d9a2fe85b921a1cbbd9f3bcee3583"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="897"
+   name="TODO.test_more"
+   text-time="2007-02-15T18:12:20.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="e858763d874cd2c28016302333c792d9"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="897"
+   name="timestamp.t"
+   text-time="2007-02-15T17:34:01.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="5a1676e7c2291f7a0c9522b007f477a0"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="707"
+   name="zzz_test_cleanup.t"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2006-08-22T16:15:42.978745Z"
+   checksum="e7c0fb2545cb12a4c38b59452191ba52"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="897"
+   name="storage.t"
+   text-time="2007-02-15T17:25:47.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="6a532ca1a07130be932097f38e85fdc7"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+<entry
+   committed-rev="894"
+   name="indexing.t"
+   text-time="2007-02-15T16:35:24.000000Z"
+   committed-date="2007-02-15T16:43:47.298450Z"
+   checksum="5b3c4267d949d7c2fd5cd3b25429bbc8"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-15T16:28:16.000000Z"
+   revision="894"/>
+<entry
+   committed-rev="894"
+   name="index_only.t"
+   text-time="2007-02-15T16:39:05.000000Z"
+   committed-date="2007-02-15T16:43:47.298450Z"
+   checksum="e7ff2e3f4debafd6c01eba7c24ac469b"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="894"/>
+<entry
+   committed-rev="894"
+   name="order.t"
+   text-time="2007-02-15T16:40:40.000000Z"
+   committed-date="2007-02-15T16:43:47.298450Z"
+   checksum="d5584f6c0b8ba8b6b1e3d55d424dae34"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="894"/>
+<entry
+   committed-rev="897"
+   name="read_only.t"
+   text-time="2007-02-15T17:18:34.000000Z"
+   committed-date="2007-02-15T18:12:09.128639Z"
+   checksum="5025a89d72b10047f629dcf5ba94c628"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"
+   revision="897"/>
+</wc-entries>

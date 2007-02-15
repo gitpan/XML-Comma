@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1"
+   name=""
+   committed-date="2004-08-09T18:11:52.294524Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/t/defs/standard"
+   last-author="root"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="1"
+   name="Comma_Standard_Image.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="17166d5ffd2b135c88e0d1f5ad5df3cd"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+</wc-entries>

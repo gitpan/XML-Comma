@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="884"
+   name=""
+   committed-date="2007-02-12T19:23:21.847664Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma/Pkg"
+   last-author="ski"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="1"
+   name="MySQL_Simple_Lock.pm"
+   text-time="2007-02-14T01:24:02.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="36d972eca0667d063b463abeff0aa196"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   name="DecoratorTest"
+   kind="dir"/>
+<entry
+   name="Transfer"
+   kind="dir"/>
+<entry
+   committed-rev="1"
+   name="ModuleConfiguration.pm"
+   text-time="2007-02-14T01:24:02.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="0847283e22c95aab836ff8404a65a948"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   name="Textsearch"
+   kind="dir"/>
+<entry
+   name="Mason"
+   kind="dir"/>
+</wc-entries>

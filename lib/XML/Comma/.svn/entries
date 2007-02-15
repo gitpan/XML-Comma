@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="893"
+   name=""
+   committed-date="2007-02-15T15:23:38.689202Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma"
+   last-author="ski"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="1"
+   name="Methodable.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="a36f5cdd4a767088729a84d18176c308"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="705"
+   name="Doc.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-08-22T16:07:40.788881Z"
+   checksum="7212cc41ff53eddea1de683cccb0b84b"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   name="Pkg"
+   kind="dir"/>
+<entry
+   committed-rev="877"
+   name="Configuration.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2007-02-12T08:43:47.318352Z"
+   checksum="9b11c741e4288714aea81eb37d50c1c2"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:02.000000Z"/>
+<entry
+   name="docs"
+   kind="dir"/>
+<entry
+   committed-rev="705"
+   name="Bootstrap.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-08-22T16:07:40.788881Z"
+   checksum="6b10488a5243ca031e6092cf1359e8d7"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:02.000000Z"/>
+<entry
+   committed-rev="4"
+   name="AbstractElement.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-16T22:21:57.908629Z"
+   checksum="5c9a2b1b20002a251f0235bbf46eb4ed"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:02.000000Z"/>
+<entry
+   committed-rev="160"
+   name="Util.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-06-10T02:57:10.159734Z"
+   checksum="a100fbc089088706b2e348b8edc0154c"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:02.000000Z"/>
+<entry
+   committed-rev="410"
+   name="Log.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-06-03T09:36:24.365394Z"
+   checksum="58bbcc546f82c3832df7596ac3e44760"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   name="SQL"
+   kind="dir"/>
+<entry
+   committed-rev="1"
+   name="Hookable.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="b2b87698c70ffe3990301cd34ecd0864"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   committed-rev="746"
+   name="BlobElement.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-11-02T16:59:24.059382Z"
+   checksum="189b6aa8af71ed6a12a26e21498be598"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   name="Parsing"
+   kind="dir"/>
+<entry
+   committed-rev="145"
+   name="Element.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-06-09T02:28:03.904421Z"
+   checksum="04bcb97a77b8607038b56067e546cddd"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   name="Storage"
+   kind="dir"/>
+<entry
+   committed-rev="399"
+   name="DefManager.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-12-09T20:17:29.964449Z"
+   checksum="00b9804dfcb3867d066b5f6b831339ee"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   committed-rev="28"
+   name="Configable.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-03-16T20:36:21.126566Z"
+   checksum="3a2e22bcda60c77ec9101c917ab3e4b0"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:04.000000Z"/>
+<entry
+   name="Indexing"
+   kind="dir"/>
+<entry
+   committed-rev="834"
+   name="NestedElement.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2007-01-19T08:58:09.833414Z"
+   checksum="a5b32b64290fbb29f4cf2b5db3734681"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="331"
+   name="Def.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-09-30T14:57:54.569971Z"
+   checksum="cece6ec3c066b23086b91a1e47fc145a"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   name="Util"
+   kind="dir"/>
+</wc-entries>

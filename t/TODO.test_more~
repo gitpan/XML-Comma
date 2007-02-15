@@ -1,0 +1,4 @@
+all the files that don't have it yet (>par_def.t, plus some little ones)
+
+nominally using Test::More (numbered tests via ok instead of descrip):
+	order.t, indexing.t, parser.t, storage.t

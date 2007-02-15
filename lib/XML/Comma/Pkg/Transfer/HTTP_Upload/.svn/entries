@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="1"
+   name=""
+   committed-date="2004-08-09T18:11:52.294524Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma/Pkg/Transfer/HTTP_Upload"
+   last-author="root"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="1"
+   name="HTTP_Upload_mod_perl.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="cb9859e1e09086f9431836f9f9c24d99"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   name="defs"
+   kind="dir"/>
+</wc-entries>

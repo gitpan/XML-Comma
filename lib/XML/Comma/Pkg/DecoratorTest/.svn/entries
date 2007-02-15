@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="118"
+   name=""
+   committed-date="2005-05-28T22:53:28.168611Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma/Pkg/DecoratorTest"
+   last-author="khkramer"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="28"
+   name="ConfigTalker.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2005-03-16T20:36:21.126566Z"
+   checksum="2d28a5f803a27732482103b92ceced47"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="4"
+   name="Whisperer.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-16T22:21:57.908629Z"
+   checksum="0f485b49262fdece207914d50ded142c"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="4"
+   name="Shouter.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-16T22:21:57.908629Z"
+   checksum="f6e3b849d38355eb135e457c307bdb88"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="4"
+   name="OverTalker.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2004-08-16T22:21:57.908629Z"
+   checksum="843cb648fab34d4d344bb240f5887a48"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+<entry
+   committed-rev="118"
+   name="Talker.pm"
+   text-time="2007-02-14T01:24:00.000000Z"
+   committed-date="2005-05-28T22:53:28.168611Z"
+   checksum="c4a7fc0b6882464d91a1721f76289f81"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:00.000000Z"/>
+</wc-entries>

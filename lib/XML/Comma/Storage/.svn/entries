@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="705"
+   name=""
+   committed-date="2006-08-22T16:07:40.788881Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma/Storage"
+   last-author="ski"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   name="Output"
+   kind="dir"/>
+<entry
+   committed-rev="419"
+   name="Iterator.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-06-08T02:23:00.406549Z"
+   checksum="2348f8db5117673d950be1c47ac0dcdd"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="705"
+   name="Store.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2006-08-22T16:07:40.788881Z"
+   checksum="5b48cfb2ee6fed97fef3d6646b9ca993"
+   last-author="ski"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   name="Location"
+   kind="dir"/>
+<entry
+   committed-rev="1"
+   name="FileUtil.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="969005af0b393b267219acbd92c8bb7a"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="130"
+   name="Util.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-06-02T19:27:35.319615Z"
+   checksum="f4a8e10c5a8d6fbc068eaaf730ee8209"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+</wc-entries>

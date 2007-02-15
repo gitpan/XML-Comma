@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="402"
+   name=""
+   committed-date="2005-12-21T16:29:19.487681Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/t/defs"
+   last-author="dug"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="36"
+   name="_test_multi_second.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-03-31T19:47:20.102650Z"
+   checksum="d669af9dc291caab34051585c71f9d1c"
+   last-author="dug"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   name="macros"
+   kind="dir"/>
+<entry
+   committed-rev="1"
+   name="_test_parser_di_sub_exe_err.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="7128a34d169f7370e57e7f95321fc67b"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_validation.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="045c075d58ecdf230a8611f9d89f43c1"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_parser.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="42a5e8b3f58708c1a747169b7cc6c074"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_virtual_element.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="254134fa9751a0a9ce7196c884ed73b6"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_parser_di_sub_eval_err.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="46014574ac1a74fb07184c68b3ebe634"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="36"
+   name="_test_multi_bad.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-03-31T19:47:20.102650Z"
+   checksum="7be53c17e15439de661a586d143c6bef"
+   last-author="dug"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="240"
+   name="_test_multi_first.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-09-04T18:38:23.546096Z"
+   checksum="01b3a4f946109caecb71ad6e550acf15"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_timestamp.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="15aa62aa54253daa4bda081f33d12736"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="399"
+   name="_test_storage.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-12-09T20:17:29.964449Z"
+   checksum="acb3fa503db0a1630dacc88ec4e7e5e6"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   name="standard"
+   kind="dir"/>
+<entry
+   committed-rev="402"
+   name="_test_indexing.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-12-21T16:29:19.487681Z"
+   checksum="55b52545869a8229abd847f678829151"
+   last-author="dug"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="64"
+   name="_test_index_only.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-04-21T17:50:25.285850Z"
+   checksum="06ec4efca44358d3a7bc254da40cedcb"
+   last-author="dug"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_parser_di_lst_eval_err.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="0b3fc4c40bb5b22bbd835c503f5c3a99"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_order.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="2e696ba8e56ff86c78765e1b6a2d6cc0"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_read_only.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="3cf3a067864b0353c5cbdf60e8213f8c"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_transfer_manual.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="c6403a2cd9f97f57f5f45ec014e846a9"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="1"
+   name="_test_document_hooks.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="72c0e08b1369131f23a553cd377d26eb"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+<entry
+   committed-rev="28"
+   name="_test_decorator.def"
+   text-time="2007-02-14T01:23:59.000000Z"
+   committed-date="2005-03-16T20:36:21.126566Z"
+   checksum="a871d6b10bf0c696439f549bf0417ae5"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:23:59.000000Z"/>
+</wc-entries>

@@ -1,0 +1,100 @@
+<DocumentDefinition>
+  <name>Comma_Standard_Image</name>
+    
+  <blob_element>
+    <name>image</name>
+    <extension><![CDATA[ $self->image_extension() ]]></extension>
+ 
+    <method>
+      <name>image_checksum</name>
+      <code><![CDATA[ sub { $_[0]->_data_hash()->{checksum} }]]></code>
+    </method>
+
+    <method>
+      <name>image_dimensions</name>
+      <code><![CDATA[sub { $_[0]->_data_hash()->{dimensions} }]]></code>
+    </method>
+
+    <method>
+     <name>image_content_type</name>
+     <code><![CDATA[sub { $_[0]->_data_hash()->{content_type} }]]></code>
+    </method>
+
+    <method>
+      <name>image_extension</name>
+      <code><![CDATA[ sub { $_[0]->_data_hash()->{extension} }]]></code>
+    </method>
+
+    <method>
+      <name>_data_hash</name>
+      <code><![CDATA[ sub { $_[0]->{_local_hash} ||= {}; } ]]></code>
+    </method>
+
+    <method>
+      <name>_fill_pnotes_data</name>
+      <code>
+        <![CDATA[
+          sub {
+            my ( $self, $content ) = @_;
+            # $content is either a reference to data or a filename,
+            # which happens to be exactly what imgsize() wants, so we
+            # don't need to do any munging. we do, however, need to
+            # make sure that we have some content to do something
+            # with. an empty $content/ref means that this is an
+            # "erase", not a "set".
+            if ( (ref($content) and defined $$content) or
+                 (! ref($content) and defined $content) ) {
+              my ( $x, $y, $type ) = Image::Size::imgsize($content);
+              if ( ! $x ) {
+                die "could not process this image file\n";
+              }
+              my $type_entry = $self->def_pnotes()->{types}->{$type};
+              die "no such type as '$type' recognized\n"  if  ! $type_entry;
+              $self->_data_hash()->{content_type} = $type_entry->{type};
+              $self->_data_hash()->{extension} = $type_entry->{extension};
+              $self->_data_hash()->{dimensions} = join ( 'x', $x, $y );
+              my $md5 = Digest::MD5->new();
+              if ( ref($content) ) {
+                $md5->add ( $$content );
+              } else {
+                open ( FILE, "<$content" ) ||
+                  die "couldn't open '$content' to get checksum: $!";
+                $md5->addfile ( *FILE );
+                close ( FILE );
+              }
+              $self->_data_hash()->{checksum} = $md5->hexdigest();
+            } else {
+              # erase: clear the pnotes fields
+              $self->_data_hash()->{content_type} = undef;
+              $self->_data_hash()->{extension} = undef;
+              $self->_data_hash()->{dimensions} = undef;
+              $self->_data_hash()->{checksum} = undef;
+            }
+          }]]>
+      </code>
+    </method>
+      
+    <set_hook><![CDATA[ sub { $_[0]->_fill_pnotes_data($_[1]) } ]]></set_hook>
+    <set_from_file_hook>
+      <![CDATA[ sub { $_[0]->_fill_pnotes_data($_[1]) } ]]>
+    </set_from_file_hook>
+    <read_hook>
+      <![CDATA[ sub { $_[0]->_fill_pnotes_data($_[0]->get_location()); } ]]>
+    </read_hook>
+
+    <def_hook>
+      <![CDATA[
+               use XML::Comma::Util;
+               use Digest::MD5;
+               use Image::Size;
+               my %types = ();
+               $types{GIF} = { type => 'image/gif', extension => '.gif' };
+               $types{JPG} = { type => 'image/jpeg', extension => '.jpg' };
+               $types{PNG} = { type => 'image/png', extension => '.png' };
+               $self->def_pnotes()->{types} = \%types;
+      ]]>
+    </def_hook>
+          
+  </blob_element>
+
+</DocumentDefinition>

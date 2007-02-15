@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="376"
+   name=""
+   committed-date="2005-10-18T15:46:37.638263Z"
+   url="https://chronicle.allafrica.com:8080/repository/trunk/XML-Comma/lib/XML/Comma/Storage/Location"
+   last-author="khkramer"
+   kind="dir"
+   uuid="bf50f81d-3ce1-0310-9f87-e1e9b0d7d02b"
+   repos="https://chronicle.allafrica.com:8080/repository"
+   revision="893"/>
+<entry
+   committed-rev="130"
+   name="GMT_3layer_dir.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-06-02T19:27:35.319615Z"
+   checksum="79d54cd0445770c8f09af29a66b038e8"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Prepended_dir.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="5784418b2ccb3d483c69efd766766571"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="130"
+   name="Derived_GMT_3layer_dir.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-06-02T19:27:35.319615Z"
+   checksum="dd1cdacb2ad4c4368eae9c616e0dd3b6"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="SequentialCheck_file.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="f2a27884898e6e4d2346ba266f2ba89d"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="64"
+   name="Index_Only.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-04-21T17:50:25.285850Z"
+   checksum="07389667a72486bfb8be6cff3d4571e6"
+   last-author="dug"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Sequential_dir.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="2c87cefbf1042cb6622ffac4ad74f19e"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Sequential_file.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="1a19d3a2edfc8399c27985d321e27728"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="location_modules.doc"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="3fcee674d07286d4c40cb43b1c474fe5"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Read_only_file.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="e2d03494dbe7ed45bf7be3c2a1cf0545"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="211"
+   name="Timestamped_random.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-08-17T20:48:28.543870Z"
+   checksum="bcbb0a971956cfa5578b42919d2cd540"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Derived_dir.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="69934e5b4a4118b92c4f78d058ca2de9"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="376"
+   name="Derived_file.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2005-10-18T15:46:37.638263Z"
+   checksum="380cf4784bb3d56de296e88e8eb07e32"
+   last-author="khkramer"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+<entry
+   committed-rev="1"
+   name="Abstract_file.pm"
+   text-time="2007-02-14T01:24:05.000000Z"
+   committed-date="2004-08-09T18:11:52.294524Z"
+   checksum="1858cff2cab19de4eed6411c26cc1c96"
+   last-author="root"
+   kind="file"
+   prop-time="2007-02-14T01:24:05.000000Z"/>
+</wc-entries>
