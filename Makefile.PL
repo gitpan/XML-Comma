@@ -59,6 +59,7 @@ WriteMakefile(
                 DBD::mysql               => 0,
                 Compress::Zlib           => 0,
                 PAR                      => 0,
+                Test::More               => 0,
               },
     #'clean' => {
     #  'FILES' => 'lib/XML/Comma.pm'

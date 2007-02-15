@@ -3,6 +3,9 @@
 
 use strict;
 
+use Test::More tests => 1;
+#TODO: more tests, convert shell to perl
+
 #note we haven't overridden lib, so we'll get the active Configuration.pm
 eval { require XML::Comma::Configuration; }; if($@) {
 	use lib "blib/lib/";
@@ -10,9 +13,11 @@ eval { require XML::Comma::Configuration; }; if($@) {
 }
 my $active_configuration_pm = $INC{"XML/Comma/Configuration.pm"};
 
+use File::Path;
+
+rmtree(".test");
 #TODO: replace this with perl
 #TODO: recursive symlink instead of copy to save some bytes...
-`rm -rf .test`;
 `cp -RPpf blib .test`; #like cp -a but works on *bsd, macosx too
 #copy active Configuration.pm in place if it exists
 `cp -f "$active_configuration_pm" ".test/lib/XML/Comma/Configuration.pm" 2>/dev/null` if($active_configuration_pm);
@@ -22,8 +27,6 @@ chmod(0644, ".test/lib/XML/Comma/Configuration.pm");
 
 use Cwd;
 my $build_root_dir = getcwd;
-
-print "1..1\n";
 
 #read in the config
 my $CONFIG_FILE = ".test/lib/XML/Comma/Configuration.pm";
@@ -79,9 +82,8 @@ chmod(0640, $CONFIG_FILE) || warn "can't chmod $CONFIG_FILE: $!";
 
 #note: just dump all defs into the first defs dir in our tmp Configuration.pm
 my $d = $defs_dirs[0];
+mkpath($d, 0, 0755);
 #TODO: this, in perl
-`mkdir -p $d`;
 `find t/defs -type f -exec cp -f \{\} "$d" \\;`;
 
-print "ok 1\n";
-
+ok("dummy");

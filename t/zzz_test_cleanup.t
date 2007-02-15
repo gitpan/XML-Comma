@@ -2,10 +2,9 @@
 
 use strict;
 
-#TODO: replace this with perl
-`rm -rf .test`;
+use Test::More tests => 1;
+use File::Path;
 
-print "1..1\n";
-print "ok 1\n";
+rmtree(".test");
 
-
+ok("dummy");
