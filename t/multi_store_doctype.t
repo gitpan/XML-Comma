@@ -55,9 +55,9 @@ ok( $index_two->count() == 3 );
 
 ok( $index_all->count() == 6 );
 
-ok( $index_all->count(where_clause => 'store="one"') == 3 );
+ok( $index_all->count(where_clause => "store='one'") == 3 );
 
-$it = $index_all->iterator ( where_clause => 'store="one"' );
+$it = $index_all->iterator ( where_clause => "store='one'" );
 
 ok( 
   ++$it and $it->doc_id eq '001' and $it->store eq 'one'  and
@@ -65,7 +65,7 @@ ok(
   ++$it and $it->doc_id eq '003' and $it->store eq 'one' 
   );
 
-$it = $index_all->iterator ( where_clause => 'store="two"' );
+$it = $index_all->iterator ( where_clause => "store='two'" );
 
 ok( 
   ++$it and $it->doc_id eq '001' and $it->store eq 'two'  and
@@ -136,7 +136,7 @@ ok(  ++$it and $it->doc_key eq "_test_multi_second|two|002" );
 ok(  ++$it and $it->doc_key eq "_test_multi_second|two|003" );
 
 
-$it = $index_all->iterator ( where_clause => 'doctype="_test_multi_second"' );
+$it = $index_all->iterator ( where_clause => "doctype='_test_multi_second'" );
 
 ok( 
   ++$it and $it->store eq 'two'                           and
@@ -145,8 +145,8 @@ ok(
   ++$it and $it->doc_key eq "_test_multi_second|two|003"
   );
 
-$it = $index_all->iterator ( where_clause => 'doctype="_test_multi_first" AND
-                                             store="one"' );
+$it = $index_all->iterator ( where_clause => "doctype='_test_multi_first' AND
+                                             store='one'" );
 ok( 
   ++$it and $it->store eq 'one'                          and
             $it->doc_key eq "_test_multi_first|one|004"  and

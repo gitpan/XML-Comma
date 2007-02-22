@@ -94,7 +94,7 @@ lib/XML/Comma/docs/todo.ski
 manual-test.pl
 misc/install-extras.pl
 misc/MakeMakerMod.pm
-t/TODO.test_more
+t/TODO
 t/aaa_test_setup.t
 t/bootstrap.t
 t/decorator.t
@@ -147,3 +147,4 @@ t/virtual_element.t
 t/read_only.t
 t/index_only.t
 t/zzz_test_cleanup.t
+META.yml                                 Module meta-data (added by MakeMaker)

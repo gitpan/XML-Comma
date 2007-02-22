@@ -327,13 +327,28 @@ sub sql_alter_data_table_change_primary_key {
   } else {
     $new_key = "doc_id(100), ";
   }
+#warn "the cow says: primary key: $new_key, other new keys: ".join(",", @fields);
   $new_key .= join ", ", map { "$_(100)" } @fields;
 
-  my $sth = $dbh->prepare_cached ( 
-    qq[ 
-        ALTER TABLE $data_table
-            DROP PRIMARY KEY
-    ]);
+  #the bit in parens tells mysql to only index the first N chars
+  #there is no comparable postgres feature, and this isn't strictly
+  # necessary, so if we're on postgres, just strip that info out.
+  $new_key =~ s/\(\d+\)//g if(XML::Comma->system_db() eq 'postgres');
+
+  my $sth;
+  if(XML::Comma->system_db() eq 'postgres') {
+    $sth = $dbh->prepare_cached (
+      qq [
+          ALTER TABLE ${data_table}
+              DROP CONSTRAINT ${data_table}_pkey
+      ]);
+  } else {
+    $sth = $dbh->prepare_cached ( 
+      qq[ 
+          ALTER TABLE $data_table
+              DROP PRIMARY KEY
+      ]);
+  }
   $sth->execute();
   $sth->finish();
 
@@ -1341,6 +1356,23 @@ sub sql_select_distinct_field {
   return $sth;
 }
 
+#TODO: can we adapt this to use it on $where_clause too?
+sub _remap_tables {
+	my ($sql, %from_map) = @_;
+	if($sql) {
+		my @ts_words = split(/(\s+|<=|>=|>|=|<)/, $sql);
+		foreach my $i (0..$#ts_words) {
+			foreach my $from (keys %from_map) {
+				my $to = $from_map{lc($from)};
+				#TODO: how can we distinguish ${from}x from ${from}.x ?
+				$ts_words[$i] =~ s/^$from/$to/ig;
+			}
+		}
+		$sql = join("", @ts_words);
+	}
+	return $sql ? $sql : undef;
+}
+
 ##
 # complex select statement build -- for iterator
 #
@@ -1424,22 +1456,50 @@ XML::Comma::Log->warn("collection_spec: $collection_spec");
   my $from = ' FROM ' . join ( ',', @{$from_tables} );
 
   if(@$from_tables > 1 && grep /\s+AS\s+/, @$from_tables) {
+    #keep track of all of our foo AS bar sub-clauses
+    my %from_map;
+    foreach my $from_clause (@$from_tables) {
+      if($from_clause =~ /\s*(\S+)\s+AS\s+(\S+)\s*/) {
+        $from_map{lc($1)} = $2;
+      } else {
+        $from_map{lc($from_clause)} = $from_clause;
+      }
+    }
+
     #prepend t01. on every term in $where_clause
     #TODO: think about using SQL::Statement or whatev as well for supa safety
     my %has_col = map { lc($_) => 1 }
       (@$columns_list, 'doc_id', 'record_last_modified');
-XML::Comma::Log->warn("about to munge: $where_clause");
+    XML::Comma::Log->warn("eating where_clause:  $where_clause");
     #TODO: think, what other seperators can we have?
     $where_clause = join("", map {
         $has_col{lc($_)} ? "t01.$_" : $_
       } split(/(\s+|<=|>=|>|=|<)/, $where_clause));
-XML::Comma::Log->warn("pooped out:     $where_clause");
-  }
+    XML::Comma::Log->warn("pooping where_clause: $where_clause");
 
+    #munge our $spec's too so that fully qualified table
+    #name is converted to short tXX name
+    if($textsearch_spec) {
+      XML::Comma::Log->warn("eating textsearch_spec:  $textsearch_spec");
+      $textsearch_spec = _remap_tables($textsearch_spec, %from_map);
+      XML::Comma::Log->warn("pooping textsearch_spec: $textsearch_spec");
+    }
+    #TODO: $collection_spec always seems to be generated the right way,
+    # so this might be unnecessary, but it shouldn't hurt...
+    if($collection_spec) {
+      XML::Comma::Log->warn("eating collection_spec:  $collection_spec");
+      $collection_spec = _remap_tables($collection_spec, %from_map);
+      XML::Comma::Log->warn("pooping collection_spec: $collection_spec");
+    }
+  }
+ 
   # where clause
+  #TODO:nuke 1=1 clauses wherever they exist...
   my $where = ' WHERE 1=1';
   $where .= " AND ($where_clause)"     if  $where_clause;
-  $where .= " AND $collection_spec"  if  $collection_spec;
+XML::Comma::Log->warn("collection_spec: " . ($collection_spec || ""));
+  $where .= " AND ($collection_spec)"  if  $collection_spec;
+XML::Comma::Log->warn("textsearch_spec: " . ($textsearch_spec || ""));
   $where .= " AND ($textsearch_spec)"  if  $textsearch_spec;
 
 XML::Comma::Log->warn("where: $where");

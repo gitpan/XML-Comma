@@ -1,4 +1,40 @@
+with postgres, we get lots of spurious warnings starting "NOTICE"
+	these can be ignored (i think/hope)
+	the Pg code in general needs a general cleanup too.
+
+with postgres, we fail t/multi_store_doctype.t 2..29, yikes.
+pg for dummies:
+  To get postgres up and running on my machine, for use with comma, I
+  just did an ubuntu install, then:
+    apt-get install postgresql-8.1 postgresql-server-dev-8.1
+    sudo cpan -i DBD::Pg
+    sudo bash
+     su postgres
+      createuser comma #for now make a superuser
+        #there is a bug we need to fix with COPY commands with Pg
+        #relevant tests are in t/indexing.t
+      createdb -O comma comma
+      exit #shell as postgres user
+     $EDITOR /etc/postgresql/8.1/main/pg_hba.conf
+     ## change:
+     #  local  all  postgres  ident sameuser
+     ## to:
+     #  local  all  all       password
+     su postgres
+      echo "alter user postgres with password 'random_1';" | psql
+      echo "alter user comma with password 'random_2';" | psql
+      exit #shell as postgres user
+     /etc/init.d/postgresql-8.1 restart
+     psql -U comma comma #make sure you can connect
+     psql -U postgres #make sure you can connect
+     #edit Configuration.pm accordingly
+#TODO: must be some way to say that passwords only matter for comma,
+#in all other cases use the default per-user ident thing
+
 release notes:
+NOTE!
+  comma.log CANNOT be on NFS or you will lose messages (flock limitation)
+
 - http://www.mail-archive.com/dbi-users@perl.org/msg28459.html
     this is harmless, but if you don't like it, upgrade to
     DBD::mysql > 3.0007

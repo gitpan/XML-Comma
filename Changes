@@ -1,7 +1,19 @@
 Revision history for XML::Comma modules:
 
 -------------------------
-1.91  2007/02/13
+1.94  2007/02/22
+-------------------------
+
+  - more SQL (particularly Pg) bug fixes - ski
+
+  - use Test::More everywhere in t/ - ski
+
+  - introduce $XML::Comma::Log::warn_only, which, when set to
+    a true value, dumps Log::* messages to STDERR instead of
+    comma.log
+
+-------------------------
+1.93  2007/02/13
 -------------------------
 
   - fix Pg support - khk

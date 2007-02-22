@@ -25,6 +25,7 @@ package XML::Comma::Log;
 use Fcntl ":flock";
 use strict;
 
+$XML::Comma::Log::warn_only = 0;
 
 sub err {
   my ( $class, $error_name, $arg2, $doc_id, $extra_text ) = @_;
@@ -68,12 +69,13 @@ sub log {
   my $string = $_[1];
   chomp $string;
   $string =~ s/\n/ /g;
+  if ($XML::Comma::Log::warn_only) { CORE::warn $string; return; }
   {
     my $log;
     unless ( open( $log, "+>>", XML::Comma->log_file() ) &&
 	     flock( $log, LOCK_EX ) ) {
-      print STDERR "Can't open " . XML::Comma->log_file();
-      print STDERR time() . "$$ $string";
+      print STDERR "Can't open comma logfile:" . XML::Comma->log_file().
+        " ($@ $!), error follows: " . time() . "$$ $string\n";
       return;
     };
     seek($log, 0, 2); #seek to EOF in case someone appended while we waited

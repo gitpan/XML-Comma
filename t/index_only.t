@@ -8,7 +8,6 @@ use XML::Comma::Util qw( dbg );
 
 use Test::More tests => 10;
 
-
 # erase everything, so that we start fresh
 my $index = XML::Comma::Def->_test_index_only->get_index ( "main" );
 ok("1");

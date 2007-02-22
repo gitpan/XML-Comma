@@ -8,7 +8,6 @@ use lib ".test/lib/";
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
-
 ####
 my $def = XML::Comma::Def->read ( name => '_test_timestamp' );
 rmtree $def->get_store('one')->base_directory, 0;
