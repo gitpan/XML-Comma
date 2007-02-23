@@ -16,7 +16,7 @@ my $doc = XML::Comma::Doc->new ( type => '_test_decorator' );
 my $def = $doc->def;
 ok("got doc and def ok")  if  $doc and $def;
 
-# we should no longer be a simple Def
+# we should no longer be a simple Doc
 ok("ref(doc) ref")  unless  ref($doc) eq 'XML::Comma::Doc';
 
 # make sure we're still a def, even after becoming something more.

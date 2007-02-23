@@ -8,8 +8,6 @@ use File::Path;
 #TODO: convert test::more numbers to useful strings
 use Test::More tests => 99;
 
-my $test_dir =  '/usr/local/comma/docs/test';
-
 use lib ".test/lib/";
 
 use XML::Comma;

@@ -1,4 +1,0 @@
-standardize/clean up the order of "use" statements, etc.
-
-nominally using Test::More (numbered tests via ok instead of descrip):
-	order.t, indexing.t, parser.t, storage.t, validation.t

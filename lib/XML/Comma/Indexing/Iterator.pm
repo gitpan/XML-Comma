@@ -366,6 +366,16 @@ sub doc_key {
       id    => $self->doc_id() );
 }
 
+sub to_array {
+	my ( $self, %args ) = @_; 
+	my @docs = ();
+	while($self->iterator_has_stuff()) {
+		push @docs, XML::Comma::VirtualDoc->new($self); 
+		$self->iterator_next();
+	} 
+	return @docs;
+} 
+
 sub _current_element {
   my ( $self, $el_name ) = @_;
   # check to see if we're newly created or newly refreshed, and need
@@ -464,7 +474,7 @@ sub _make_collection_spec {
     return $self->_make_binary_collection_spec($chunks);
   }
 
-  warn "Use of 'many tables' or 'stringified' collection types is deprecated" unless($XML::Comma::_no_deprecation_warnings);
+  XML::Comma::Log->warn("Use of 'many tables' or 'stringified' collection types is deprecated") unless($XML::Comma::_no_deprecation_warnings);
 
   foreach my $chunk ( @{$chunks} ) {
     my $NOT = ''; my $OP = '=';

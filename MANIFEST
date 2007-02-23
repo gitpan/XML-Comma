@@ -82,6 +82,7 @@ lib/XML/Comma/Storage/Store.pm
 lib/XML/Comma/Storage/Util.pm
 lib/XML/Comma/Util.pm
 lib/XML/Comma/Util/DefModule.pm
+lib/XML/Comma/VirtualDoc.pm
 lib/XML/Comma/docs/guide.html
 lib/XML/Comma/docs/guide.pdf
 lib/XML/Comma/docs/faq.pod
@@ -94,7 +95,6 @@ lib/XML/Comma/docs/todo.ski
 manual-test.pl
 misc/install-extras.pl
 misc/MakeMakerMod.pm
-t/TODO
 t/aaa_test_setup.t
 t/bootstrap.t
 t/decorator.t
@@ -113,6 +113,7 @@ t/defs/_test_storage.def
 t/defs/_test_timestamp.def
 t/defs/_test_transfer_manual.def
 t/defs/_test_validation.def
+t/defs/_test_virtual_doc.def
 t/defs/_test_virtual_element.def
 t/defs/_test_read_only.def
 t/defs/_test_index_only.def
@@ -143,6 +144,7 @@ t/timestamp.t
 t/transfer.manual
 t/util.t
 t/validation.t
+t/virtual_doc.t
 t/virtual_element.t
 t/read_only.t
 t/index_only.t

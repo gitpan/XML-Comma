@@ -72,13 +72,17 @@ sub log {
   if ($XML::Comma::Log::warn_only) { CORE::warn $string; return; }
   {
     my $log;
-    unless ( open( $log, "+>>", XML::Comma->log_file() ) &&
-	     flock( $log, LOCK_EX ) ) {
+    unless ( open( $log, "+>>", XML::Comma->log_file() ) ) {
       print STDERR "Can't open comma logfile:" . XML::Comma->log_file().
         " ($@ $!), error follows: " . time() . "$$ $string\n";
       return;
-    };
+    }
+    my $flock_warning = "";
+    unless(flock($log, LOCK_EX)) {
+      $flock_warning = "FLOCK NOT AVAILABLE, LOG MAY BE INCOMPLETE OR CORRUPTED";
+    }
     seek($log, 0, 2); #seek to EOF in case someone appended while we waited
+    print $log "$flock_warning\n" if($flock_warning);
     print $log scalar localtime() . ": $$ $string\n";
     # note close() makes an implicit funlock()
     close($log) || print STDERR "$$ can't close log file at ".time.", other procs may block forever \""

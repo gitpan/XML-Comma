@@ -1,3 +1,62 @@
+#complete test:
+dropdb -U postgres comma ; createdb -U postgres -O comma comma; \
+make distclean ; perl Makefile.PL && make && make test && sudo make install
+
+THINK:
+	is the indexing iterator only implementation of lazy doc eval
+	performance-errific? or is it reloading a doc each time?
+
+things to add to guide.html:
+	storage iterator overloading
+	virtualdocs / to_array
+		notes: refresh() not called for you, docs are r/o - call 
+		get_lock() if you want it otherwise
+
+dave ideas:
+  2 - (not sure if this is something we should do via comma, but to 
+    fight the "SQL resistance" at MMFA):
+  this common construct is reaaaaaly slow:
+        for ( @{ $doc->issue_ptr } ) {
+           push @issues, $index->single( where_clause => "doc_id = $_" )
+        }
+        foreach my $issue (@issues) {
+          ...
+        }
+  you hit the DB N times. you can hit it just once by building a gigantic
+  where clause, e.g.
+        my $wc = join ("OR", map { "doc_id = $_" } @{ $doc->issue_ptr });
+        my $it = $index->iterator(where_clause => $wc);
+        while(++$it) { 
+          ...
+        }
+  or even better, using an IN statement:
+        my $wc = "doc_id IN (".join (",", @{ $doc->issue_ptr }).")";
+        my $it = $index->iterator(where_clause => $wc);
+        while(++$it) { 
+          ...
+        }
+
+
+Reported by tim, 2/15/2007
+
+This doesn't work:
+$ perl -MXML::Comma -e 'use strict ; my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); foreach my $el ( $def->def_sub_elements() ) { my $tag = $el->name(); print $tag . "\n" if $el->element_is_plural($tag) ; }'
+
+This does:
+$ perl -MXML::Comma -e 'use strict ; my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); foreach my $el ( $def->def_sub_elements() ) { my $tag = $el->name(); print $tag . "\n" if $def->is_plural($tag) ; }'
+
+This is an API bug. See if the other is_* have this problem as well.
+
+you shouldn't have to say $el->element_is_plural($tag)
+$el->element_is_plural() shuold be enough
+
+
+Test::More stuff:
+- standardize/clean up the order of "use" statements, etc.
+- nominally using Test::More (numbered tests via ok instead of descrip):
+    order.t, indexing.t, parser.t, storage.t, validation.t
+
+
 with postgres, we get lots of spurious warnings starting "NOTICE"
 	these can be ignored (i think/hope)
 	the Pg code in general needs a general cleanup too.
@@ -52,6 +111,7 @@ NOTE!
 - make sure perl Makefile.PL && make && make test && sudo make install
   works out of the box w/o problems or errors w/ either mysql or postfix
 
+LATER:
 - element-specific locking for when whole body lock is unnec. and too
   heavy weight?
 - maybe use ExtUtils::MakeMaker::prompt for automated testers
@@ -75,21 +135,7 @@ discovered it, I want to make sure it ALL does...
 	### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
 	think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
 
-- XML::Comma::Doc->store () could use exclude_hooks and include_hooks
-	instead of just no_hooks => 0/1 ... we happen to luck out with cache_static
-	macro and Gadgets's Post.def, but it'd be nice to say WHICH hooks to exlude
-
-- make postgres support work again. introduction of transaction support in DBD::Pg
-  seems to have broken most everything, yuck.
-- postgres support in comma-create-config.pl
-- add some support for locking an entire table
-    (there are common defs which which have race condition pre_store_hooks (other
-     hooks?) without this)
-   (ie, die "duplicate" if ($self->def()->get_index("main")->single(where_clause => 
-    "special_key = '$this_docs_key'"));
-    #here another thread calls store...
-    #when we leave the pre_store_hook, we are written to disk & index, and we have a dupe)
-- lazy allocation of doc structure (ie, do nothing on call to read/retrieve(), but on
+- on call to read/retrieve(), but on
   subsequent call to $doc->somefield, grab from db if poss. else grab from disk for 
   speed reasons. allow old behavior with read(slow => 1), but I'm not sure why you'd
   need that except debugging)

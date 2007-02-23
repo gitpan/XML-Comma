@@ -239,5 +239,15 @@ sub doc_id {
     ( $_[0]->{_Iterator_cached_list}->[$_[0]->{_Iterator_index}] );
 }
 
+sub to_array {
+	my ( $self, %args ) = @_; 
+	my @docs = ();
+	while($self++) {
+		push @docs, XML::Comma::VirtualDoc->new($self); 
+	}
+	return @docs;
+} 
+
+
 1;
 

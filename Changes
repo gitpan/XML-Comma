@@ -1,7 +1,13 @@
 Revision history for XML::Comma modules:
 
 -------------------------
-1.94  2007/02/22
+1.95  2007/02/23 r.938
+-------------------------
+
+  - introduction of VirtualDoc and $it->as_array()
+
+-------------------------
+1.94  2007/02/22 r.927
 -------------------------
 
   - more SQL (particularly Pg) bug fixes - ski
@@ -13,7 +19,7 @@ Revision history for XML::Comma modules:
     comma.log
 
 -------------------------
-1.93  2007/02/13
+1.93  2007/02/13 r.910
 -------------------------
 
   - fix Pg support - khk
@@ -21,8 +27,10 @@ Revision history for XML::Comma modules:
   - fix some SQL bugs encountered in testing - ski
 
 -------------------------
-1.90  2007/02/01
+1.90  2007/02/01 r.889
 -------------------------
+
+  - note: branches/XML-Comma-DEVEL becomes trunk/XML-Comma again
 
   - Changed inheritance structure of SQL::* modules.
 
@@ -63,7 +71,7 @@ Revision history for XML::Comma modules:
   - fix tmp blob copy/move bug
 
 -------------------------
-1.22  2007/01/31
+1.25  2007/01/31 r.869
 -------------------------
 
   - Performance, correctness/security fix in XML::Comma::Log

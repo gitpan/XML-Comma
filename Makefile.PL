@@ -72,6 +72,10 @@ misc::MakeMakerMod::add_steps(
    step => "install",
    what => "perl misc/install-extras.pl"
 );
+misc::MakeMakerMod::add_steps(
+   step => "distclean",
+   what => "rm -rf .test",
+);
 
 eval { require XML::Comma::Configuration; };
 if ( $@ ) {

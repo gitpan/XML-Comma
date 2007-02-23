@@ -22,7 +22,7 @@
 
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.94';
+$XML::Comma::VERSION = '1.95';
 
 use strict;
 use vars '$AUTOLOAD';
@@ -106,6 +106,7 @@ use XML::Comma::Storage::Store;
 use XML::Comma::Indexing::Index;
 use XML::Comma::Bootstrap;
 use XML::Comma::DefManager;
+use XML::Comma::VirtualDoc;
 
 
 1;
