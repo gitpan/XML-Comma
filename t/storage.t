@@ -10,7 +10,7 @@ use File::Spec;
 $|++;
 
 #TODO: convert test::more numbers to useful strings
-use Test::More tests => 164;
+use Test::More tests => 176;
 
 my $def = XML::Comma::Def->read ( name => '_test_storage' );
 
@@ -576,27 +576,68 @@ ok("154") if !$it; #nothing left
 # test next_in_list function
 my @list = ( 'a', 'b', 'c', 'd',   'f', 'g', 'h', 'i' );
 # simple
-ok("125")  if
+ok("155")  if
   'b' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'a' );
-ok("126")  if
+ok("156")  if
   'g' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'f' );
-ok("127")  if
+ok("157")  if
   'h' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'i', -1 );
-ok("128")  if
+ok("158")  if
   'c' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'd', -1 );
 # past ends
-ok("129")  if
+ok("159")  if
   ! defined XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'i' );
-ok("130")  if
+ok("160")  if
   ! defined XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'a', -1 );
 # into ends
-ok("131")  if
+ok("161")  if
   'a' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, '0' );
-ok("132")  if
+ok("162")  if
   'i' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'z', -1 );
 # over gap
-ok("133")  if
+ok("163")  if
   'f' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'd' );
-ok("134")  if
+ok("164")  if
   'd' eq XML::Comma::Storage::FileUtil->next_in_list ( \@list, 'f', -1 );
 
+###test iterator shortcut syntax
+$it = $storage_one->iterator( size => 2, pos => '-' );
+
+#making sure doc_id() and read_doc don't advance any pointers
+$doc = $it->read_doc;
+my $did = $it->doc_id;
+ok($doc->doc_id eq $did);
+$it->doc_id;
+ok($it->doc_id eq $did);
+
+#first call to ++$it DOES NOT advance the pointer
+# for while(++$it) compatibility
+++$it;
+ok($doc->doc_id eq $did);
+ok($it->doc_id eq $did);
+
+$doc = $it->read_doc;
+#test shortcut syntax
+ok($doc->el2 eq $it->el2);
+ok($doc->el eq $it->el);
+ok($doc->flagged eq $it->flagged);
+
+#now, make sure we *DO* advance
+++$it;
+ok($it->doc_id ne $did);
+
+$doc = $it->read_doc;
+#test shortcut syntax (again)
+ok($doc->el2 eq $it->el2);
+ok($doc->el eq $it->el);
+ok($doc->flagged eq $it->flagged);
+
+###test iterator shortcut syntax
+$it = $storage_one->iterator( size => 2, pos => '-' );
+
+#call $it->some_field right off the bat and make sure it does the
+#right thing. this is an expected difference from the behavior with
+#doc_id
+my $el = $it->el;
+++$it;
+ok($el ne $it->el);

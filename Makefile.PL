@@ -56,6 +56,7 @@ WriteMakefile(
                 Math::BaseCalc           => 0,
                 Class::ClassDecorator    => 0,
                 DBI                      => 0,
+#TODO: how to indicate that we need *EITHER* DBD::mysql *OR* DBD::Pg?
                 DBD::mysql               => 0,
                 Compress::Zlib           => 0,
                 PAR                      => 0,

@@ -1,6 +1,18 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.96  2007/02/26 r.949
+-------------------------
+
+  - auto-instantiation shortcut methods for storage iterators
+
+  - in storage iterators, allow validate => [0,1] argument on read_doc,
+    next_read, and prev_read
+
+  - bugfix: if a storage iterator has no elements, return a false value
+    from _iterator_has_stuff()
+
+-------------------------
 1.95  2007/02/23 r.938
 -------------------------
 

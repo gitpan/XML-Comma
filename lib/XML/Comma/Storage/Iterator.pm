@@ -22,6 +22,8 @@
 
 package XML::Comma::Storage::Iterator;
 
+use vars '$AUTOLOAD';
+
 use strict;
 use File::Find;
 use XML::Comma::Util qw( dbg  );
@@ -53,8 +55,8 @@ sub _it_advance {
   my ($self, $amt) = @_;
   if($self->{_Iterator_newly_refreshed}) {
     $self->{_Iterator_newly_refreshed} = 0;
-#    warn "faking it";
-    return 1; #return true, (fake $it)
+    # return true if there is anything in the iterator ("fake $it")
+    return scalar @{$self->{_Iterator_cached_list}};
   }
   
   #the rest of this function is a lot like read_next (and next_id), except
@@ -68,7 +70,12 @@ sub _it_advance {
   }
 #  print "index: ", $self->{_Iterator_index}, "bla: ",
 #    $#{$self->{_Iterator_cached_list}}, "\n";
+  #if the index is greater than the size of the cached_list, return false
   return undef if ( $self->{_Iterator_index} > $#{$self->{_Iterator_cached_list}} );
+  #this should never happen - see if($self->{_Iterator_newly_refreshed}) @ top of _it_advance
+  # as well as _iterator_has_stuff
+  die "congratulations, you found a bug in XML::Comma. Please report it: empty iterator?!?" unless(@{$self->{_Iterator_cached_list}});
+
   my $id = $self->{_Iterator_Store}->id_from_location
     ( $self->{_Iterator_cached_list}->[$self->{_Iterator_index}] );
 
@@ -83,19 +90,22 @@ sub _it_advance {
 # it might not work with {prev|next}_read semantics, due to boundary condition
 sub _iterator_has_stuff {
   my $self = $_[0];
+  #return false if _Iterator_cached_list is empty
+  return undef unless scalar @{$self->{_Iterator_cached_list}};
   return ( $self->{_Iterator_direction} eq '-' ) ? 
     ( $self->{_Iterator_index} <= $#{$self->{_Iterator_cached_list}} ) :
     ( $self->{_Iterator_index} >= 0 );
 }
 
 sub read_doc {
-  my $self = $_[0];
+  my ($self, %args) = @_;
   return $self->{_Iterator_last_doc} || (( $self->{_Iterator_direction} eq '-' ) ?
-    $self->next_read() : $self->prev_read());
+    $self->next_read(%args) : $self->prev_read(%args));
 }
 
 sub retrieve_doc {
-  my $doc = $_[0]->read_doc;
+  my $self = shift;
+  my $doc = $self->read_doc(@_);
   $doc->get_lock();
   return $doc;
 }
@@ -219,24 +229,30 @@ sub prev_retrieve {
 }
 
 sub next_read {
-  my $id = $_[0]->next_id() || return;
-  return $_[0]->{_Iterator_last_doc} = XML::Comma::Doc->read 
-    ( type => $_[0]->{_Iterator_Store}->doctype(),
-      store => $_[0]->{_Iterator_Store}->element('name')->get(),
-      id => $id );
+  my ($self, %args) = @_;
+  my $id = $self->next_id() || return;
+  return $self->{_Iterator_last_doc} = XML::Comma::Doc->read 
+    ( type => $self->{_Iterator_Store}->doctype(),
+      store => $self->{_Iterator_Store}->element('name')->get(),
+      id => $id, %args );
 }
 
 sub prev_read {
-  my $id = $_[0]->prev_id() || return;
-  return $_[0]->{_Iterator_last_doc} = XML::Comma::Doc->read
-    ( type => $_[0]->{_Iterator_Store}->doctype(),
-      store => $_[0]->{_Iterator_Store}->element('name')->get(),
-      id => $id );
+  my ($self, %args) = @_;
+  my $id = $self->prev_id() || return;
+  return $self->{_Iterator_last_doc} = XML::Comma::Doc->read
+    ( type => $self->{_Iterator_Store}->doctype(),
+      store => $self->{_Iterator_Store}->element('name')->get(),
+      id => $id, %args );
 }
 
 sub doc_id {
-  return $_[0]->{_Iterator_Store}->id_from_location
-    ( $_[0]->{_Iterator_cached_list}->[$_[0]->{_Iterator_index}] );
+  my $location = $_[0]->{_Iterator_cached_list}->[$_[0]->{_Iterator_index}];
+  return $location ?
+    $_[0]->{_Iterator_Store}->id_from_location($location) : 
+    #the below is slow, but we only do it once per iteration. it's
+    #needed in particular for storage iterator dispatch stuff
+    $_[0]->read_doc->doc_id;
 }
 
 sub to_array {
@@ -247,6 +263,35 @@ sub to_array {
 	}
 	return @docs;
 } 
+
+####
+# AUTOLOAD
+#
+#
+####
+
+sub AUTOLOAD {
+	my ( $self, @args ) = @_;
+	# strip out local method name and stick into $m
+	$AUTOLOAD =~ /::(\w+)$/;  my $m = $1;
+	return $self->iterator_dispatch ( $m, @args );
+}
+
+#note this is NOT slow, because read_doc does caching.
+sub iterator_dispatch {
+	my ( $self, $m, @args ) = @_;
+	# if we're here, make sure next call to ++$it really does
+	# advance
+	$self->{_Iterator_newly_refreshed} = 0;
+
+#warn "m: $m, args: ".join(" ", @args)."\n";
+#warn "self: $self\n";
+	my $doc = $self->read_doc();
+#warn "doc: $doc\n";
+	return $doc->$m(@args);
+}
+
+sub DESTROY { }
 
 
 1;
