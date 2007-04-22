@@ -94,8 +94,10 @@
     <default>TRUE</default>
   </element>
 
+  <element><name>zero_field</name></element>
+
   <plural>'plu'</plural>
-  <required>'plu','nested'</required>
+  <required>'plu','nested','zero_field'</required>
   <ignore_for_hash>'not_hashificated'</ignore_for_hash>
 
 

@@ -1,16 +1,114 @@
+bah! sync_deferred_textsearches is broken with pg!
+
+#TODO: allow nice way to use of $dbh->quote() on collections and
+#	textsearches (or is this done behind the scenes already? if so add 
+#	mention of that to the docs)
+
+#TODO: access to convenience methods like AllAfrica::Travel::Post::get_uri
+#  and blurb_text... for now we have to call
+#	AllAfrica::Travel::Post::get_uri($vdoc), instead of $vdoc->get_uri;
+
+#it'd also be nice to say things like the below, instead of
+#having a method with the same name as:
+#     <textsearch>
+#         <name>full_text</name>
+#         <code><![CDATA[ sub {
+#            return $_[0]->title."\n".
+#                   join("\n", $_[0]->tags())."\n".
+#                   $_[0]->body_text;
+#         } ]]></code>
+#      </textsearch>
+
+shortcut methods skip set_hook (and probably read_hook) !
+	(at least with a blob_element - try $doc->original("foo")
+	 on a travel...Picture::Local doc)
+
+<location> for BlobElements
+	this deals with elements on a different FS in a "smart" way,
+		and lets you move blobs out from the same hierarchy
+		as the xml docs, so you can grep -r there easily
+	another way to think of this is as the inverse of
+		the <extension> field (ie, <prefix>, akin to
+		PREFIX=/some/path make install)
+
+integrate Versionable.pm from travel code into base?
+
+parameterized where_clauses and such. single quotes are always a pain in 
+the rear here...
+
+default mode of destination dir should be $owner:{www-data|web}
+	and mode 664 on comma.log
+
+introspection cleanup:
+  add to docs that we deprecate from top-level of DocDef:
+    <required>, <plural>, <is_i*_from_hash>, these should  be in
+    a properties block now:
+      <properties>
+        <required>qw ( foo bar )</required>
+        <plural>qw ( foo )</plural>
+        <doc_key>qw ( bar )</doc_key>
+      </properties>
+  add support for this syntax:
+    <element><name>foo</name>
+      <properties>plural,required</properties></element>
+    <element><name>bar</name>
+      <properties>doc_key,required</properties></element>
+  allow support for persistent setting of this in a UI system
+    or be somewhere else in a UI-settable system
+    where can we store this adjunct data?
+    perhaps this should wait until a file can be both a def and doc?
+  also clean up the "4 different ways" problem, standardize on the
+      last (while retaining compatibility):
+    $def->is_{required|plural|is_ignore_for_hash}
+    $el->def->is_{nested|blob}
+    $macros{enum|boolean|range|timestamp|timestamp_created|timestamp_last_modified}
+    $def->has_property($required_plural_blob_nested_enum_or_etc, $el_name)
+  also rewrite legacy functions like is_required as calls to has_property
+
+insights from introspection:
+1 - a bug: you can load a <TravelPost>...</TravelPost> with doc on disk
+    that has <tpt>...</tpt> - add a sanity check there.
+2 - a possible bug: the below dies if we don't have a listing_fields (?)
+  <nested_element>
+      <name>listing_fields</name>
+      <element><name>foo</name><macro>something_that_installs_validate_hook</macro></element>
+      <required>qw ( foo )</required>
+  </nested_element>
+
+comma/postgres bug:
+  need to use a superuser for now.
+  later do what it suggests and change COPY to \copy ?
+
 #complete test:
 dropdb -U postgres comma ; createdb -U postgres -O comma comma; \
 make distclean ; perl Makefile.PL && make && make test && sudo make install
 
-THINK:
-	is the indexing iterator only implementation of lazy doc eval
-	performance-errific? or is it reloading a doc each time?
+TODO: make sure all new API stuff is in doc/guide.html and Bootstrap.pm
+TODO: test-case for $blob_el->append...
 
 things to add to guide.html:
-	storage iterator overloading
-	virtualdocs / to_array
-		notes: refresh() not called for you, docs are r/o - call 
-		get_lock() if you want it otherwise
+	everything in comma-2.html, plus probably some other stuff...
+
+add to comma-2.html/Changelog:
+	some sort of smart dump of svn commits to chronicle
+
+2.1:
+- apply & fix the stuff in weak/ for ->parent, ->top, etc.
+- get more info on copyright bounding start dates from comma 1.21
+- there is no way to get the size of the store from the index... perhaps
+	this is a feature? ... but it would be nice to have an 
+	$index->total_count or so
+- change default version of read_doc() to return a
+  virtualdoc when called off of an index iterator.
+- THINK: is it possible & safe to do the above optimization
+  when one calls retrieve_doc?
+- make an Iteratable.pm or so which Storage::Iterator and
+  Index::Iterator inherit from ( we probably can't use it for much
+  but it will look nicer that way ;) )
+
+$sit->length() vs. $idx->count() ... resolve this inconsisency if poss.
+consider iterator_refresh for storage iterators?
+$sit->length(max => $n) would be nice for gigantic stores...
 
 dave ideas:
   2 - (not sure if this is something we should do via comma, but to 
@@ -39,21 +137,29 @@ dave ideas:
 
 Reported by tim, 2/15/2007
 
-This doesn't work:
-$ perl -MXML::Comma -e 'use strict ; my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); foreach my $el ( $def->def_sub_elements() ) { my $tag = $el->name(); print $tag . "\n" if $el->element_is_plural($tag) ; }'
+This doesn't work... Probably to fix this after we get the weakref
+stuff in and right.
+$ perl -MXML::Comma -e 'use strict ;
+	my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); 
+	foreach my $el ( $def->def_sub_elements() ) {
+		my $tag = $el->name(); 
+		print $tag . "\n" if $el->element_is_plural($tag);
+	}'
 
 This does:
-$ perl -MXML::Comma -e 'use strict ; my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); foreach my $el ( $def->def_sub_elements() ) { my $tag = $el->name(); print $tag . "\n" if $def->is_plural($tag) ; }'
+$ perl -MXML::Comma -e 'use strict ;
+	my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" );
+	foreach my $el ( $def->def_sub_elements() ) {
+		my $tag = $el->name();
+		print $tag . "\n" if $def->is_plural($tag);
+	}'
 
-This is an API bug. See if the other is_* have this problem as well.
-
-you shouldn't have to say $el->element_is_plural($tag)
-$el->element_is_plural() shuold be enough
+This is an API bug. THE other is_* have this problem as well.
 
 
 Test::More stuff:
 - standardize/clean up the order of "use" statements, etc.
-- nominally using Test::More (numbered tests via ok instead of descrip):
+- tests that only nominally use Test::More (numbered tests via ok): 
     order.t, indexing.t, parser.t, storage.t, validation.t
 
 
@@ -61,57 +167,31 @@ with postgres, we get lots of spurious warnings starting "NOTICE"
 	these can be ignored (i think/hope)
 	the Pg code in general needs a general cleanup too.
 
-with postgres, we fail t/multi_store_doctype.t 2..29, yikes.
 pg for dummies:
   To get postgres up and running on my machine, for use with comma, I
   just did an ubuntu install, then:
     apt-get install postgresql-8.1 postgresql-server-dev-8.1
     sudo cpan -i DBD::Pg
     sudo bash
+     $EDITOR /etc/postgresql/8.1/main/pg_hba.conf
+     ## change:
+        local  all  postgres  ident sameuser
+        local   all         all                               ident sameuser
+     ## to:
+        local   all         postgres                          ident sameuser
+        local all all password
+        #local   all         all                               ident sameuser
+     /etc/init.d/postgresql-8.1 restart
      su postgres
-      createuser comma #for now make a superuser
+      createuser --pwpompt comma #for now make a superuser
         #there is a bug we need to fix with COPY commands with Pg
         #relevant tests are in t/indexing.t
       createdb -O comma comma
       exit #shell as postgres user
-     $EDITOR /etc/postgresql/8.1/main/pg_hba.conf
-     ## change:
-     #  local  all  postgres  ident sameuser
-     ## to:
-     #  local  all  all       password
-     su postgres
-      echo "alter user postgres with password 'random_1';" | psql
-      echo "alter user comma with password 'random_2';" | psql
-      exit #shell as postgres user
-     /etc/init.d/postgresql-8.1 restart
      psql -U comma comma #make sure you can connect
      psql -U postgres #make sure you can connect
      #edit Configuration.pm accordingly
-#TODO: must be some way to say that passwords only matter for comma,
-#in all other cases use the default per-user ident thing
 
-release notes:
-NOTE!
-  comma.log CANNOT be on NFS or you will lose messages (flock limitation)
-
-- http://www.mail-archive.com/dbi-users@perl.org/msg28459.html
-    this is harmless, but if you don't like it, upgrade to
-    DBD::mysql > 3.0007
-  prepare_cached(
-          SELECT table_name 
-            FROM index_tables 
-            WHERE doctype  = ? 
-            AND textsearch = ? 
-              ORDER BY table_type
-        ) statement handle DBI::st=HASH(0x8b2b390) still Active at 
-  .test/lib//XML/Comma/SQL/Base.pm line 755
-
-2.0 RELEASE TODO:
-- document the remaining 1.2x -> 2.x changes, esp in guide.html
-- make sure perl Makefile.PL && make && make test && sudo make install
-  works out of the box w/o problems or errors w/ either mysql or postfix
-
-LATER:
 - element-specific locking for when whole body lock is unnec. and too
   heavy weight?
 - maybe use ExtUtils::MakeMaker::prompt for automated testers
@@ -135,12 +215,6 @@ discovered it, I want to make sure it ALL does...
 	### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
 	think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
 
-- on call to read/retrieve(), but on
-  subsequent call to $doc->somefield, grab from db if poss. else grab from disk for 
-  speed reasons. allow old behavior with read(slow => 1), but I'm not sure why you'd
-  need that except debugging)
-  this will also allow things like my @docs = $it->all() - right now you couldn't do
-  that without calling a read_doc on each item, which is verrrrry slow...
 - it'd be nice if we could do some SQL-ish things with storage iterators... but best to
   read up on the progress (or is that lack of progress) with SQLite first...
 

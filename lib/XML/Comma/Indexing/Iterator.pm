@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -335,8 +335,14 @@ sub retrieve_doc {
 
 sub read_doc {
   my ($self, %args) = @_;
-  return $self->{_Iterator_doc_cache}->{$self->doc_key} ||
-    XML::Comma::Doc->read( $self->doc_key(), %args );
+  #slow => 1 for internal ($it->$field_name) use
+#  if($args{slow}) {
+    return $self->{_Iterator_doc_cache}->{$self->doc_key} ||
+      XML::Comma::Doc->read( $self->doc_key(), %args );
+#  } else {
+#    return unless $self->iterator_has_stuff();
+#    return XML::Comma::VirtualDoc->new($self);
+#  }
 }
 
 # alias doc_(read && retrieve) to (read && retrieve)_doc 
@@ -811,7 +817,7 @@ sub iterator_dispatch {
   die $prev_error if($self->{_Iterator_doing_lazy_doc_eval});
   eval {
     $self->{_Iterator_doing_lazy_doc_eval} = 1;
-    $doc = $self->read_doc();
+    $doc = $self->read_doc(slow => 1);
     $self->{_Iterator_doing_lazy_doc_eval} = 0;
     $value = $doc->$m();
   };

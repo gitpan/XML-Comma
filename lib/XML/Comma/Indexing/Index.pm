@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001 AllAfrica Global Media
+#    Copyright 2001-2007 AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -669,6 +669,17 @@ sub rebuild {
 
 sub _rebuild_loop {
   my ( $self, $rebuild_flag, $store, %args ) = @_;
+  #unspecified defer_textsearches defaults to 1 unless we are using
+  #postgres, which has problems with deferred textsearches at the moment
+  my $defer_textsearches = defined($args{defer_textsearches}) ?
+    $args{defer_textsearches} :
+    (XML::Comma->system_db() ne 'postgres');
+  #if we're running postgres and we got an explicit defer_textsearches,
+  #die with some explanatory text abot the sitation
+  if($args{defer_textsearches} && (XML::Comma->system_db() eq 'postgres')) {
+    #TODO: index_update() probably have this warning too...
+    die "defer_textsearches is BROKEN with postgres at the moment, please remove the defer_textsearches argument to your rebuild() call";
+  }
   # don't do anything if there's nothing stored (avoids "can't stat" warning)
   return  if  ! -d $store->base_directory();
   # get iterator
@@ -694,7 +705,7 @@ sub _rebuild_loop {
       # $doc->index_update ( index      => "$index_doctype:$index_name",
       $doc->index_update ( index      => "$index_name",
                            comma_flag => 0,
-                           defer_textsearches => 1 );
+                           defer_textsearches => $defer_textsearches );
       # run stop_rebuild_hooks, passing $doc and $self. if any of the subs
       # return true, then we should exit from the rebuild
       foreach my $sub ( @{$self->get_hooks_arrayref('stop_rebuild_hook')} ) {
@@ -901,6 +912,10 @@ sub make_sort_spec {
 sub split_sort_spec {
   my ( $name, $string ) = split ( ':', $_[1], 2 );
   return ( $name, $string );
+}
+
+sub def_name {
+  return $_[0]->{_Index_doctype};
 }
 
 sub table_exists {
@@ -1224,10 +1239,12 @@ sub clean_textsearches {
 
 sub _textsearch_cache_text {
   my ( $self, $textsearch, $doc_id, $words, $frozen_text ) = @_;
-  my ( $seq ) = $self->sql_get_sq_from_data_table ( $self, $doc_id );
+  my ( $seq ) = $self->sql_get_sq_from_data_table ( $doc_id );
   return if ! $seq;
-  foreach my $word ( @{thaw($frozen_text)} ) {
-    push @{$words->{$word}}, $seq;
+  if(thaw($frozen_text)) {
+    foreach my $word ( @{thaw($frozen_text)} ) {
+      push @{$words->{$word}}, $seq;
+    }
   }
 }
 

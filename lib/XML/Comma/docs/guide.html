@@ -12,7 +12,7 @@ pre { background-color: #ddddff }
 </head>
 <body>
 
-<!-- synced with Comma version 1.20 -->
+<!-- synced with Comma version 1.25, sort of... -->
 
 <h1>Introduction</h1>
 
@@ -1920,7 +1920,9 @@ equivalent: </p>
 <pre>
 &lt;!-- 1) a required tag specifying two element names--&gt;
 &lt;required&gt;'foo', 'bar'&lt;/required&gt;
+</pre>
 
+<pre>
 &lt;!-- 2) the two validate_hooks that are actually installed
 when the Def is parsed, one for 'foo' and one for 'bar' --&gt;
 
@@ -1931,7 +1933,7 @@ when the Def is parsed, one for 'foo' and one for 'bar' --&gt;
     my $req_el = \$self-&gt;elements('foo')-&gt;[0];
     die "required element 'foo' not found in " . $self-&gt;tag_up_path() . "\n" if
                     (! $req_el) or 
-                    ((! $req_el-&gt;def()-&gt;is_nested()) and (! $req_el-&gt;get()));
+                    ((! $req_el-&gt;def()-&gt;is_nested()) and ($req_el-&gt;get() eq ''));
   } 
 ]]&gt;
 &lt;/validate_hook&gt;
@@ -3839,10 +3841,15 @@ storage is specified with an <b>extension</b> def element: </p>
 
 <p> The extension itself is produced by eval'ing the <b>extension</b>
 specifier each time the element is stored. This makes it possible to
-have the extension vary depending on the content of the blob. For a
-(complex) example of this -- as well as for a generally useful element
-that can be defname'ed into any context -- see the file
-t/defs/Comma_Standard_Image.def in the comma distribution. </p>
+have the extension vary depending on the content of the blob. The 
+easiest way to do this, of course, is to put a method in your extension, 
+like so:
+<pre>
+&lt;extension&gt;&lt;![CDATA[ $self-&gt;image_extension() ]]&gt;&lt;/extension&gt;
+</pre>
+For a more complex example of this -- as well as for a generally 
+useful element that can be defname'ed into any context -- see the file
+t/defs/standard/Comma_Standard_Image.def in the comma distribution. </p>
 
 
 <h1>Grouping and Sorting Elements</h1>
@@ -4480,18 +4487,17 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
 <p>
 <ul>
 
-  <li>XML::Comma
-    <ul>
+  <li>XML::Comma<ul>
     <li>&lt;all configuration variables readable via methods&gt;</li>
     <li>$lock_interface = XML::Comma->lock_singlet()</li>
       <ul>
-      <li>undef = $lock_interface->wait_for_hold ( $string );</li>
-      <li>undef = $lock_interface->release_hold ( $string );</li></ul>
-      <li>$hashref = XML::Comma->def_pnotes($defpath);</li></ul>
-    </ul></li>
+        <li>undef = $lock_interface->wait_for_hold ( $string );</li>
+        <li>undef = $lock_interface->release_hold ( $string );</li>
+      </ul>
+    <li>$hashref = XML::Comma->def_pnotes($defpath);</li>
+  </ul></li>
 
-  <li>XML::Comma::Doc
-    <ul>
+  <li>XML::Comma::Doc<ul>
     <li>$doc = XML::Comma::Doc-&gt;new ( type =&gt; )</li>
     <li>$doc = XML::Comma::Doc-&gt;new ( block =&gt; )</li>
     <li>$doc = XML::Comma::Doc-&gt;new ( file =&gt; )</li>
@@ -4517,13 +4523,13 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$string = $doc-&gt;doc_key()</li>
     <li>$string = $doc-&gt;doc_source_file()</li>
     <li>$bool   = $doc-&gt;doc_is_locked()</li>
+    <li>$bool   = $doc-&gt;doc_is_new()</li>
     <li>$int    = $doc-&gt;doc_last_modified()</li>
     <li>$doc = $doc-&gt;index_update ( index=>$index )</li>
     <li>$doc = $doc-&gt;index_remove ( index=>$index )</li>
   </ul></li>
 
-  <li>all elements
-    <ul>
+  <li>all elements<ul>
     <li>$string = $el-&gt;tag()</li>
     <li>$string = $el-&gt;tag_up_path()</li>
     <li>$def = $el-&gt;def()</li>
@@ -4534,19 +4540,18 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>@names = $def-&gt;applied_macros();</li>
     <li>1/undef = $def-&gt;applied_macros ( @names );</li>
     <li>$hashref = $el->pnotes();</li>
-    </ul></li>
+  </ul></li>
 
-  <li>blob elements
-    <ul>
+  <li>blob elements<ul>
     <li>$string = $el-&gt;set( $string )</li>
     <li>$string = $el-&gt;get()</li>
     <li>'' = $el-&gt;set_from_file ( $filename )</li>
     <li>'' = $el-&gt;validate()</li>
+    <li>$string = $el-&gt;append ( $more_string )</li>
     <li>$string = $el-&gt;get_location()</li>
-    </ul></li>
+  </ul></li>
 
-  <li>simple elements
-    <ul>
+  <li>simple elements<ul>
     <li>$string = $el-&gt;get( [unescape=&gt;], [%args] )</li>
     <li>$string = $el-&gt;get_without_default()</li>
     <li>$string = $el-&gt;set ( $string, [escape=&gt;], [%args] )</li>
@@ -4554,10 +4559,9 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$string = $el-&gt;validate()</li>
     <li>$string = $el-&gt;validate_content ( $string )</li>
     <li>1 = $el-&gt;cdata_wrap();</li>
-    </ul></li>
+  </ul></li>
 
-  <li>nested elements
-    <ul>
+  <li>nested elements<ul>
     <li>@els/[] = $el-&gt;elements ( [@tags] )</li>
     <li>$el = $el-&gt;element ( $tag )</li>
     <li>$el = $el-&gt;add_element ( $tag )</li>
@@ -4576,10 +4580,9 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>@els = $el-&gt;get_all_blobs()</li>
     <li>$el = $el-&gt;group_elements();</li>
     <li>@els/[] = $el-&gt;sort_elements ( [@tags] )</li>
-    </ul></li>
+  </ul></li>
 
-  <li>XML::Comma::Def
-    <ul>
+  <li>XML::Comma::Def<ul>
     <li>$def = XML::Comma::Def-&gt;read ( name =&gt; )</li>
     <li>@names = $def-&gt;store_names();</li>
     <li>$store = $def-&gt;get_store ( $name );</li>
@@ -4600,10 +4603,13 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>1/undef = $def-&gt;is_nested();</li>
     <li>1/undef = $def-&gt;is_blob();</li>
     <li>1/undef = $def-&gt;is_ignore_for_hash();</li>
-    </ul></li>
+    <li>1/undef = $def-&gt;has_property( [ ignore_for_hash |
+include_for_hash | plural | required | nested | blob | enum | boolean |
+range | timestamp | timestamp_created | timestamp_last_modified |
+doc_key | single_line ] );</li>
+  </ul></li>
 
-  <li>XML::Comma::Indexing::Index
-    <ul>
+  <li>XML::Comma::Indexing::Index<ul>
     <li>@names = $index-&gt;field_names();</li>
     <li>@names = $index-&gt;sort_names(); [ DEPRECATED ]</li>
     <li>@names = $index-&gt;collection_names();</li>
@@ -4620,11 +4626,11 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>'' = $index-&gt;rebuild ( [verbose=&gt;'1'|'0',workers=&gt;$processes_num,size=&gt;$size_num] );</li>
     <li>'' = $index-&gt;clean();</li>
     <li>'' = $index-&gt;get_dbh();</li>
-     
-    </ul></li>
+    <li>$def_name    = $index-&gt;def_name();</li>
+    <li>$idx_name    = $index-&gt;name();</li>
+  </ul></li>
 
-  <li>XML::Comma::Indexing::Iterator
-    <ul>
+  <li>XML::Comma::Indexing::Iterator<ul>
     <li>$iterator = $iterator_refresh() ( [$limit_number], [$limit_offset] );</li>
     <li>$iterator/false = $iterator-&gt;iterator_next();</li>
     <li>$bool = $iterator-&gt;iterator_has_stuff();</li>
@@ -4634,26 +4640,26 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$string = $iterator-&gt;doc_key();</li>
     <li>$string = $iterator-&gt;doc_id();</li>
     <li>$return_value = $iterator-&gt;$field/$method ( [@args] );</li>
-    </ul></li>
+    <li>@docs = $iterator-&gt;to_array();</li>
+  </ul></li>
 
-  <li>XML::Comma::Log
-    <ul>
+  <li>XML::Comma::Log<ul>
     <li>&lt;thrown error/die&gt; = XML::Comma::Log-&gt;err ( $error_string, $info_string );</li>
     <li>'' = XML::Comma::Log-&gt;warn ( $string );</li>
     <li>'' = XML::Comma::Log-&gt;log ( $string/$error );</li>
-    </ul></li>
+  </ul></li>
 
-  <li>XML::Comma::Storage::Store
-    <ul>
-    <li>$id_string = $store-&gt;first_id();</li>
-    <li>$id_string = $store-&gt;last_id();</li>
-    <li>$id_string = $store-&gt;next_id ( $id_string );</li>
-    <li>$id_string = $store-&gt;prev_id ( $id_string );</li>
-    <li>$directory = $store-&gt;base_directory();</li>
-    </ul></li>
+  <li>XML::Comma::Storage::Store<ul>
+    <li>$id_string   = $store-&gt;first_id();</li>
+    <li>$id_string   = $store-&gt;last_id();</li>
+    <li>$id_string   = $store-&gt;next_id ( $id_string );</li>
+    <li>$id_string   = $store-&gt;prev_id ( $id_string );</li>
+    <li>$directory   = $store-&gt;base_directory();</li>
+    <li>$def_name    = $store-&gt;def_name();</li>
+    <li>@index_names = $store-&gt;associated_indices();</li>
+  </ul></li>
 
-  <li>XML::Comma::Storage::Iterator
-    <ul>
+  <li>XML::Comma::Storage::Iterator<ul>
     <li>$iterator = XML::Comma::Storage::Iterator-&gt;new ( store=&gt;$store, size=&gt;$num, pos=&gt;&lt;'+' | '-'&gt;;</li>
     <li>$num = $iterator-&gt;length();</li>
     <li>$num = $iterator-&gt;index();</li>
@@ -4665,10 +4671,11 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$num = $iterator-&gt;next_read();</li>
     <li>$num = $iterator-&gt;prev_read();</li>
     <li>$num = $iterator-&gt;doc_id();</li>
-    </ul></li>
+    <li>@docs = $iterator-&gt;read_doc();</li>
+    <li>@docs = $iterator-&gt;to_array();</li>
+  </ul></li>
 
-  <li>XML::Comma::Util
-    <ul>
+  <li>XML::Comma::Util<ul>
     <li>$first_element   = trim ( @strings_to_trim );</li>
     <li>@trimmed_strings = trim ( @strings_to_trim );</li>
     <li>$bool = array_includes ( @array, $string );</li>
@@ -4682,13 +4689,12 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>'' = dbg ( @arrays/[] [...] );</li>
     <li>($name, @args) = name_and_args_eval ( $string );</li>
     <li>$string = random_an_string ( $length );</li>
-    </ul></li>
+  </ul></li>
 
-  <li>XML::Comma::Storage::Util
-    <ul>
+  <li>XML::Comma::Storage::Util<ul>
     <li>$doc_key = XML::Comma::Storage::Util::concat_key ( type=>$type, store=>$store_name, id=>$id );</li>
     <li>( $type, $store_name, $id ) = XML::Comma::Storage::Util->split_key ( $key );</li>
-    </ul></li>
+  </ul></li>
 
 </ul>
 </p>

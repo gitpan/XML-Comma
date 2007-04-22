@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -22,7 +22,7 @@
 
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.96';
+$XML::Comma::VERSION = '1.97';
 
 use strict;
 use vars '$AUTOLOAD';

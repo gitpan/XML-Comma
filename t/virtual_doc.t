@@ -5,7 +5,7 @@ use lib ".test/lib/";
 use XML::Comma;
 use XML::Comma::VirtualDoc;
 
-use Test::More tests => 46;
+use Test::More tests => 61;
 
 sub array_cmp {
 	my ($ar1, $ar2) = @_;
@@ -81,16 +81,27 @@ foreach my $vd (@svds) {
 	ok($vd->bart);
 } 
 
-#TODO: compare contents of @svds, @ivds
+#compare contents of @svds, @ivds
 ok(array_cmp(\@svds, \@ivds));
 
-#TODO: test to_array behavior
+#test to_array behavior
 $it  = $vdef->get_index("main")->iterator();
 $sit = $vdef->get_store("main")->iterator(pos=>'-');
 my @ivds_from_to_array = $it->to_array();
 my @svds_from_to_array = $sit->to_array();
 
-#TODO: compare the contents of @ivds_from_to_array and @ivds
+#compare the contents of @ivds_from_to_array and @ivds
 ok(array_cmp(\@ivds_from_to_array, \@ivds));
-#TODO: compare the contents of @svds_from_to_array and @svds
+#compare the contents of @svds_from_to_array and @svds
 ok(array_cmp(\@svds_from_to_array, \@svds));
+
+# make sure $vdoc->get_lock() works as expected
+$it = $vdef->get_index("main")->iterator();
+while(++$it) {
+	my $d = $it->read_doc();
+	ok($d);
+	ok($d->get_lock());
+	ok($d->bar("set-test"));
+	ok($d->store());
+	ok($d->bar() eq "set-test");
+}

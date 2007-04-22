@@ -1,6 +1,28 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.97  2007/04/21 r.1026
+-------------------------
+
+  - thanks to kwin's help, find the root of the postgres/textsearches
+    issues. for now, we have a horrible hackish workaround (force the
+    developer not to use defer_textsearches => 1 with rebild)
+
+  - allow a required element to have a value of 0. this is
+    important for required booleans, else validate errors out
+
+  - add ->def() in DefModule.pm and docs that inherit fromwhence
+
+  - add introspection tests, fuller API expected in 2.1
+
+  - add usage of timestamp macro on element, only useful with
+    forthcoming introspection code.
+
+  - add {Store|Index}->def_name, $store->associated_indices()
+
+  - begin work on allowing postgres to be configured from Makefile.PL
+
+-------------------------
 1.96  2007/02/26 r.949
 -------------------------
 

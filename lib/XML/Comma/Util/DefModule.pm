@@ -1,3 +1,25 @@
+##
+#
+#    Copyright 2001-2005, AllAfrica Global Media
+#
+#    This file is part of XML::Comma
+#
+#    XML::Comma is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    For more information about XML::Comma, point a web browser at
+#    http://xml-comma.org, or read the tutorial included
+#    with the XML::Comma distribution at docs/guide.html
+#
+##
+
 package XML::Comma::Util::DefModule;
 use XML::Comma;
 
@@ -10,8 +32,20 @@ my $_def_name;
 # default new returns a new empty doc
 sub new {
   my $class = shift;
-  return XML::Comma::Doc->new ( type => eval "\$$class\::_def_name" ||
-                                        die "need to 'load_def' for $class\n" );
+  my $doc = XML::Comma::Doc->new ( type => eval "\$$class\::_def_name" ||
+                                     die "need to 'load_def' for $class\n" );
+  $doc->{_def} = $class->load_def();
+  return $doc;
+}
+
+#override def() so it works on instances like regular comma docs
+sub def {
+	my $self = shift;
+	if($self->isa("XML::Comma::Doc")) {
+		return $self->{_def};
+	} else {
+		return $self->load_def(@_);
+	}
 }
 
 sub load_def {
@@ -56,7 +90,6 @@ This module provides an easy way to define a Def inside a
 module. Children of XML::Comma::Util::DefModule inherit two methods:
 
   load_def
-
   new
 
 The Def is created from a string found in the DATA section of the
@@ -79,10 +112,40 @@ look like this:
   __DATA__
 
   <DocumentDefinition>
-    <name>Example_Frobulator_Def</name>
+    <name>Example_Frobulator</name>
     <class><module>Example::Frobulator</module></class>
 
     <element><name>frobuvalue</name></element>
   </DocumentDefinition>
+
+You can access the def from this object in a variety of
+ways, all of which are equivalent:
+
+  $def = XML::Comma::Def->Example_Frobulator;
+  $def = Example::Frobulator->load_def();
+  $def = Example::Frobulator->def();
+  $def = Example::Frobulator->new(%args)->def();
+
+NOTE: when overriding def(), it is easy to make a circular
+reference which cannot be garbage collected, leading to
+various unintuitive problems. NEVER DO THIS:
+
+  sub def {
+    my $def = XML::Comma::Def->read( name => "Example_Frobulator" );
+    #do some stuff with $def
+    return $def;
+  }
+
+The safe way to do this is to use DefModule's def() method, which
+has magic to take care of proper memory management for you:
+
+  sub def {
+    my $def = __PACKAGE__->def;
+    #do some stuff with $def
+    return $def;
+  }
+
+As an added bonus, def() implemented this way will work when called
+from a class or instance, like the default.
 
 =cut

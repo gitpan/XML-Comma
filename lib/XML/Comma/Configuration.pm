@@ -53,6 +53,7 @@ postgres =>
         PrintError => 0,
         ShowErrorStatement => 1,
         AutoCommit => 1,
+        pg_enable_utf8 => 1,
       }
     ],
   },

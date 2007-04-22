@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -31,8 +31,6 @@ use strict;
 # given an object with the necessary fields to fall back on, returns
 # a new virtual doc (give it a doc or an iterator)
 #
-
-### TODO: Storage Iterators!
 
 sub new {
 	my ( $class, $parent, %args ) = @_; 

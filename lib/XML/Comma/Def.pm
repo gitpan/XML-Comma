@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -38,10 +38,12 @@ use strict;
 # _Def_indexes                : {} hashref {_Def_indexes}->{name} = $index
 # _Def_storages               : {} hashref {_Def_storages}->{name} = $storage
 # _Def_macro_names            : [] arrayref listing macros applied
-# _Def_plural                 : {} an existence hashref
-# _Def_ignore_for_hash        : {} an existence hashref
-# _Def_include_for_hash       : {} an existence hashref
-# _Def_required               : {} an existence hashref
+
+# _Def_properties             : {} an existence hashref
+#   fields: ignore_for_hash, include_for_hash, required, plural
+#   misc: nested, blob, 
+#   macro stuff: enum, boolean, range, timestamp, timestamp_created, timestamp_last_modified
+#   UI stuff: doc_key, timestamp, single_line
 #
 # _Def_sort_sub               : a code ref created by _config__sort_sub
 #
@@ -85,8 +87,8 @@ sub new {
 
 sub _init {
   my ( $self, %arg ) = @_;
-  $self->{_Def_plural} = {};
-  $self->{_Def_required} = {};
+  $self->{_Def_properties}->{plural} = {};
+  $self->{_Def_properties}->{required} = {};
   $self->{_Def_macro_names} = [];
   $self->{_Def_auto_escape} = 0;
   $self->{_Def_auto_unescape} = 0;
@@ -280,6 +282,7 @@ sub _index_on_store_hooks {
            $storage_el->name() . "' in def '" . $self->name() . "'\n";
     }
     
+    push @{$storage_el->{_index_on_stores}}, $index_string;
     my $update_string = 
       "sub { \$_[0]->index_update ( index=>'$index_string' ) };";
     my $delete_string = 
@@ -392,27 +395,27 @@ sub _config__plural {
   if ( $@ ) {
     die "problem with plural list: " . $el->get() . "\n";
   }
-  map { $self->{_Def_plural}->{$_} = 1 } @plural_list;
+  map { $self->{_Def_properties}->{plural}->{$_} = 1 } @plural_list;
 }
 
 sub _config__ignore_for_hash {
   my ( $self, $el ) = @_;
   die "tried to define ignore_for_hash when we have an include_for_hash\n"
-    if($self->{_Def_include_for_hash});
+    if($self->{_Def_properties}->{include_for_hash});
   my @ignore_list = eval $el->get();
   if ( $@ ) {
     die "problem with ignore_for_hash list: " . $el->get() . "\n";
-  } map { $self->{_Def_ignore_for_hash}->{$_} = 1 } @ignore_list;
+  } map { $self->{_Def_properties}->{ignore_for_hash}->{$_} = 1 } @ignore_list;
 }
 
 sub _config__include_for_hash {
   my ( $self, $el ) = @_;
   die "tried to define include_for_hash when we have an ignore_for_hash\n"
-     if($self->{_Def_ignore_for_hash});
+     if($self->{_Def_properties}->{ignore_for_hash});
   my @include_list = eval $el->get();
   if ( $@ ) {
     die "problem with include_for_hash list: " . $el->get() . "\n";
-  } map { $self->{_Def_include_for_hash}->{$_} = 1 } @include_list;
+  } map { $self->{_Def_properties}->{include_for_hash}->{$_} = 1 } @include_list;
 }
 
 # note in the existence hashref that this is a required element, so
@@ -427,14 +430,14 @@ sub _config__required {
     die "error while trying to parse required list '$required': $@\n";
   }
   foreach my $req ( @list ) {
-    $self->{_Def_required}->{$req} = 1;
+    $self->{_Def_properties}->{required}->{$req} = 1;
     $self->add_hook ( 'validate_hook',
          "sub {
             my \$self = shift();
             my \$req_el = \$self->elements('$req')->[0];
             die \"required element '$req' not found in \" . \$self->tag_up_path() . \"\\n\"  if
                     (! \$req_el) or 
-                    ((! \$req_el->def()->is_nested()) and (! \$req_el->get()));
+                    ((! \$req_el->def()->is_nested()) and (\$req_el->get() eq ''));
           }",
                     0xffffff # our "hook order" number -- high because
                              # we want to do this hook after any that
@@ -460,6 +463,19 @@ sub _config__required {
 #      }" );
 #  }
 
+#introspection stuff - see _Def_properties, above, or Bootstrap.pm
+#for allowed fields
+sub _config__properties {
+  my ( $self, $el ) = @_;
+  foreach my $child ($el->elements()) {
+    my $tag  = $child->tag();
+    my @list = eval $child->get();
+    if ( $@ ) {
+      die "problem with properties::$tag list: " . $el->get() . "\n";
+    }
+    map { $self->{_Def_properties}->{$tag}->{$_} = 1 } @list;
+  }
+}
 
 sub _config__read_hook {
   my ( $self, $el ) = @_;
@@ -533,20 +549,20 @@ sub sort_sub {
 
 # is the element the name of which we pass plural
 sub is_plural {
-  return 1  if  $_[0]->{_Def_plural}->{$_[1]};
+  return 1  if  $_[0]->{_Def_properties}->{plural}->{$_[1]};
   return;
 }
 
 sub is_required {
-  return 1  if  $_[0]->{_Def_required}->{$_[1]};
+  return 1  if  $_[0]->{_Def_properties}->{required}->{$_[1]};
   return;
 }
 
 sub is_ignore_for_hash {
-  if($_[0]->{_Def_ignore_for_hash}) {
-    return 1  if  $_[0]->{_Def_ignore_for_hash}->{$_[1]};
-  } elsif($_[0]->{_Def_include_for_hash}) {
-    return 1  unless  $_[0]->{_Def_include_for_hash}->{$_[1]};
+  if($_[0]->{_Def_properties}->{ignore_for_hash}) {
+    return 1  if  $_[0]->{_Def_properties}->{ignore_for_hash}->{$_[1]};
+  } elsif($_[0]->{_Def_properties}->{include_for_hash}) {
+    return 1  unless  $_[0]->{_Def_properties}->{include_for_hash}->{$_[1]};
   }
   return;
 }
@@ -556,6 +572,12 @@ sub validate {
     foreach my $hook ( @{$self->get_hooks_arrayref('validate_hook')} ) {
       $hook->( $element, $content );
     }
+}
+
+sub has_property {
+  my ($self, $property, $el_name) = @_;
+  return 1 if $self->{_Def_properties}->{$property}->{$el_name};
+  return;
 }
 
 # is the element we define allowed to have sub-elements
@@ -576,7 +598,6 @@ sub is_blob {
 sub def_sub_elements {
   return ( $_[0]->elements('element','nested_element','blob_element') );
 }
-
 
 ########
 #

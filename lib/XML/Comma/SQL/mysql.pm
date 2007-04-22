@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -219,6 +219,11 @@ sub sql_load_data {
 
 sub sql_select_returns_count {
   return 1;
+}
+
+sub sql_textsearch_cat_seq_list {
+  my ($self, $packed1, $packed2) = @_;
+  return $packed1 . $packed2;
 }
 
 1;

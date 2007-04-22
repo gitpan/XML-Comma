@@ -1,3 +1,25 @@
+##
+#
+#    Copyright 2004-2005, AllAfrica Global Media
+#
+#    This file is part of XML::Comma
+#
+#    XML::Comma is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    For more information about XML::Comma, point a web browser at
+#    http://xml-comma.org, or read the tutorial included
+#    with the XML::Comma distribution at docs/guide.html
+#
+##
+
 # A work in progress -- not yet close to functional. There are lots of
 # issues with our assumptions about how to handle errors versus who
 # sqlite throws them, with autocommit stuff, with the "schema has
@@ -816,6 +838,10 @@ sub reconnect {
   dbg 'reconnect', $self->{_DBH};
   $self->{_DBH_pid} = $$;
   return $self->{_DBH};
+}
+
+sub sql_textsearch_cat_seq_list {
+	die "TODO: steal SQLite.pm::sql_textsearch_cat_seq_list, and pack/unpack from Pg.pm";
 }
 
 1;

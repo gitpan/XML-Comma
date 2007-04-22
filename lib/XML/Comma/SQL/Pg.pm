@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -177,14 +177,21 @@ sub sql_index_only_doc_id_type {
 # in postgres to do this textsearch stuff?
 sub sql_textsearch_pack_seq_list {
   shift();
-  return join ( '-', @_ ) . '-';
+  return '' unless @_;
+  return '-' . join ( '-', @_ ) . '-';
 }
 
 sub sql_textsearch_unpack_seq_list {
-  return split ( '-', $_[1] );
+  my @ret = split ( '-', $_[1] );
+  shift @ret;
+  return @ret;
 }
 
-
+sub sql_textsearch_cat_seq_list {
+  my ($self, $packed1, $packed2) = @_;
+  chop $packed1;
+  return $packed1 . $packed2;
+}
 
 sub sql_limit_clause {
   my ( $index, $limit_number, $limit_offset ) = @_;

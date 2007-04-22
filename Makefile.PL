@@ -33,9 +33,19 @@ package main;
 my @cmd_line_utils = qw(
 bin/comma-drop-index.pl
 bin/comma-load-doc.pl
-bin/comma-load-and-store-doc.pl
+bin/comma-load-and-store-doc.sh
 bin/comma-load-and-index-doc.pl
 );
+
+my $dbd_module = "DBD::mysql";
+eval { require DBD::mysql; }; if($@) {
+	eval { require DBD::Pg; }; if($@) {
+		#neither found, use mysql by default due to its popularity
+		$dbd_module = "DBD::mysql";
+	}
+	#Pg found, use that
+	$dbd_module = "DBD::Pg";
+}
 
 WriteMakefile(
     'NAME'	       => 'XML::Comma',
@@ -56,8 +66,7 @@ WriteMakefile(
                 Math::BaseCalc           => 0,
                 Class::ClassDecorator    => 0,
                 DBI                      => 0,
-#TODO: how to indicate that we need *EITHER* DBD::mysql *OR* DBD::Pg?
-                DBD::mysql               => 0,
+                $dbd_module              => 0,
                 Compress::Zlib           => 0,
                 PAR                      => 0,
                 Test::More               => 0,

@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -99,7 +99,7 @@ sub read {
 sub write {
   my ( $self, %arg ) = @_;
   # pre-store hooks
-  unless ( $arg{no_hooks} ) {
+  unless ( $arg{no_hooks} || $arg{no_pre_store_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('pre_store_hook')} ) {
       $sub->( $arg{doc}, $self, \%arg );
     }
@@ -165,7 +165,7 @@ sub write {
   # unlocked properly. we'll re-throw the first error we got after
   # we finish unlocking.
   my $post_store_error;
-  unless ( $arg{no_hooks} ) {
+  unless ( $arg{no_hooks} || $arg{no_post_store_hooks} ) {
     foreach my $sub ( @{$self->get_hooks_arrayref('post_store_hook')} ) {
       #$sub->( $arg{doc}, $self, \%arg );
       eval { $sub->( $arg{doc}, $self, \%arg ); };
@@ -435,6 +435,20 @@ sub dir_permissions {
   return $_[0]->{_Store_dir_permissions};
 }
 
+sub def_name {
+  return $_[0]->{_Store_doctype};
+}
+
+#this just calls associated_indices for people who spell different
+sub associated_indexes {
+	my ($self, @args) = @_;
+	$self->associated_indices(@args);
+}
+
+sub associated_indices {
+	my $ios = $_[0]->{_index_on_stores};
+	return (defined($ios) && @$ios ? @$ios : ());
+}
 
 sub init_and_cast {
   my ( $self, $document_type ) = @_;

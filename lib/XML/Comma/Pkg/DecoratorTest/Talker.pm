@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2004, AllAfrica Global Media
+#    Copyright 2004-2005, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #

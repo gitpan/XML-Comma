@@ -3,7 +3,7 @@
 use strict;
 
 package misc::MakeMakerMod;
-our $VERSION = '0.001';
+our $VERSION = '0.002';
 
 sub add_steps {
 	my %args = @_;
@@ -23,14 +23,14 @@ sub add_steps {
 	#write the Makefile back out with extra commands in the install step
 	open(MF, ">$file") || die "can't open Makefile for writing";
 	map { print MF $_ } @lines[0..$ln-1];
-	print MF "\n\t################################\n";
-	print MF "\t### added by MakeMakerMod.pm ###\n";
-	print MF "\t################################\n";
+	print MF "\n\t@################################\n";
+	print MF "\t@### added by MakeMakerMod.pm ###\n";
+	print MF "\t@################################\n";
 	map { my $l = "\t  $_"; chomp($l); print MF "$l\n" } 
 		split("\n", $what);
-	print MF "\t#################################\n";
-	print MF "\t### /added by MakeMakerMod.pm ###\n";
-	print MF "\t#################################\n\n";
+	print MF "\t@#################################\n";
+	print MF "\t@### /added by MakeMakerMod.pm ###\n";
+	print MF "\t@#################################\n\n";
 	map { print MF $_ } @lines[$ln..$#lines];
 	close(MF);
 }

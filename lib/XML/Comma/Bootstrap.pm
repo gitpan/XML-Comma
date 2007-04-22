@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2004, AllAfrica Global Media
+#    Copyright 2004-2006, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -146,6 +146,23 @@ sub bootstrap_block {
   <element><name>include_for_hash</name></element>
   <element><name>plural</name></element>
   <element><name>required</name></element>
+  <nested_element>
+    <name>properties</name>
+    <element><name>ignore_for_hash</name></element>
+    <element><name>include_for_hash</name></element>
+    <element><name>plural</name></element>
+    <element><name>required</name></element>
+    <element><name>nested</name></element>
+    <element><name>blob</name></element>
+    <element><name>enum</name></element>
+    <element><name>boolean</name></element>
+    <element><name>range</name></element>
+    <element><name>timestamp</name></element>
+    <element><name>timestamp_created</name></element>
+    <element><name>timestamp_last_modified</name></element>
+    <element><name>doc_key</name></element>
+    <element><name>single_line</name></element>
+  </nested_element>
   <nested_element>
     <name>class</name>
     <element><name>module</name></element>

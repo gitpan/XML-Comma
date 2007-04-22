@@ -1,8 +1,8 @@
 use strict;
 use File::Path;
 
-#TODO: convert test::more numbers to useful strings
-use Test::More tests => 108;
+#TODO: get rid of numbers, this is Test::More
+use Test::More tests => 112;
 
 use lib ".test/lib/";
 
@@ -16,6 +16,8 @@ my $doc_block = <<END;
   <plu>blah</plu>
   <plu>blah</plu>
   <plu>blah</plu>
+
+  <zero_field>a true value</zero_field>
 
   <nested>
     <nested_sing>nah</nested_sing>
@@ -198,21 +200,24 @@ eval { $doc->validate(); };
 ok("74") if $@;
 
 my $d2 = XML::Comma::Doc->new ( type=>'_test_validation' );
-# should fail because of plu (and nested, and nested_sing inside nested)
+# should fail because of zero_field (and plu and nested, and nested_sing inside nested)
 eval { $doc->validate(); };
-ok("75") if $@;
+ok($@);
+$d2->element('zero_field')->set('a true value');
+# should fail because of plu (and nested, and nested_sing inside it)
+eval { $doc->validate(); };
+ok($@);
 $d2->element('plu')->set('foo');
 # should fail because of nested (and nested_sing inside it)
 eval { $doc->validate(); };
-ok("76") if $@;
+ok($@);
 $d2->element('nested');
 # should fail because of nested_sing inside nested
 eval { $doc->validate(); };
-ok("77") if $@;
-# now fill nested_sing, and the validate should work
+ok($@);
 $d2->element('nested')->element('nested_sing')->set('foo');
-$d2->validate_structure();
-ok("78");
+eval { $doc->validate(); };
+ok($@);
 
 # default value
 ok("79")  if  $doc->element('with_default')->get eq 'default stuff';
@@ -249,36 +254,49 @@ ok("93")  if  $doc->element_is_required ( 'nested' );
 ok("94")  if  ! $doc->element_is_required ( 'with_default' );
 
 # boolean macro
-ok("95")  if $doc->bool() == 0; # default 0
+ok($doc->bool() == 0); # default 0
 
 $doc->element('bool')->toggle;
-ok("96")  if  $doc->bool() == 1;
+ok($doc->bool() == 1);
 $doc->element('bool')->toggle;
-ok("97")  if  $doc->bool() == 0;
+ok($doc->bool() == 0);
 
 $doc->bool ( 1 );
-ok("98")  if  $doc->bool() == 1;
+ok($doc->bool() == 1);
 $doc->bool ( 'true' );
-ok("99")  if  $doc->bool() == 1;
+ok($doc->bool() == 1);
 $doc->bool ( 'TRUE' );
-ok("100")  if  $doc->bool() == 1;
+ok($doc->bool() == 1);
 
 $doc->bool ( 0 );
-ok("101")  if  $doc->bool() == 0 and $doc->bool() eq '0';
+ok($doc->bool() == 0 and $doc->bool() eq '0');
 $doc->bool ( 'false' );
-ok("102")  unless  $doc->bool();
+ok(!$doc->bool());
 $doc->bool ( 'FALSE' );
-ok("103")  unless $doc->bool();
+ok(!$doc->bool());
 
-ok("104")  if $doc->bool_default_true();
+ok($doc->bool_default_true());
 $doc->bool_default_true ( 'false' );
-ok("105")  unless  $doc->bool_default_true();
+ok(!$doc->bool_default_true());
 $doc->bool_default_true ( 1 );
-ok("106")  if  $doc->bool_default_true();
+ok($doc->bool_default_true());
 
 my $long_to_truncate = "abcdefghijklmnop";
 $doc->truncated ( $long_to_truncate );
-ok("107")  if  $doc->truncated() eq 'abcdefg';
+ok($doc->truncated() eq 'abcdefg');
 my $short_to_truncate = "abc";
 $doc->truncated ( $short_to_truncate );
-ok("108")  if  $doc->truncated() eq 'abc';
+ok($doc->truncated() eq 'abc');
+
+#make sure the doc validates when a required element is set to 0
+# or a true value and not when set to the empty string
+$doc->element('zero_field')->set(0);
+eval { $doc->validate() };
+ok(!$@);
+$doc->zero_field('');
+eval { $doc->validate() };
+ok($@);
+$doc->zero_field('abc');
+eval { $doc->validate() };
+ok(!$@);
+

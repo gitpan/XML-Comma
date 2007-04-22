@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -269,7 +269,11 @@ sub doc_key {
 sub doc_is_locked {
   return $_[0]->{_Doc_locked};
 }
+sub doc_is_new {
+  return $_[0]->{_Doc_new};
+}
 ##
+
 # and a couple of odd-balls, classified under storage_ for convenience
 #
 # the *original file* this doc was instantiated from, if any

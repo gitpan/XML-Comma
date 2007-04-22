@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2007, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -820,7 +820,7 @@ sub sql_update_in_textsearch_index_table {
     # if found, update
     my $new_seqs_string;
     if ( $result->[0] and ! $clobber ) {
-      $new_seqs_string = $result->[0] . $packed;
+      $new_seqs_string = $index->sql_textsearch_cat_seq_list($result->[0], $packed);
     } else {
       $new_seqs_string = $packed ;
     }
@@ -880,7 +880,7 @@ sub sql_delete_from_textsearch_index_table {
           WHERE seqs LIKE ?
       ]
   );
-  $sth->execute( $packed_sq . '%' );
+  $sth->execute( '%' . $packed_sq . '%' );
   while ( my $row = $sth->fetchrow_arrayref() ) {
     my $word = $row->[0];
     # get lock
@@ -935,6 +935,9 @@ sub sql_textsearch_defer_update {
           VALUES ( ?, ?, ? )
       ]
   );
+
+XML::Comma::Log->warn("frozen_words: $frozen_words");
+
   $sth->execute( $doc_id, 2, $frozen_words );
   $sth->finish();
 }
@@ -1605,7 +1608,12 @@ sub sql_drop_any_temp_tables {
   }
 }
 
-
+#TODO: replace all these die "foo is not implemented" with more
+#      explanatory text (ie foo is a pure virtual function not defined
+#      in Base.pm or so...
+sub sql_textsearch_cat_seq_list {
+	die "sql_textsearch_cat_seq_list is not implemented";
+}
 
 1;
 

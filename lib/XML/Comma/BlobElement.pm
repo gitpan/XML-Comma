@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001, AllAfrica Global Media
+#    Copyright 2001-2006, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -86,7 +86,7 @@ sub set_or_append {
       my $fh = $self->{_Blob_tmpfhand};
       #seek to EOF (2) to append, else seek to start of file (0)
       seek ( $fh, 0, (($action eq "set") ? 0 : 2) );
-      XML::Comma::Log->warn ( "$action-ing $content to: ".$self->{_Blob_tmpfname}."\n" );
+      XML::Comma::Log->warn ( "$action-ing ".length($content)." chars to: ".$self->{_Blob_tmpfname}."\n" );
       print { $fh }  $content;
       truncate( $fh, length($content) ) if($action eq "set");
       seek ( $fh, 0, 0 );
