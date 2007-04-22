@@ -1241,6 +1241,8 @@ sub _textsearch_cache_text {
   my ( $self, $textsearch, $doc_id, $words, $frozen_text ) = @_;
   my ( $seq ) = $self->sql_get_sq_from_data_table ( $doc_id );
   return if ! $seq;
+  #TODO: is this right or should it have been if($frozen_text) ?
+  #kind of a moot point, but it'd be nice to clean this someday.
   if(thaw($frozen_text)) {
     foreach my $word ( @{thaw($frozen_text)} ) {
       push @{$words->{$word}}, $seq;

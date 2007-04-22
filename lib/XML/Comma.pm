@@ -22,7 +22,7 @@
 
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.97';
+$XML::Comma::VERSION = '1.98';
 
 use strict;
 use vars '$AUTOLOAD';
