@@ -1,5 +1,4 @@
 package XML::Comma::Configuration;
-
 use base 'XML::Comma::Pkg::ModuleConfiguration'; 1;
 __DATA__
 
@@ -42,40 +41,40 @@ mysql =>
         PrintError => 0,
         ShowErrorStatement => 1,
         AutoCommit => 1,
-      }
+      },
     ],
   },
 postgres =>
   { sql_syntax  =>  'Pg',
     dbi_connect_info => 
-    [ 'DBI:Pg:dbname=comma', 'comma', 'test',
+    [ 'DBI:Pg:dbname=comma', '', '',
       { RaiseError => 1,
         PrintError => 0,
         ShowErrorStatement => 1,
         AutoCommit => 1,
         pg_enable_utf8 => 1,
-      }
+      },
     ],
   },
 sqlite =>
   { sql_syntax  =>  'SQLite',
     dbi_connect_info =>
     [ 'DBI:SQLite:test.db', '', '',
-      { RaiseError => 1, 	 
-        PrintError => 1, 	 
-        ShowErrorStatement => 1, 	 
-        AutoCommit => 1, 	 
-        HandleError => sub { 	 
-          my ( $string, $handle ) = @_; 	 
-          # print "handling error ($handle)\n"; 	 
-          if ( $string =~ m|schema has changed| ) { 	 
-            $handle->execute(); 	 
-            return 1; 	 
-          } 	 
-          return; 	 
-        }, 	 
-      }
-    ], 	 
+      { RaiseError => 1,
+        PrintError => 1,
+        ShowErrorStatement => 1,
+        AutoCommit => 1,
+        HandleError => sub {
+          my ( $string, $handle ) = @_; 
+          # print "handling error ($handle)\n";
+          if ( $string =~ m|schema has changed| ) {
+            $handle->execute();
+            return 1;
+          }
+          return;
+        },
+      },
+    ],
   },
 ### please note that postgres support is beta, and sqlite support is 
 ### broken. mysql is recommended for production environments.

@@ -80,31 +80,55 @@ default is 'comma'.
 
 END
 
-my $dbu  = prompt_and_save ("mysql user", "mysql_user");
-my $dbp  = prompt_and_save ("mysql password (WILL ECHO!)", "mysql_pass", empty_ok => 1);
-my $dbn  = prompt_and_save ("mysql database name", "mysql_db");
-my $host = prompt_and_save ("mysql host", "mysql_host");
+my $host     = prompt_and_save ("mysql host", "mysql_host");
+my $dbn      = prompt_and_save ("mysql database name", "mysql_db");
+my $dbu      = prompt_and_save ("mysql user", "mysql_user");
+my $dbp      = prompt_and_save ("mysql password (WILL ECHO!)",
+                  "mysql_pass", empty_ok => 1);
+my $dsn_xtra = prompt_and_save ("extra DSN parameters (optional)",
+                  "dsn_xtra", empty_ok => 1);
 
 print <<END;
 
 Okay, thanks. For reference, we're using -->
 
-XML::Comma comma_root directory    $comma_root
-mysql user                         $dbu
-mysql password                     $dbp
-mysql database name                $dbn
-mysql host                         $host
-
+XML::Comma root directory    $comma_root
+mysql user                   $dbu
+mysql password               $dbp
+mysql database name          $dbn
+mysql host                   $host
 END
+
+#create DSN from info collected
+if($dsn_xtra) {
+	$dsn_xtra .= ";" unless($dsn_xtra =~ /\;$/);
+	$dsn_xtra .= "mysql_local_infile=1";
+} else {
+	$dsn_xtra =  "mysql_local_infile=1";
+}
+my $dsn = "DBI:mysql:$dbn:$host;$dsn_xtra";
+
+print "extra DSN parameters         $dsn_xtra\n" if($dsn_xtra);
+print "dsn                          $dsn\n";
+print "\n";
 
 #
 # try to create database
 #
 
+#try to connect...
+use DBI;
+use DBD::mysql;
+eval { DBI->connect($dsn, $dbu, $dbp, {RaiseError => 1}); };
 
-my $response = `mysqladmin --host="$host" --user="$dbu" --password="$dbp" create $dbn 2>&1`;
-if ( $response  and  $response !~ /database\s+exists/i ) {
-  fail ( "could not create database: $response - is mysqladmin from mysql-client installed?" );
+#if there was an error connecting, try to create the db by hand
+if($@) {
+	print "database does not exist, trying to create it...\n";
+	my $response = `mysqladmin --host="$host" --user="$dbu" --password="$dbp" create $dbn 2>&1`;
+	if ( $response  and  $response !~ /database\s+exists/i ) {
+		fail ( "could not create database: $response - is mysqladmin from mysql-client installed?" );
+	}
+	print "database appears to have been created successfully...\n";
 }
 
 
@@ -140,7 +164,7 @@ defs_extension    =>     '.def',
 macro_extension   =>     '.macro',
 include_extension =>     '.include',
 
-#do we validate a doc created with new( [ file | block ] => ... )?
+#should we auto-validate a doc created with new( [ file | block ] => ... )?
 validate_new      =>     1,
 
 parser            =>     'PurePerl',
@@ -149,12 +173,13 @@ hash_module       =>     'Digest::MD5',
 mysql =>
   { sql_syntax  =>  'mysql',
     dbi_connect_info => 
-    [ 'DBI:mysql:$dbn:$host;mysql_local_infile=1', '$dbu', '$dbp',
+    [ '$dsn', '$dbu', '$dbp',
       { RaiseError => 1,
         PrintError => 0,
         ShowErrorStatement => 1,
         AutoCommit => 1,
-      } ],
+      },
+    ],
   },
 postgres =>
   { sql_syntax  =>  'Pg',
@@ -164,10 +189,35 @@ postgres =>
         PrintError => 0,
         ShowErrorStatement => 1,
         AutoCommit => 1,
-      } ],
+        pg_enable_utf8 => 1,
+      },
+    ],
   },
+sqlite =>
+  { sql_syntax  =>  'SQLite',
+    dbi_connect_info =>
+    [ 'DBI:SQLite:test.db', '', '',
+      { RaiseError => 1,
+        PrintError => 1,
+        ShowErrorStatement => 1,
+        AutoCommit => 1,
+        HandleError => sub {
+          my ( \$string, \$handle ) = \@_; 
+          # print "handling error (\$handle)\\n";
+          if ( \$string =~ m|schema has changed| ) {
+            \$handle->execute();
+            return 1;
+          }
+          return;
+        },
+      },
+    ],
+  },
+### please note that postgres support is beta, and sqlite support is 
+### broken. mysql is recommended for production environments.
 system_db        => 'mysql',
 #system_db        => 'postgres',
+##system_db        => 'sqlite-DANGER-READ-NOTE-ABOVE',
 
 END
 
@@ -175,6 +225,7 @@ open ( FILE, ">lib/XML/Comma/Configuration.pm" ) ||
   die "could not open file to write config into: $!\n";
 print FILE $CONFIG;
 close FILE;
+chmod 0755, "lib/XML/Comma/Configuration.pm";
 
 sub fail {
   my $error = shift;
