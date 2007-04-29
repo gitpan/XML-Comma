@@ -1,4 +1,29 @@
-bah! sync_deferred_textsearches is broken with pg!
+when installing, set DBI timeout lower?
+
+calling ->erase() when you don't have perms to delete the store doesn't 
+seem to do the right thing... (no error - try with a TravelPictureLocal) 
+- but perhaps that is a reflection of what dave mentions below:
+
+dave reports index hooks die silently without throwing an error:
+(01:57:13 PM) davethemadx: Hmm, btw, if an index hook dies... it 
+apparently does so silently.
+(01:58:10 PM) xbrianskix: really.....
+(01:58:30 PM) xbrianskix: that actually might be related to the problem 
+we were having with pg and textsearches
+
+a terser, and hopefully quicker to parse data format not based on XML?
+  http://en.wikipedia.org/wiki/YAML
+  http://en.wikipedia.org/wiki/JSON
+  - or perhaps use XML with attributes, as
+    <element name="foo" />
+  is a hell of a lot terser and easier to read than
+    <element><name>foo</name></element>
+  the selection of storage format would come in a layer right next
+  to storage/location... or perhaps look at how the gzip compression
+  is implemented and do something like that?
+
+bah! sync_deferred_textsearches is broken with pg! it's worked-around 
+for now, but that stinks...
 
 #TODO: allow nice way to use of $dbh->quote() on collections and
 #	textsearches (or is this done behind the scenes already? if so add 

@@ -1,10 +1,22 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.991  2007/04/29 r.1061
+-------------------------
+
+  - more install process streamlining:
+
+    - change fallback db to mysql for ease of install
+
+    - don't invoke comma-create-config.pl if we're going to die
+      because of missing dependencies, it wastes the user's time
+
+-------------------------
 1.99  2007/04/22 r.1043
 -------------------------
 
   - permissions cleanup in svn
+
   - a few comma-create-config.pl enhancements (still mysql only, unfortunately)
 
 -------------------------

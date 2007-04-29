@@ -73,7 +73,7 @@ check the XML::Comma documentation for how to configure
 database access in the Configuration.pm file.) We need
 a local mysql user and password, and this user needs to
 have permission to create new databases. The defaults
-are 'root' and 'test', respectively. We also need the name 
+are 'root' and '', respectively. We also need the name 
 of the database inside mysql that XML::Comma will use (and
 to which all comma processes will be restricted). The 
 default is 'comma'.
@@ -117,8 +117,13 @@ print "\n";
 #
 
 #try to connect...
-use DBI;
-use DBD::mysql;
+eval {
+	require DBI;
+	require DBD::mysql;
+}; if($@) {
+	die "you must have DBI and DBD::mysql installed to run comma-create-config.pl\n";
+}
+
 eval { DBI->connect($dsn, $dbu, $dbp, {RaiseError => 1}); };
 
 #if there was an error connecting, try to create the db by hand
