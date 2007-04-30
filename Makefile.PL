@@ -93,21 +93,27 @@ misc::MakeMakerMod::add_steps(
    what => "rm -rf .test",
 );
 
+my $has_all_pms = 1;
 foreach my $pm (keys %$prereq_pm) {
 	$pm =~ s/::\///g;
 	$pm =~ s/$/.pm/;
 	eval { require $pm; };
 	if($@) {
-		#die results in this output: "# Looks like your test died before it could output anything."
-		warn "missing depends, stopping to let CPAN or user get them\n";
-		exit(1);
+		#if we get here, we hope the user or CPAN will fill in the blanks.
+		warn "missing one or more dependencies, not running comma-create-config.pl\n";
+		$has_all_pms = 0;
+		last;
 	}
 }
 
-eval { require XML::Comma::Configuration; };
-if ( $@ ) {
-	my $ret = system qw( perl bin/comma-create-config.pl );
-	$ret >>= 8;
-	die "bin/comma-create-config.pl failed with error code $ret" if $ret;
+if($has_all_pms) {
+	#TODO: this should probably not be in Makefile.PL at all,
+	#but in a seperate make step added with MakeMakerMod or so...
+	eval { require XML::Comma::Configuration; };
+	if ( $@ ) {
+		my $ret = system qw( perl bin/comma-create-config.pl );
+		$ret >>= 8;
+		die "bin/comma-create-config.pl failed with error code $ret" if $ret;
+	}
 }
 

@@ -1,6 +1,12 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.992  2007/04/30 r.1063
+-------------------------
+
+  - don't die from a Makefile.PL - pointed out by ANDK@cpan.org
+
+-------------------------
 1.991  2007/04/29 r.1061
 -------------------------
 
