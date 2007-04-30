@@ -11,8 +11,7 @@ sub MY::libscan {
   my $path = $self->SUPER::libscan($passed_path);
   if ( $path =~ m|Comma/Configuration\.pm$| ) {
     # print "matched config path\n";
-    if (
-`perl -e 'eval { require XML::Comma::Configuration }; print "ok" unless \$@;'`
+    if ( `$^X -e 'eval { require XML::Comma::Configuration }; print "ok" unless \$@;'`
            eq 'ok' ) {
       print <<'END';
 
@@ -86,7 +85,7 @@ WriteMakefile(
 use misc::MakeMakerMod;
 misc::MakeMakerMod::add_steps(
    step => "install",
-   what => "perl misc/install-extras.pl"
+   what => "$^X misc/install-extras.pl"
 );
 misc::MakeMakerMod::add_steps(
    step => "distclean",
@@ -111,7 +110,7 @@ if($has_all_pms) {
 	#but in a seperate make step added with MakeMakerMod or so...
 	eval { require XML::Comma::Configuration; };
 	if ( $@ ) {
-		my $ret = system qw( perl bin/comma-create-config.pl );
+		my $ret = system ( $^X, 'bin/comma-create-config.pl' );
 		$ret >>= 8;
 		die "bin/comma-create-config.pl failed with error code $ret" if $ret;
 	}

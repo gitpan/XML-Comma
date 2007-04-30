@@ -1,6 +1,13 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.994  2007/04/30 r.1068
+-------------------------
+
+  - another small fix thanks to andreas - use $^X, not perl to call
+    a perl script so we get the "right" one
+
+-------------------------
 1.993  2007/04/30 r.1064
 -------------------------
 

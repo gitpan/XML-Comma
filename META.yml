@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         XML-Comma
-version:      1.993
+version:      1.994
 version_from: lib/XML/Comma.pm
 installdirs:  site
 requires:

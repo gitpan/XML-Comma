@@ -1,3 +1,10 @@
+testing cpan with a local tarball:
+  TARBALL=/media/edgy/home/ski/mysrc/XML-Comma-1.993.tgz
+  mkdir /root/.cpan/build
+  tar xfz $TARBALL
+  cd XML-Comma-*
+  cpan .
+
 when installing, set DBI timeout lower?
 
 calling ->erase() when you don't have perms to delete the store doesn't 
