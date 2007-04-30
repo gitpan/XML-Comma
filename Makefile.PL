@@ -95,12 +95,12 @@ misc::MakeMakerMod::add_steps(
 
 my $has_all_pms = 1;
 foreach my $pm (keys %$prereq_pm) {
-	$pm =~ s/::\///g;
+	$pm =~ s/::/\//g;
 	$pm =~ s/$/.pm/;
 	eval { require $pm; };
 	if($@) {
 		#if we get here, we hope the user or CPAN will fill in the blanks.
-		warn "missing one or more dependencies, not running comma-create-config.pl\n";
+		warn "missing one or more dependencies ($pm), not running comma-create-config.pl\n";
 		$has_all_pms = 0;
 		last;
 	}
