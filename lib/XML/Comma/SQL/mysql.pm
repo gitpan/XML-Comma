@@ -195,8 +195,8 @@ sub sql_create_textsearch_temp_table_stmt {
   my $sth = $dbh->prepare_cached ( 
     qq[
         CREATE TEMPORARY TABLE $temp_table_name 
-	        ( id VARCHAR(255) PRIMARY KEY ) 
-	        TYPE=HEAP
+          ( id VARCHAR(255) PRIMARY KEY ) 
+          TYPE=HEAP
       ]
   );
   $sth->execute();

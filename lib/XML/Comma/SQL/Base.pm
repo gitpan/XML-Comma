@@ -1,6 +1,6 @@
 ##
 #
-#    Copyright 2001-2007, AllAfrica Global Media
+#    Copyright 2001, AllAfrica Global Media
 #
 #    This file is part of XML::Comma
 #
@@ -322,19 +322,17 @@ sub sql_alter_data_table_change_primary_key {
   my $data_table = $index->data_table_name();
 
   my $new_key;
-  if ( $index->doc_id_sql_type =~ /\((\d+)\)/ ) {
-    $new_key = "doc_id($1), ";
-  } else {
-    $new_key = "doc_id(100), ";
+  unless ( XML::Comma->system_db() eq 'postgres' ) {
+    if ( $index->doc_id_sql_type =~ /\((\d+)\)/ ) {
+      $new_key = "doc_id($1), ";
+    } else {
+      $new_key = "doc_id(100), ";
+    }
+    $new_key .= join ", ", map { "$_(100)" } @fields;
+  } else { # postgres
+    $new_key = join ", ", ( 'doc_id', @fields );
   }
-#warn "the cow says: primary key: $new_key, other new keys: ".join(",", @fields);
-  $new_key .= join ", ", map { "$_(100)" } @fields;
-
-  #the bit in parens tells mysql to only index the first N chars
-  #there is no comparable postgres feature, and this isn't strictly
-  # necessary, so if we're on postgres, just strip that info out.
-  $new_key =~ s/\(\d+\)//g if(XML::Comma->system_db() eq 'postgres');
-
+  
   my $sth;
   if(XML::Comma->system_db() eq 'postgres') {
     $sth = $dbh->prepare_cached (
@@ -349,6 +347,7 @@ sub sql_alter_data_table_change_primary_key {
               DROP PRIMARY KEY
       ]);
   }
+
   $sth->execute();
   $sth->finish();
 
@@ -704,6 +703,16 @@ sub sql_insert_into_bcollection {
   }
 }
 
+sub sql_get_values_from_bcollection {
+  my ( $index, $doc_id, $table_name ) = @_;
+  my $dbh = $index->get_dbh_reader();
+  my $sth = $dbh->prepare_cached ( 
+    qq[ SELECT value FROM $table_name WHERE doc_id = ? ] 
+  );
+  $sth->execute( $doc_id );
+  return map { $_->[0] } @{ $sth->fetchall_arrayref() };
+}
+
 sub sql_delete_from_bcollection {
   my ( $index, $doc_id, $table_name ) = @_;
   my $dbh = $index->get_dbh_writer();
@@ -935,9 +944,6 @@ sub sql_textsearch_defer_update {
           VALUES ( ?, ?, ? )
       ]
   );
-
-XML::Comma::Log->warn("frozen_words: $frozen_words");
-
   $sth->execute( $doc_id, 2, $frozen_words );
   $sth->finish();
 }
@@ -1226,7 +1232,7 @@ sub sql_clean_find_orphans {
       FROM $table_name 
       LEFT JOIN $data_table_name 
         ON $table_name.doc_id = $data_table_name.doc_id 
-	      WHERE $data_table_name.doc_id is NULL
+        WHERE $data_table_name.doc_id is NULL
   ];
 }
 
@@ -1359,23 +1365,6 @@ sub sql_select_distinct_field {
   return $sth;
 }
 
-#TODO: can we adapt this to use it on $where_clause too?
-sub _remap_tables {
-	my ($sql, %from_map) = @_;
-	if($sql) {
-		my @ts_words = split(/(\s+|<=|>=|>|=|<)/, $sql);
-		foreach my $i (0..$#ts_words) {
-			foreach my $from (keys %from_map) {
-				my $to = $from_map{lc($from)};
-				#TODO: how can we distinguish ${from}x from ${from}.x ?
-				$ts_words[$i] =~ s/^$from/$to/ig;
-			}
-		}
-		$sql = join("", @ts_words);
-	}
-	return $sql ? $sql : undef;
-}
-
 ##
 # complex select statement build -- for iterator
 #
@@ -1391,11 +1380,6 @@ sub sql_select_from_data {
        $textsearch_spec,
        $do_count_only,
        $aggregate_function ) = @_;
-
-XML::Comma::Log->warn("column_list: ".join(",",@$columns_list));
-XML::Comma::Log->warn("from_tables: ".join(",",@$from_tables));
-XML::Comma::Log->warn("where_clause: $where_clause");
-XML::Comma::Log->warn("collection_spec: $collection_spec");
 
   #dbg 'select_from_data', $where_clause;
   my $data_table_name = $index->data_table_name();
@@ -1458,54 +1442,11 @@ XML::Comma::Log->warn("collection_spec: $collection_spec");
   # from tables
   my $from = ' FROM ' . join ( ',', @{$from_tables} );
 
-  if(@$from_tables > 1 && grep /\s+AS\s+/, @$from_tables) {
-    #keep track of all of our foo AS bar sub-clauses
-    my %from_map;
-    foreach my $from_clause (@$from_tables) {
-      if($from_clause =~ /\s*(\S+)\s+AS\s+(\S+)\s*/) {
-        $from_map{lc($1)} = $2;
-      } else {
-        $from_map{lc($from_clause)} = $from_clause;
-      }
-    }
-
-    #prepend t01. on every term in $where_clause
-    #TODO: think about using SQL::Statement or whatev as well for supa safety
-    my %has_col = map { lc($_) => 1 }
-      (@$columns_list, 'doc_id', 'record_last_modified');
-    XML::Comma::Log->warn("eating where_clause:  $where_clause");
-    #TODO: think, what other seperators can we have?
-    $where_clause = join("", map {
-        $has_col{lc($_)} ? "t01.$_" : $_
-      } split(/(\s+|<=|>=|>|=|<)/, $where_clause));
-    XML::Comma::Log->warn("pooping where_clause: $where_clause");
-
-    #munge our $spec's too so that fully qualified table
-    #name is converted to short tXX name
-    if($textsearch_spec) {
-      XML::Comma::Log->warn("eating textsearch_spec:  $textsearch_spec");
-      $textsearch_spec = _remap_tables($textsearch_spec, %from_map);
-      XML::Comma::Log->warn("pooping textsearch_spec: $textsearch_spec");
-    }
-    #TODO: $collection_spec always seems to be generated the right way,
-    # so this might be unnecessary, but it shouldn't hurt...
-    if($collection_spec) {
-      XML::Comma::Log->warn("eating collection_spec:  $collection_spec");
-      $collection_spec = _remap_tables($collection_spec, %from_map);
-      XML::Comma::Log->warn("pooping collection_spec: $collection_spec");
-    }
-  }
- 
   # where clause
-  #TODO:nuke 1=1 clauses wherever they exist...
   my $where = ' WHERE 1=1';
   $where .= " AND ($where_clause)"     if  $where_clause;
-XML::Comma::Log->warn("collection_spec: " . ($collection_spec || ""));
-  $where .= " AND ($collection_spec)"  if  $collection_spec;
-XML::Comma::Log->warn("textsearch_spec: " . ($textsearch_spec || ""));
+  $where .= " AND $collection_spec"  if  $collection_spec;
   $where .= " AND ($textsearch_spec)"  if  $textsearch_spec;
-
-XML::Comma::Log->warn("where: $where");
 
   # having clause
   my $having = '';
@@ -1612,7 +1553,7 @@ sub sql_drop_any_temp_tables {
 #      explanatory text (ie foo is a pure virtual function not defined
 #      in Base.pm or so...
 sub sql_textsearch_cat_seq_list {
-	die "sql_textsearch_cat_seq_list is not implemented";
+  die "sql_textsearch_cat_seq_list is not implemented";
 }
 
 1;

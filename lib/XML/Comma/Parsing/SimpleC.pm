@@ -61,14 +61,14 @@ my $EMPTY_ELEMENT          = 9;
 sub new {
   my ( $class, %arg ) = @_; 
   my $string;
-  my $filename;
+  my $file;
 
   if ( $arg{block} ) {
     $string = $arg{block};
-  } elsif ( $arg{filename} ) {
-    $filename = $arg{filename};
-    open ( FILE, "${ \( $arg{filename} )}" ) ||
-      die "can't open file '${ \( $arg{filename} )}': $!\n";
+  } elsif ( $arg{file} ) {
+    $file = $arg{file};
+    open ( FILE, "${ \( $arg{file} )}" ) ||
+      die "can't open file '${ \( $arg{file} )}': $!\n";
     local $/ = undef;
     $string = <FILE>;
     close ( FILE );
@@ -78,7 +78,7 @@ sub new {
 
   my $self = _c_new ( 'XML::Comma::Parsing::SimpleC',
                       $string,
-                      $filename || '',
+                      $file || '',
                       $arg{top_level_class} || 'XML::Comma::Doc',
                       0 );
   return $self->handle_document ( $arg{read_args} );

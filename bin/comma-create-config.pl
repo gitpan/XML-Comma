@@ -19,32 +19,32 @@ END
 use Storable;
 my $DEFAULTS_FILE = "misc/default_config";
 if (! -e $DEFAULTS_FILE) {
-	#create DEFAULTS_FILE if it's not there
-	store {
-		'comma_root' => '/usr/local/comma',
-		'mysql_user' => 'root',
-		'mysql_pass' => '',
-		'mysql_db'   => 'comma',
-		'mysql_host' => 'localhost',
-	}, $DEFAULTS_FILE;
+  #create DEFAULTS_FILE if it's not there
+  store {
+    'comma_root' => '/usr/local/comma',
+    'mysql_user' => 'root',
+    'mysql_pass' => '',
+    'mysql_db'   => 'comma',
+    'mysql_host' => 'localhost',
+  }, $DEFAULTS_FILE;
 }
 my $DEFAULTS = retrieve($DEFAULTS_FILE);
 
 sub prompt_and_save {
-	my ($text, $var_name, %opts) = @_;
-	my $empty_ok = $opts{empty_ok} || 0;
-	my $default = $DEFAULTS->{$var_name};
-	print "$text";
-	print " [$default]" unless $empty_ok;
-	print ": ";
-	my $ret = <>; chop $ret;
-	$ret = $empty_ok ? $ret : ($ret || $default);
+  my ($text, $var_name, %opts) = @_;
+  my $empty_ok = $opts{empty_ok} || 0;
+  my $default = $DEFAULTS->{$var_name};
+  print "$text";
+  print " [$default]" unless $empty_ok;
+  print ": ";
+  my $ret = <>; chop $ret;
+  $ret = $empty_ok ? $ret : ($ret || $default);
 
-	# save for the next run in case of failure
-	$DEFAULTS->{$var_name} = $ret;
-	store $DEFAULTS, $DEFAULTS_FILE;
+  # save for the next run in case of failure
+  $DEFAULTS->{$var_name} = $ret;
+  store $DEFAULTS, $DEFAULTS_FILE;
 
-	return $ret;
+  return $ret;
 }
 
 my $comma_root = prompt_and_save ("XML::Comma comma_root", "comma_root");
@@ -76,7 +76,9 @@ have permission to create new databases. The defaults
 are 'root' and '', respectively. We also need the name 
 of the database inside mysql that XML::Comma will use (and
 to which all comma processes will be restricted). The 
-default is 'comma'.
+default is 'comma'. If you are using postgres, just
+accept the default values here, then edit the generated
+lib/XML/Comma/Configuration.pm before running make.
 
 END
 
@@ -101,10 +103,10 @@ END
 
 #create DSN from info collected
 if($dsn_xtra) {
-	$dsn_xtra .= ";" unless($dsn_xtra =~ /\;$/);
-	$dsn_xtra .= "mysql_local_infile=1";
+  $dsn_xtra .= ";" unless($dsn_xtra =~ /\;$/);
+  $dsn_xtra .= "mysql_local_infile=1";
 } else {
-	$dsn_xtra =  "mysql_local_infile=1";
+  $dsn_xtra =  "mysql_local_infile=1";
 }
 my $dsn = "DBI:mysql:$dbn:$host;$dsn_xtra";
 
@@ -118,22 +120,22 @@ print "\n";
 
 #try to connect...
 eval {
-	require DBI;
-	require DBD::mysql;
+  require DBI;
+  require DBD::mysql;
 }; if($@) {
-	die "you must have DBI and DBD::mysql installed to run comma-create-config.pl\n";
+  die "you must have DBI and DBD::mysql installed to run comma-create-config.pl\n";
 }
 
 eval { DBI->connect($dsn, $dbu, $dbp, {RaiseError => 1}); };
 
 #if there was an error connecting, try to create the db by hand
 if($@) {
-	print "database does not exist, trying to create it...\n";
-	my $response = `mysqladmin --host="$host" --user="$dbu" --password="$dbp" create $dbn 2>&1`;
-	if ( $response  and  $response !~ /database\s+exists/i ) {
-		fail ( "could not create database: $response - is mysqladmin from mysql-client installed?" );
-	}
-	print "database appears to have been created successfully...\n";
+  print "database does not exist, trying to create it...\n";
+  my $response = `mysqladmin --host="$host" --user="$dbu" --password="$dbp" create $dbn 2>&1`;
+  if ( $response  and  $response !~ /database\s+exists/i ) {
+    fail ( "could not create database: $response - is mysqladmin from mysql-client installed?" );
+  }
+  print "database appears to have been created successfully...\n";
 }
 
 
@@ -147,18 +149,18 @@ __DATA__
 ##
 #  system and defs directories
 #
-comma_root          =>     '$comma_root',
-log_file            =>     '$comma_root/log.comma',
-document_root       =>     '$comma_root/docs',
-sys_directory       =>     '$comma_root/sys',
-tmp_directory       =>     '/tmp',
+comma_root          =>     '$comma_root', 
+log_file            =>     '$comma_root/log.comma', 
+document_root       =>     '$comma_root/docs', 
+sys_directory       =>     '$comma_root/sys', 
+tmp_directory       =>     '/tmp', 
 
 defs_directories    =>
     [
-     '$comma_root/defs',
-     '$comma_root/macros',
-     '$comma_root/standard',
-     '$comma_root/test'
+     '$comma_root/defs', 
+     '$comma_root/macros', 
+     '$comma_root/standard', 
+     '$comma_root/test', 
     ],
 
 #
@@ -172,7 +174,10 @@ include_extension =>     '.include',
 #should we auto-validate a doc created with new( [ file | block ] => ... )?
 validate_new      =>     1,
 
+#for production environments that have access to Inline and cc,
+#SimpleC is recommended for greater performance.
 parser            =>     'PurePerl',
+#parser            =>     'SimpleC',
 hash_module       =>     'Digest::MD5',
 
 mysql =>

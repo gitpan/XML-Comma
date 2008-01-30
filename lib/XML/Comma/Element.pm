@@ -103,7 +103,10 @@ sub get_without_default {
 }
 
 sub set {
-  my ( $self, $content, %args ) = @_;
+  my ( $self, $content, @args ) = @_; 
+  die "illegal args in set" if(scalar @args % 2);
+  my %args = @args; 
+
   $self->assert_not_read_only();
   if ( defined $content ) {
     # stringify to avoid strange errors that sometimes crop up now

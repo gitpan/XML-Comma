@@ -100,15 +100,21 @@ sub _iterator_has_stuff {
 sub read_doc {
   my ($self, %args) = @_;
   return $self->{_Iterator_last_doc} || (( $self->{_Iterator_direction} eq '-' ) ?
-    $self->next_read(%args) : $self->prev_read(%args));
+    $self->next_read(%args) : $self->prev_read(%args)); 
 }
 
 sub retrieve_doc {
   my $self = shift;
   my $doc = $self->read_doc(@_);
   $doc->get_lock();
-  return $doc;
+  return $doc; 
 }
+
+# alias doc_(read && retrieve) to (read && retrieve)_doc 
+# for API consistancy
+
+*doc_retrieve = \&retrieve_doc;
+*doc_read     = \&read_doc;
 
 ###
 ### /code to match iterator semantics
@@ -256,12 +262,13 @@ sub doc_id {
 }
 
 sub to_array {
-	my ( $self, %args ) = @_; 
-	my @docs = ();
-	while($self++) {
-		push @docs, XML::Comma::VirtualDoc->new($self); 
-	}
-	return @docs;
+  my ( $self, %args ) = @_; 
+  my @docs = ();
+  while($self++) {
+    push @docs, $self->read_doc;
+    #push @docs, XML::Comma::VirtualDoc->new($self); 
+  }
+  return @docs;
 } 
 
 ####
@@ -271,24 +278,24 @@ sub to_array {
 ####
 
 sub AUTOLOAD {
-	my ( $self, @args ) = @_;
-	# strip out local method name and stick into $m
-	$AUTOLOAD =~ /::(\w+)$/;  my $m = $1;
-	return $self->iterator_dispatch ( $m, @args );
+  my ( $self, @args ) = @_;
+  # strip out local method name and stick into $m
+  $AUTOLOAD =~ /::(\w+)$/;  my $m = $1;
+  return $self->iterator_dispatch ( $m, @args );
 }
 
 #note this is NOT slow, because read_doc does caching.
 sub iterator_dispatch {
-	my ( $self, $m, @args ) = @_;
-	# if we're here, make sure next call to ++$it really does
-	# advance
-	$self->{_Iterator_newly_refreshed} = 0;
+  my ( $self, $m, @args ) = @_;
+  # if we're here, make sure next call to ++$it really does
+  # advance
+  $self->{_Iterator_newly_refreshed} = 0;
 
 #warn "m: $m, args: ".join(" ", @args)."\n";
 #warn "self: $self\n";
-	my $doc = $self->read_doc();
+  my $doc = $self->read_doc();
 #warn "doc: $doc\n";
-	return $doc->$m(@args);
+  return $doc->$m(@args);
 }
 
 sub DESTROY { }

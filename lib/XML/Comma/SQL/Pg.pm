@@ -218,7 +218,7 @@ sub sql_create_textsearch_temp_table_stmt {
   my $sth = $dbh->prepare_cached ( 
     qq[
         CREATE TEMPORARY TABLE $temp_table_name 
-	        ( id VARCHAR(255) PRIMARY KEY ) 
+          ( id VARCHAR(255) PRIMARY KEY ) 
       ]
   );
   $sth->execute();

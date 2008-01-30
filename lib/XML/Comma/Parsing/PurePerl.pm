@@ -51,10 +51,10 @@ sub new {
 
   if ( $arg{block} ) {
     $self->{_string} = $arg{block};
-  } elsif ( $arg{filename} ) {
-    $self->{_from_file} = $arg{filename};
-    open ( FILE, "${ \( $arg{filename} )}" ) ||
-      die "can't open file '${ \( $arg{filename} )}': $!\n";
+  } elsif ( $arg{file} ) {
+    $self->{_from_file} = $arg{file};
+    open ( FILE, "${ \( $arg{file} )}" ) ||
+      die "can't open file '${ \( $arg{file} )}': $!\n";
     local $/ = undef;
     $self->{_string} = <FILE>;
     close ( FILE );

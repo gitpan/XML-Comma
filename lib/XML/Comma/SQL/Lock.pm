@@ -29,13 +29,13 @@ use XML::Comma;
 use XML::Comma::Util qw( dbg );
 use XML::Comma::SQL::DBH_User;
 
-my $PROC_PTABLE_AVAILABLE;
+my $PROC_EXISTS_EXISTS; 
 eval {
-  require Proc::ProcessTable;
-  $PROC_PTABLE_AVAILABLE = 1;
+  require Proc::Exists;
+  $PROC_EXISTS_EXISTS = 1;
 };
 
-my $LOCK_LOOP_WAIT_SECONDS = 3;
+my $LOCK_LOOP_WAIT_SECONDS = 0.5;
 
 sub new {
   my $base_class = shift();
@@ -101,14 +101,11 @@ sub unlock {
 
 sub maybe_unlock {
   my ( $self, $pid, $key ) = @_;
-  return  unless  $PROC_PTABLE_AVAILABLE;
+  return  unless  $PROC_EXISTS_EXISTS;
   my $lr = $self->sql_get_lock_record($key);
   return unless $lr;
   if ( $lr->{info} eq Sys::Hostname::hostname() ) {
-    my $plist = Proc::ProcessTable->new();
-    foreach my $p ( @{$plist->table()} ) {
-      return  if  $p->pid() == $pid;
-    }
+    return if Proc::Exists::pexists($pid); 
     $self->unlock ( $key );
   }
 }

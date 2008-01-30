@@ -1,7 +1,5 @@
 #!/usr/bin/perl -w
 
-eval 'exec /usr/bin/perl -w -S $0 ${1+"$@"}'
-    if 0; # not running under some shell
 use strict;
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
@@ -22,7 +20,7 @@ if ( $module ) {
 }
 
 if ( ! $doc_type or ! $index_name ) {
-  die "usage: drop-index.pl -module <module to load/new()> ] -type <document_type> -index <index_name>\n"
+  die "usage: drop-index.pl [ -module <module to load/new()> ] -type <document_type> -index <index_name>\n"
 }
 
 my $index = XML::Comma::Def->read(name=>$doc_type)->get_index($index_name);

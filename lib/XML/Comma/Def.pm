@@ -67,10 +67,8 @@ use strict;
 # from_file
 sub new {
   my ( $class, %arg ) = @_;
-  if ( $arg{file} ) {
-    return _new_from_file ( $arg{file}, $class );
-  } elsif ( $arg{block} ) {
-    return _new_from_block ( $arg{block}, $class );
+  if ( $arg{file} || $arg{block}) {
+    return _new_from_content ( %arg, top_level_class=> $class );
   }
   # called simply: this routine actually does all the work of making a
   # new def, the above ifs call it one way or another.
@@ -130,29 +128,19 @@ sub retrieve {
   XML::Comma::Log->err ( 'DEF_READ_ERROR', 'not allowed to retrieve a Def' );
 }
 
-sub _new_from_block {
-  my ( $block, $class ) = @_;
+# there was almost complete duplication of code between
+# _new_from_file and _new_from_block, so i combined them
+# and fixed the arguments from the caller so that we don't
+# have to differentiate.
+sub _new_from_content {
+  my %arg = @_;
   my $def = eval {
-    XML::Comma::parser()->new ( block => $block,
-                                top_level_class => $class );
+    XML::Comma::parser()->new ( %arg );
   }; if ( $@ ) {
     XML::Comma::Log->err ( 'DEF_ERROR', $@ );
   }
   return $def;
 }
-
-sub _new_from_file {
-  my ( $file, $class ) = @_;
-  my $def = eval {
-    XML::Comma::parser()->new ( filename => $file,
-                                top_level_class => $class );
-  };
-  if ( $@ ) {
-    XML::Comma::Log->err ( 'DEF_ERROR', $@ );
-  }
-  return $def;
-}
-
 
 sub finish_initial_read {
   my ( $self, $in_progress_parser ) = @_;
@@ -306,7 +294,7 @@ sub _create_indexes {
 }
 
 sub _store_doctype_index_match_p {
-  my ( $self, $index, $storage_el ) = @_;
+  my ( $self, $index, $storage_el ) = @_; 
   no warnings;
 
   # check that the user defined doctype declarations match the index
@@ -323,7 +311,7 @@ sub _store_doctype_index_match_p {
   # or that the default index store is the same as the storage element
   $store_match ||= $index->store() eq $storage_el->name();
 
-  return $doctype_match && $store_match;
+  return $doctype_match && $store_match; 
 }
 
 
@@ -659,6 +647,10 @@ sub auto_dispatch {
 sub _init_decorators {
   my $self = shift;
   my @classes = $self->get_decorators() or return;
+  # allow $def->decorator_method
+  if ( $self->tag eq 'DocumentDefinition' ) {
+    bless ( $self, Class::ClassDecorator::hierarchy(ref($self),@classes) );
+  }
   foreach my $class ( @classes ) {
     if ( $class->can('init') ) {
       $class->init ( $self );

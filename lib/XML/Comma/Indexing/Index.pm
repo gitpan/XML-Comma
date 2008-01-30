@@ -45,21 +45,6 @@ use XML::Comma::Pkg::Textsearch::Preprocessor_En;
 
 use strict;
 
-##
-# BEGIN {
-#   # suppress warnings (subroutine redefined warnings are expected)
-#   local $^W = 0;
-#   if ( my $syntax = XML::Comma::SQL::DBH_User->db_struct()->{sql_syntax} ) {
-#     # try to use()
-#     eval "use XML::Comma::SQL::$syntax";
-#     # report failure
-#     if ( $@ ) {
-#       XML::Comma::Log->err ( 'SQL_IMPORT_ERROR',
-#                              "trouble importing $syntax: $@\n" );
-#     }
-#   }
-# }
-##  
 
 # _Index_doctype
 
@@ -85,7 +70,7 @@ use strict;
 ##
 # called on init by the def loader
 #
-# args -- $parent_doc_type
+# args -- $parent_doc_type 
 #
 sub init_and_cast {
   my ( $self, $type ) = @_;
@@ -96,7 +81,7 @@ sub init_and_cast {
   $self->_config_dispatcher();
   $self->{DBH_connect_check} = '_check_db';
 #  dbg 'index init', $self, $type, $self->def();
-  return $self;
+  return $self; 
 }
 
 sub DATA_TABLE_TYPE              { return 1 };
@@ -146,15 +131,15 @@ sub _init_Index_variables {
       $self->{_Index_collections}->{$name}->{type} = 'stringified';
     } elsif ( $type eq 'binary table' ) {
       my ($code_element) = $collection->elements('code');
-      my $code_ref;
+      my $code_ref; 
       if ( $code_element ) {
         $code_ref = eval $code_element->get();
         die "error with code block of collection '$name' " .
-          "for index '$index_name': $@\n"  if  $@;
+          "for index '$index_name': $@\n"  if  $@; 
       } else {
         $code_ref = eval "sub { \$_[0]->auto_dispatch('$name') }";
         die "bad auto-build-code-block error for '$index_name':'$name': $@"
-          if $@;
+          if $@; 
       }
       $self->{_Index_collections}->{$name}->{el} = $collection;
       $self->{_Index_collections}->{$name}->{code} = $code_ref;
@@ -175,7 +160,7 @@ sub _init_Index_variables {
       $self->{_Index_collections}->{$name}->{code} = $code_ref;
       $self->{_Index_collections}->{$name}->{type} = 'many tables';
     } else {
-      die "no such type '$type' recognized for collection '$name'\n";
+      die "no such type '$type' recognized for collection '$name'\n"; 
     }
   }
 }
@@ -184,9 +169,9 @@ sub _init_check_for_double_defines {
   my ( $self, $index_name, $el ) = @_;
   my $name = $el->element('name')->get();
   if ( $self->{_Index_columns}->{$name} ) {
-    die "multiple columns named '$name' for index '$index_name'\n";
+    die "multiple columns named '$name' for index '$index_name'\n"; 
   }
-  return $name;
+  return $name; 
 }
 
 sub _init_make_column_entry {
@@ -199,31 +184,31 @@ sub _init_make_column_entry {
     $name = $self->_init_check_for_double_defines ( $index_name, $el );
     ($code_element) = $el->elements('code');
   }
-  my $code_ref;
+  my $code_ref; 
   if ( $code_element ) {
     $code_ref = eval $code_element->get();
     die "error with code block of $type '$name' " .
-        "for index '$index_name': $@\n" if $@;
+        "for index '$index_name': $@\n" if $@; 
   } else {
     if ( $el eq 'store' ) { 
       $code_ref = eval "sub { \$_[0]->doc_store()->name() }";
       die "error with code block of $type '$name' " .
-          "for index '$index_name': $@\n" if $@;
+          "for index '$index_name': $@\n" if $@; 
     } elsif ( $el eq 'doctype' ) {
       $code_ref = eval "sub { \$_[0]->doc_store()->doctype() }";
       die "error with code block of $type '$name' " .
-          "for index '$index_name': $@\n" if $@;
+          "for index '$index_name': $@\n" if $@; 
     } else {
       $code_ref = eval "sub { \$_[0]->auto_dispatch('$name') }";
       die "error with code block of $type '$name' " .
-          "for index '$index_name': $@\n" if $@;
+          "for index '$index_name': $@\n" if $@; 
     }
   }
   die "could not get a code reference of $type '$name' in index '$index_name'\n"
     unless $code_ref;
   $self->{_Index_columns}->{$name}->{code} = $code_ref;
   $self->{_Index_columns}->{$name}->{pos} = $self->{_Index_columns_pos}++;
-  $self->{_Index_columns}->{$name}->{type} = $type;
+  $self->{_Index_columns}->{$name}->{type} = $type; 
 }
 
 sub _config__index_hook {
@@ -316,10 +301,10 @@ sub collection_stringify_partial {
 }
 
 sub collection_stringify_unconcat {
-  my ( $self, $string ) = @_;
-  my $list = eval $string;
-  die "error retrieving from collection: $@\n"  if  $@;
-  return $list;
+  my ( $self, $string ) = @_; 
+  my $list = eval $string; 
+  die "error retrieving from collection: $@\n"  if  $@; 
+  return $list; 
 }
 ##
 ####
@@ -343,6 +328,7 @@ sub update {
       " can't update index '" . $self->name() . "'"
     );
 
+### note: why was this added and then commented out? do we want it?
 #    # user must have -w access to $doc to be allowed to update the index
 #    if ( ! -w $doc->storage_filename() ) {
 #      XML::Comma::Log->err ( 'INDEX_PERMISSION_DENIED',
@@ -350,15 +336,32 @@ sub update {
 #    }
   # run index hooks, passing doc and self as args. if any of the index
   # hooks die, then we simply don't index this doc.
-  eval {
-    foreach my $sub ( @{$self->get_hooks_arrayref('index_hook')} ) {
+  my ($skip_update, @update_errors); 
+  foreach my $sub ( @{$self->get_hooks_arrayref('index_hook')} ) {
+    eval {
       $sub->( $doc, $self );
+    }; if ( my $err = $@ ) {
+      #die() doesn't percolate, but die("foo") does percolate
+      #to a warn() call. both mean we remove the index, b/c
+      #either an error or user-initiated skip occurred
+      $skip_update = 1;
+      push @update_errors, $err if($err !~ /^Died at/); 
     }
-  }; if ( $@ ) {
+  }
+
+  if($skip_update) {
     # (okay, check to see if this doc was already in the index, and if
     # so, remove it.
     if ( $self->sql_key_indexed_p( $doc->doc_key(), $doc->doc_id()) ) {
       $doc->index_remove ( index => $self->name() );
+    }
+    # in comma > 1.995, we assume that this is an unexpected SQL or
+    # user code error - previously this error was swallowed. To stop
+    # an indexing from happening, use die with no argument or you 
+    # will continue to receive such warnings. TODO: note this in guide
+    my $msg = "WARNING: an index_hook for doc '".$doc->doc_key."' on index '".$self->name(). "' died with true value: "; 
+    foreach my $err (@update_errors) {
+      XML::Comma::Log->warn($msg.$err) if($err); 
     }
     return;
   }
@@ -442,17 +445,16 @@ sub _can_alter_index_p {
   my ( $doctype, $store, $id ) = 
     XML::Comma::Storage::Util->split_key( $doc->doc_key() );
   
-  my @doctypes = map { eval $_->get() } $self->elements( 'doctype' ); 
-  my @stores   = map { eval $_->get() } $self->elements( 'store' ); 
+  my @doctypes = grep { defined } 
+                   map { eval $_->get() } $self->elements( 'doctype' ); 
+  my @stores   = grep { defined } 
+                   map { eval $_->get() } $self->elements( 'store' ); 
   push @doctypes, $self->doctype();
   push @stores, $self->store();
-    
-  my ( $dmatch, $smatch );
-  
   my $doctype_match = grep { $_ eq '*' or $_ eq $doctype } @doctypes;  
-  my $store_match   = grep { $_ eq '*' or $_ eq $store   } @stores;
+  my $store_match   = grep { $_ eq '*' or $_ eq $store   } @stores; 
 
-  return $doctype_match && $store_match;
+  return $doctype_match && $store_match; 
 }
 
 sub iterator {
@@ -460,11 +462,11 @@ sub iterator {
   my $iterator = eval { XML::Comma::Indexing::Iterator->new ( index => $self,
                                                               %args ); };
   if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $iterator;
+  return $iterator; 
 }
 
 sub single_retrieve {
-  my ( $self, %args ) = @_;
+  my ( $self, %args ) = @_; 
   my $ret = eval {
     my $iterator = XML::Comma::Indexing::Iterator->new ( index => $self,
                                                          %args );
@@ -474,11 +476,11 @@ sub single_retrieve {
       return;
     }
   }; if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $ret;
+  return $ret; 
 }
 
 sub single_read {
-  my ( $self, %args ) = @_;
+  my ( $self, %args ) = @_; 
   my $ret = eval {
     my $iterator = XML::Comma::Indexing::Iterator->new ( index => $self,
                                                          %args );
@@ -488,29 +490,29 @@ sub single_read {
       return;
     }
   }; if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $ret;
+  return $ret; 
 }
 
 sub single {
-  my ( $self, %args ) = @_;
+  my ( $self, %args ) = @_; 
   my $ret = eval {
     my $iterator = XML::Comma::Indexing::Iterator->new ( index => $self,
                                                          %args );
     if ( $iterator->iterator_refresh(1)->iterator_has_stuff() ) {
-      return $iterator;
+      return $iterator; 
     } else {
       return;
     }
   }; if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $ret;
+  return $ret; 
 }
 
 sub count {
-  my ( $self, %args ) = @_;
+  my ( $self, %args ) = @_; 
   my $count = eval { XML::Comma::Indexing::Iterator->count_only ( index=>$self,
                                                                   %args ); };
   if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $count;
+  return $count; 
 }
 
 sub aggregate {
@@ -518,17 +520,17 @@ sub aggregate {
   my $count = eval { XML::Comma::Indexing::Iterator->aggregate ( index=>$self,
                                                                  %args ); };
   if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $count;
+  return $count; 
 }
 
 sub distinct_field_values {
-  my ( $self, $field_name, %args ) = @_;
+  my ( $self, $field_name, %args ) = @_; 
   my @list = eval {
     XML::Comma::Indexing::Iterator->distinct_field_values
         ( index => $self, _field_name => $field_name, %args ); 
   };
   if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return @list;
+  return @list; 
 }
 
 
@@ -566,14 +568,14 @@ sub data_table_name {
 # returns the empty string.
 sub collection_table_name {
   my $self = shift();
-  my $sort_spec; my $sort_name; my $sort_val;
+  my $sort_spec; my $sort_name; my $sort_val; 
   if ( scalar(@_) > 1 ) {
     $sort_name = $_[0];
     $sort_val = $_[1];
-    $sort_spec = $self->make_sort_spec($sort_name, $sort_val);
+    $sort_spec = $self->make_sort_spec($sort_name, $sort_val); 
   } else {
     $sort_spec = shift();
-    ( $sort_name, $sort_val ) = $self->split_sort_spec($sort_spec);
+    ( $sort_name, $sort_val ) = $self->split_sort_spec($sort_spec); 
   }
 
   my $table_name = $self->{_Index_collection_table_names}->{$sort_spec};
@@ -582,7 +584,7 @@ sub collection_table_name {
 
   # otherwise we need to get, cache and return, with what we do to
   # "get" different depending on the collection type
-  my $cref = $self->{_Index_collections}->{$sort_name};
+  my $cref = $self->{_Index_collections}->{$sort_name}; 
   die "bad collection name '$sort_name'\n"  unless  defined $cref;
   $table_name = $self->data_table_name()
     if  $cref->{type} eq 'stringified';
@@ -590,12 +592,12 @@ sub collection_table_name {
     if  $cref->{type} eq 'binary table';
   $table_name = $self->sql_get_sort_table_for_spec ( $sort_spec )
     if $cref->{type} eq 'many tables';
-  return $self->{_Index_collection_table_names}->{$sort_spec} ||= $table_name;
+  return $self->{_Index_collection_table_names}->{$sort_spec} ||= $table_name; 
 }
 
 
 sub last_modified_time {
-  my ( $self, $sort_name, $sort_string ) = @_;
+  my ( $self, $sort_name, $sort_string ) = @_; 
   my $ret = eval {
     my $table_name;
     if ( $sort_name ) {
@@ -605,16 +607,42 @@ sub last_modified_time {
     }
     return $self->sql_get_timestamp ( $table_name );
   }; if ( $@ ) { XML::Comma::Log->err ( 'INDEX_ERROR', $@ ); }
-  return $ret;
+  return $ret; 
 }
 
+#TODO: this is VERY dangerous, it breaks caching, which means you
+#can't rebuild after until you've started a different process or so
+sub erase {
+  my ($self, %args) = @_; 
+  die "this method is very dangerous, if you really want to do it, read the source for caveats" unless($args{really}); 
+  my $dbh  = $self->get_dbh;
+  my $name = $self->{_Index_doctype};
+  #first, delete the index_tables, then delete the actual tables
+  #this should keep confusion to a minimum...
+  my $sth  = $dbh->prepare( qq {
+    select table_name from index_tables where doctype = '$name'; 
+  } );
+  $sth->execute(); 
+  my @dead_tables;
+  while ( my @row = $sth->fetchrow_array ) { push @dead_tables, @row };
+  $dbh->do( qq {
+    delete from index_tables where doctype = '$name';
+  } );
+  $dbh->do("drop table $_;") foreach (@dead_tables); 
+}
 
 ## set the flag of every document that is in a table just before the
 ## rebuild starts on that table. do the rebuild -- unsetting the flag
 ## when a record is "touched". then erase every item with the flag
 ## set.
 #
-# args: verbose=>1, size=>n, workers =>n, stores=>[doctype:store, ...]
+# args: verbose=>[0|1], #default 0
+#       size=>n,
+#       workers =>n,
+#       stores=>[doctype:store, ...]
+#       defer_textsearches => [0|1] #default 1 on mysql, 0 on pg
+#       textsearch_interval => n, #2000 by default, only makes sense if
+#                                 #defer_textsearches is 1
 sub rebuild {
   my ( $self, %args ) = @_;
   my @stores = $self->_get_stores_for_rebuild ( %args );
@@ -695,6 +723,9 @@ sub _rebuild_loop {
   my $index_name    = $self->element('name')->get();
 
   my $stopped;
+  my $textsearch_interval = ($defer_textsearches == 0} ? 1 :
+    $args{textsearch_interval} || 2000;
+
   while ( $doc && ! $stopped  ) {
     eval {
       if ( $args{verbose} ) {
@@ -705,7 +736,7 @@ sub _rebuild_loop {
       # $doc->index_update ( index      => "$index_doctype:$index_name",
       $doc->index_update ( index      => "$index_name",
                            comma_flag => 0,
-                           defer_textsearches => $defer_textsearches );
+                           defer_textsearches => $textsearch_interval != 1 );
       # run stop_rebuild_hooks, passing $doc and $self. if any of the subs
       # return true, then we should exit from the rebuild
       foreach my $sub ( @{$self->get_hooks_arrayref('stop_rebuild_hook')} ) {
@@ -718,8 +749,8 @@ sub _rebuild_loop {
       $self->sql_set_all_table_comma_flags_politely ( $rebuild_flag );
       # periodically write out textsearches cache, to avoid a big
       # memory/db-size bottleneck
-      unless ( $count % 2000 ) {
-        print "pausing to do deferred textsearches...\n"  if  $args{verbose};
+      unless ( $count % $textsearch_interval ) {
+        print "pausing to do deferred textsearches...\n"  if ($args{verbose} && $textsearch_interval != 1);
         $self->sync_deferred_textsearches()
       }
       $iterator->inc ( -1 * ($args{workers}-1) )  if  $args{workers}>1;

@@ -26,53 +26,29 @@ use XML::Comma;
 use strict;
 use warnings;
 
-my %_def_cache;
-my $_def_name;
-
-# default new returns a new empty doc
-sub new {
-  my $class = shift;
-  my $doc = XML::Comma::Doc->new ( type => eval "\$$class\::_def_name" ||
-                                     die "need to 'load_def' for $class\n" );
-  $doc->{_def} = $class->load_def();
-  return $doc;
-}
-
-#override def() so it works on instances like regular comma docs
-sub def {
-	my $self = shift;
-	if($self->isa("XML::Comma::Doc")) {
-		return $self->{_def};
-	} else {
-		return $self->load_def(@_);
-	}
-}
+my %loaded;
 
 sub load_def {
   my $class = shift;
-  my $_def_name_ref = eval "\\\$$class\::_def_name";
-  return  XML::Comma::Def->read(name=>$$_def_name_ref)  if  $$_def_name_ref;
+  if ( $loaded{ $class } ) {
+    return $loaded{ $class };
+  }
   my $def = XML::Comma::Def->new( block => $class->_def_string() );
-  $$_def_name_ref = $def->name;
+
+  # cache based on pre and post decorator class names
+  $loaded{ $class } = $def;
+  $loaded{ $def   } = $def;
   return $def;
 }
 
-# calls to $class->def_string were not returning any data after
-# the first call.  seek( $fh, 0, 0 ) before returning <$fh> 
-# didn't work (should it?).  This is the temporary hack, which
-# is better than the previous breakage in User and Group.pm 
-# (see Gadgets::User::get_user_by_username for details)  -- dug
-#
 sub _def_string {
-  no strict 'refs';
   my $class = shift;
-
-  if ( not $_def_cache{ $class } ) {
+  {
+    no strict 'refs';
     my $fh = *{"$class\::DATA"};
     local $/ = undef;
-    $_def_cache{ $class } = <$fh>;
+    return <$fh>;
   }
-  return $_def_cache{ $class };
 }
 
 1;

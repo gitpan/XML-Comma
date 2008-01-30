@@ -46,7 +46,7 @@ sub _init {
 }
 
 sub make_id {
-  my ( $self, $struct ) = @_;
+  my ( $self, $struct ) = @_; 
   my $location = File::Spec->catdir ( @{$struct->{locs}} );
   my $next_id = XML::Comma::Storage::FileUtil->next_sequential_id
     ( $struct->{store},
@@ -57,29 +57,23 @@ sub make_id {
   $next_id = sprintf ( '% *s', $self->{_Sf_width},
                        $self->{_Sf_basecalc}->to_base($next_id) );
   my $fd = $self->{_Sf_first_digit};
-  $next_id =~ s| |$fd|g;
+  $next_id =~ s| |$fd|g; 
   return ( join('',@{$struct->{ids}},$next_id),
            File::Spec->catfile($location, $next_id.$self->{_extension}) );
 }
 
 sub location_from_id {
-  my ( $self, $store, $id, $location ) = @_;
-  if ( length($id) != $self->{_Sf_width} ) {
-    die "bad id\n";
-  }
-  return ( '',
-           File::Spec->catfile($location,$id.$self->{_extension}) );
+  my ( $self, $store, $id, $location ) = @_; 
+  die "bad id\n" if ( length($id) != $self->{_Sf_width} );
+  return ( '', File::Spec->catfile($location,$id.$self->{_extension}) );
 }
 
 sub id_from_location {
-  my ( $self, $store, $id, $location ) = @_;
-  if ( ! $location ) {
-    die "bad location\n";
-  }
+  my ( $self, $store, $id, $location ) = @_; 
+  die "bad location\n" unless($location);
   $location =~ /^(.*)${ \( $self->{_extension} ) }$/ ||
     die "bad location\n";
-  return ( $id . sprintf("%0*s", $self->{_Sf_width}, $1),
-           '' );
+  return ( $id . sprintf("%0*s", $self->{_Sf_width}, $1), '' );
 }
 
 

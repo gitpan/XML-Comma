@@ -1,3 +1,77 @@
+- make install hack:
+  in misc/install-extras.pl, exec perl -e 'use XML::Comma' to
+  force compilation of Inline::C stuff for Parser?
+
+- document select_count in guide.html, etc.
+
+- no doc_id on new (unstored) docs makes creating docs that point at one 
+  another hard
+
+- an optional argument to to_array() indicating you want the whole
+  enchilada as if there was an iterator_refresh first. also an optional
+  argument indicating you need the index pos reset after your call.
+
+- do a basic SQL connect check, and if it fails, skip all the rest of
+  the indexing tests, marking them failed. see other cpan modules for
+  how to do this (i remember seeing things like "skipped: various reasons")
+
+doc_is_new is confusing now.
+since a new doc can be set an arbitrary number of times w/o need of 
+get_lock or keep_open, in some sense a new doc is always new until you 
+load it from disk. currently doc_is_new ceases to be new as soon as you 
+associate the doc with some storage, which is what brian wants, but you 
+can write code like this (from multi_store_doctype.t)
+  my $doc = XML::Comma::Doc->new( type => $def_one_name );
+  $doc->element( "foo" )->set( "foo_$_" );
+  $doc->bar( "bar_$_" );
+  $doc->store( store => "one" ); # updates indices 'one' and 'all'
+  $doc->store( store => "two" ); # updates indices 'two' and 'all'
+resolve this ambiguity.
+
+fix Index->erase() to clear cached data as necessary
+then implement rebuild(drop_first => 1);
+
+alter table statements fail with postgres for when we change a def's 
+sql_type or so:
+  DBD::Pg::st execute failed: ERROR:  syntax error at or near "MODIFY"
+  LINE 3:               MODIFY type VARCHAR(255)
+                        ^
+   [for Statement "
+            ALTER TABLE TravelPo_0001
+                MODIFY type VARCHAR(255)
+        "] at /usr/local/share/perl/5.8.8/XML/Comma/SQL/Base.pm line 293.
+
+would it be worth having some SQL-backend-neutral names for sql_types?
+e.g. pg:
+  varchar text name bytea bool date time - etc.
+vs mysql:
+  VARCHAR CHAR INT TINYINT - etc.
+more here: 
+  http://www.ibm.com/developerworks/db2/library/techarticle/dm-0606khatri/
+
+trying to rebuild an index_only store shouldn't work, but it should give 
+a better error message than this:
+tperl -e 'XML::Comma::Def->Shorten->get_index("main")->rebuild(verbose => 1)'
+  beginning re-index from store main...
+  error while rebuilding: UNKNOWN_ACTION -- no method or element 
+  'extension' found in 'DocumentDefinition:store' at -e line 1
+
+in travel::webuser::get_user_by_email, change single_read to single
+and you uncover what appears to be a bug. I think this is related to the
+++$it problem?
+
+if i try to do <field><name>foo</name></field>, and foo is a plural
+  element, i don't get indexed - nor do i get any error output!
+  when is the right time to abort?
+  also, is it possible that we should auto-detect by plurality
+  if we want a field or collection, and have both mean the
+  same thing? (perhaps not, the programmer needs to know the
+  difference to create sql to actually query the thing)
+
+shoot, we have to rejigger te install process to have a seperate 
+dbconfig step sooner than later, as when we return from cpan currently,
+we make and make test, and die slowly w/o that info
+
 testing cpan with a local tarball:
   TARBALL=/media/edgy/home/ski/mysrc/XML-Comma-1.993.tgz
   mkdir /root/.cpan/build
@@ -7,16 +81,12 @@ testing cpan with a local tarball:
 
 when installing, set DBI timeout lower?
 
-calling ->erase() when you don't have perms to delete the store doesn't 
-seem to do the right thing... (no error - try with a TravelPictureLocal) 
-- but perhaps that is a reflection of what dave mentions below:
+convert all uses of bareword file handles to proper my $foo style
+  (that is, if this is compat with 5.6)
 
-dave reports index hooks die silently without throwing an error:
-(01:57:13 PM) davethemadx: Hmm, btw, if an index hook dies... it 
-apparently does so silently.
-(01:58:10 PM) xbrianskix: really.....
-(01:58:30 PM) xbrianskix: that actually might be related to the problem 
-we were having with pg and textsearches
+calling ->erase() when you don't have perms to delete the store doesn't 
+seem to do the right thing... (no error - try with a TravelPictureLocal)
+  (just a reflection of the index errors not propagated problem we had?)
 
 a terser, and hopefully quicker to parse data format not based on XML?
   http://en.wikipedia.org/wiki/YAML
@@ -52,16 +122,16 @@ for now, but that stinks...
 #      </textsearch>
 
 shortcut methods skip set_hook (and probably read_hook) !
-	(at least with a blob_element - try $doc->original("foo")
-	 on a travel...Picture::Local doc)
+  (at least with a blob_element - try $doc->original("foo")
+   on a travel...Picture::Local doc)
 
 <location> for BlobElements
-	this deals with elements on a different FS in a "smart" way,
-		and lets you move blobs out from the same hierarchy
-		as the xml docs, so you can grep -r there easily
-	another way to think of this is as the inverse of
-		the <extension> field (ie, <prefix>, akin to
-		PREFIX=/some/path make install)
+  this deals with elements on a different FS in a "smart" way,
+    and lets you move blobs out from the same hierarchy
+    as the xml docs, so you can grep -r there easily
+  another way to think of this is as the inverse of
+    the <extension> field (ie, <prefix>, akin to
+    PREFIX=/some/path make install)
 
 integrate Versionable.pm from travel code into base?
 
@@ -69,7 +139,7 @@ parameterized where_clauses and such. single quotes are always a pain in
 the rear here...
 
 default mode of destination dir should be $owner:{www-data|web}
-	and mode 664 on comma.log
+  and mode 664 on comma.log
 
 introspection cleanup:
   add to docs that we deprecate from top-level of DocDef:
@@ -119,24 +189,20 @@ TODO: make sure all new API stuff is in doc/guide.html and Bootstrap.pm
 TODO: test-case for $blob_el->append...
 
 things to add to guide.html:
-	everything in comma-2.html, plus probably some other stuff...
+  everything in comma-2.html, plus probably some other stuff...
 
 add to comma-2.html/Changelog:
-	some sort of smart dump of svn commits to chronicle
+  some sort of smart dump of svn commits to chronicle
 
 2.1:
 - apply & fix the stuff in weak/ for ->parent, ->top, etc.
 - get more info on copyright bounding start dates from comma 1.21
 - there is no way to get the size of the store from the index... perhaps
-	this is a feature? ... but it would be nice to have an 
-	$index->total_count or so
-- change default version of read_doc() to return a
-  virtualdoc when called off of an index iterator.
-- THINK: is it possible & safe to do the above optimization
-  when one calls retrieve_doc?
+  this is a feature? ... but it would be nice to have an 
+  $index->total_count or so
 - make an Iteratable.pm or so which Storage::Iterator and
   Index::Iterator inherit from ( we probably can't use it for much
-  but it will look nicer that way ;) )
+  but it will look nicer that way at least ... )
 
 $sit->length() vs. $idx->count() ... resolve this inconsisency if poss.
 consider iterator_refresh for storage iterators?
@@ -172,32 +238,29 @@ Reported by tim, 2/15/2007
 This doesn't work... Probably to fix this after we get the weakref
 stuff in and right.
 $ perl -MXML::Comma -e 'use strict ;
-	my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); 
-	foreach my $el ( $def->def_sub_elements() ) {
-		my $tag = $el->name(); 
-		print $tag . "\n" if $el->element_is_plural($tag);
-	}'
+  my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" ); 
+  foreach my $el ( $def->def_sub_elements() ) {
+    my $tag = $el->name(); 
+    print $tag . "\n" if $el->element_is_plural($tag);
+  }'
 
 This does:
 $ perl -MXML::Comma -e 'use strict ;
-	my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" );
-	foreach my $el ( $def->def_sub_elements() ) {
-		my $tag = $el->name();
-		print $tag . "\n" if $def->is_plural($tag);
-	}'
+  my $def = XML::Comma::Def->read( name=>"AllAfrica_Publisher" );
+  foreach my $el ( $def->def_sub_elements() ) {
+    my $tag = $el->name();
+    print $tag . "\n" if $def->is_plural($tag);
+  }'
 
 This is an API bug. THE other is_* have this problem as well.
 
 
-Test::More stuff:
-- standardize/clean up the order of "use" statements, etc.
-- tests that only nominally use Test::More (numbered tests via ok): 
-    order.t, indexing.t, parser.t, storage.t, validation.t
+- standardize/clean up the order of "use" statements, etc. in t/*.t
 
 
 with postgres, we get lots of spurious warnings starting "NOTICE"
-	these can be ignored (i think/hope)
-	the Pg code in general needs a general cleanup too.
+  these can be ignored (i think/hope)
+  the Pg code in general needs a general cleanup too.
 
 pg for dummies:
   To get postgres up and running on my machine, for use with comma, I
@@ -228,7 +291,7 @@ pg for dummies:
   heavy weight?
 - maybe use ExtUtils::MakeMaker::prompt for automated testers
 - it'd be nice to have "iterators" on nested plural elements
-- test cases for $blob_el->{append|set}() combinations
+- more test cases for $blob_el->{append|set}() combinations
 - make $blob_el->set() more efficient by nuking the fcopy and
   instead keep the appendage and the original data seperate
   use _set_was_called for this
@@ -243,9 +306,9 @@ SQL code we have (if not all) already does this, but since I just
 discovered it, I want to make sure it ALL does...
 
 - t/indexing.t sometimes fails because of an incomplete previous run, or
-	cruft in the database. make it more robust.
-	### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
-	think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
+  cruft in the database. make it more robust.
+  ### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
+  think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
 
 - it'd be nice if we could do some SQL-ish things with storage iterators... but best to
   read up on the progress (or is that lack of progress) with SQLite first...

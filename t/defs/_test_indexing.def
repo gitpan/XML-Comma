@@ -28,11 +28,20 @@
   </store>
 
   <store>
+    <name>index_hook_abort_tests</name>
+    <base>test</base>
+    <location>Sequential_file:'extension','.doctest'</location>
+    <index_on_store>aaa_ok1</index_on_store>
+    <index_on_store>death1</index_on_store>
+    <index_on_store>death2</index_on_store>
+    <index_on_store>zzz_ok2</index_on_store>
+  </store>
+
+  <store>
     <name>other</name>
     <base>test/other</base>
     <location>Sequential_file:'extension','.doctest'</location>
   </store>
-
 
   <index>
     <name>main</name>
@@ -157,6 +166,33 @@
     <field><name>bar</name></field>
   </index>
 
+  <index>
+    <store>'*'</store>
+    <name>death1</name>
+    <index_hook><![CDATA[
+      sub { XML::Comma::Log->warn("in death1"); die; }
+    ]]></index_hook>
+  </index>
+
+  <index>
+    <store>'*'</store>
+    <name>death2</name>
+    <index_hook><![CDATA[
+      sub { XML::Comma::Log->warn("in death2"); die "true stuff"; };
+    ]]></index_hook>
+  </index>
+
+  <index>
+    <store>'*'</store>
+    <name>aaa_ok1</name>
+    <field><name>foo</name></field>
+  </index>
+
+  <index>
+    <store>'*'</store>
+    <name>zzz_ok2</name>
+    <field><name>foo</name></field>
+  </index>
 
   <plural>'many1'</plural>
   <plural>'many2'</plural>

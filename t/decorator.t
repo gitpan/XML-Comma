@@ -10,7 +10,7 @@ use XML::Comma::Pkg::DecoratorTest::OverTalker;
 use XML::Comma::Pkg::DecoratorTest::ConfigTalker;
 use XML::Comma::Pkg::DecoratorTest::SimpleTest;
 
-use Test::More tests => 20;
+use Test::More 'no_plan';
 
 # make a doc
 my $doc = XML::Comma::Doc->new ( type => '_test_decorator' );
@@ -28,6 +28,12 @@ ok($doc->isa('XML::Comma::Pkg::DecoratorTest::Talker'));
 
 # can we say hello? 
 ok($doc->say_hello eq 'hello');
+
+# can we call def methods?
+ok($def->say_hello eq 'hello');
+
+# how about this way?
+ok( XML::Comma::Def->_test_decorator()->say_hello eq 'hello' );
 
 # test a plain element
 my $el = $doc->element('el_plain');
@@ -56,13 +62,9 @@ ok($doc->multi eq 'bro--HEY');
 # test config
 ok($doc->element('configurable')->say_hello eq 'marhaban');
 
-# stuff for testing DefModule
-$doc = XML::Comma::Pkg::DecoratorTest::SimpleTest->new;
-$def = $doc->def;
-ok($doc and $def);
+# make sure we get the same location from the DefManager
+ok($def == XML::Comma::Def->_test_decorator);
 
-# make sure we get the same location in memory if we load anew
-ok($def == XML::Comma::Def->SimpleTest);
-ok($def == XML::Comma::Pkg::DecoratorTest::SimpleTest->load_def());
-ok($def == XML::Comma::Pkg::DecoratorTest::SimpleTest->def());
-ok($def == XML::Comma::Pkg::DecoratorTest::SimpleTest->new()->def());
+# more calls to load_def should work
+ok( $def = XML::Comma::Pkg::DecoratorTest::SimpleTest->load_def );
+ok( $def == $def->load_def );

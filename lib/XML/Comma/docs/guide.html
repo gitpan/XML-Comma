@@ -12,7 +12,7 @@ pre { background-color: #ddddff }
 </head>
 <body>
 
-<!-- synced with Comma version 1.25, sort of... -->
+<!-- last synced with svn rev. 1191 -->
 
 <h1>Introduction</h1>
 
@@ -45,13 +45,20 @@ process. These frameworks include structuring and validation;
 long-term storage; programmatic manipulation; and indexing for fast
 sorting, categorization and retrieval. </p>
 
-<p> This document, the XML::Comma User's Guide, is available in both
-HTML and PDF form. The PDF is generated from the HTML by
-<a href="http://www.easysw.com/htmldoc/software.php">HTMLDOC</a>.
+<p> This document describes comma 2 (1.90 and greater). <b>For 
+documentation of comma &lt;1.90 , please view <a 
+href="http://xml-comma.org/guide-1.x-filter.html">this page</a> 
+instead</b>, or for more information about the different branches, 
+please see the list of <a href="comma-2.html">comma 2.0 
+enhancements</a>. </p>
+
+<p> This document is available online: </p>
 
 <ul>
   <li> HTML:  <a href="http://xml-comma.org/guide-filter.html">http://xml-comma.org/guide-filter.html</a> </li>
+<!--
   <li> PDF:  <a href="http://xml-comma.org/guide.pdf">http://xml-comma.org/guide.pdf</a> </li>
+-->
 </ul>
 
 </p>
@@ -64,22 +71,36 @@ HTML and PDF form. The PDF is generated from the HTML by
 relational database be installed in order to function properly. The
 Perl version must be 5.005 or greater. The basic required CPAN modules
 (more may be used by additional parts of Comma) are
-<b>Inline</b>, <b>Lingua::Stem</b>, <b>Crypt::Twofish</b>, 
-<b>Crypt::CBC</b>, <b>Digest::HMAC_MD5</b>, <b>String::CRC</b>,
-<b>Math::BaseCalc</b>, <b>Class::ClassDecorator</b>, <b>DBI</b>, 
-the <b>DBD::</b> module that matches your database and 
-<b>DBD::SQLite</b> for running the test suite.  The database can 
-by SQLite or mySQL or postgreSQL, with support for
-other databases available whenever someone asks for it. </p>
 
-<p> Comma installs in the usual <code>make</code>, <code>make
-test</code> and <code>make install</code> fashion. The tests, however,
-won't run until the <code>Comma/Configuration.pm</code> file has been
-edited to configure a number of standard variables to values that are
-appropriate for your system. <code>Comma/Configuration.pm</code>
-controls the overall system configuration, and the version that is in
-the build directory will be copied to the appropriate location on your
-machine during the <code>make install</code> operation.</p>
+<b>Class::ClassDecorator</b>,
+<b>Compress::Zlib</b>,
+<b>Crypt::Blowfish</b>,
+<b>Crypt::CBC</b>,
+<!-- <b>Crypt::Twofish</b> no longer required-->
+<b>DBI</b>,
+<b>Digest::HMAC_MD5</b>,
+<b>Inline</b>,
+<b>Lingua::Stem</b>,
+<b>Math::BaseCalc</b>,
+<b>PAR</b>,
+<b>Storable</b>,
+<b>String::CRC</b>
+
+and the <b>DBD::</b> module that matches your database.
+Currently, the database must be mySQL or postgreSQL, the former of which 
+has much more robust support in the comma framework. Support for SQLite
+has been hacked on, but is not yet complete or stable and cannot be used 
+in production. Support for other databases can be made available 
+whenever someone asks for it. </p>
+
+<p> Comma installs in the usual <code>perl Makefile.PL</code>,
+<code>make</code>, <code>make test</code> and <code>make install</code> 
+fashion. If you don't have an existing comma install, 
+<code>Makefile.PL</code> will ask you a series of questions 
+about the coniguration of your SQL backend, how you want various 
+comma features to work, etc. and store that in 
+<code>Comma/Configuration.pm</code> (which can be examined and overriden 
+by hand if desired before the <code>make</code> step).</p>
 
 <p> <code>Comma/Configuration.pm</code> contains a package declaration
 and then a <code>__DATA__ </code> section divider. Everything after
@@ -1920,9 +1941,7 @@ equivalent: </p>
 <pre>
 &lt;!-- 1) a required tag specifying two element names--&gt;
 &lt;required&gt;'foo', 'bar'&lt;/required&gt;
-</pre>
 
-<pre>
 &lt;!-- 2) the two validate_hooks that are actually installed
 when the Def is parsed, one for 'foo' and one for 'bar' --&gt;
 
@@ -2346,9 +2365,9 @@ iterator. </p>
 field -- a value which came originally from the <i>email</i> element
 of the Doc that this record represents. </p>
 
-<p> Every iterator implicitly includes the <b>doc_key</b> and the
-<b>doc_id</b> as fields, so <b>doc_key()</b> and <b>doc_id()</b> are
-always available as methods. Another special method,
+<p>Every indexing iterator implicitly includes a <b>doc_key</b> method
+and <b>doc_id</b> field, so <b>doc_key()</b> and <b>doc_id()</b>
+are always available as methods. Another special method,
 <b>record_last_modified()</b> is also available. As its name
 suggests, <b>record_last_modified()</b> returns a timestamp (unix
 system time) indicating when the index record was last changed. </p>
@@ -4511,6 +4530,8 @@ elements aren't stored, and so they can't be read in and hook'ed. </p>
     <li>$doc || undef = $doc-&gt;get_lock_no_wait();</li>
     <li>$string = $doc-&gt;to_string()</li>
     <li>$string = $doc-&gt;comma_hash()</li>
+    <li>@elements = $doc-&gt;get_leaf_nodes( [ include => [ path_1 ... path_n ] ], [ exclude => [ path_1 ... path_n ] ])</li>
+    <li>$string = $doc-&gt;full_field_texts( [ same args as get_leaf_nodes ] );</li>
     <li>$self = $doc-&gt;store ( store=&gt;, [keep_open=&gt;], [no_hooks=&gt;], [args...] )</li>
     <li>$self = $doc-&gt;erase()</li>
     <li>$self = $doc-&gt;copy()</li>
@@ -4639,8 +4660,10 @@ doc_key | single_line ] );</li>
     <li>$doc = $iterator-&gt;read_doc();</li>
     <li>$string = $iterator-&gt;doc_key();</li>
     <li>$string = $iterator-&gt;doc_id();</li>
+    <li>$string = $iterator-&gt;record_last_modified();</li>
+    <li>$num = $iterator-&gt;select_count();</li>
     <li>$return_value = $iterator-&gt;$field/$method ( [@args] );</li>
-    <li>@docs = $iterator-&gt;to_array();</li>
+<!--		<li>@docs = $iterator-&gt;to_array();</li> -->
   </ul></li>
 
   <li>XML::Comma::Log<ul>
@@ -4655,6 +4678,7 @@ doc_key | single_line ] );</li>
     <li>$id_string   = $store-&gt;next_id ( $id_string );</li>
     <li>$id_string   = $store-&gt;prev_id ( $id_string );</li>
     <li>$directory   = $store-&gt;base_directory();</li>
+    <li>$store_name  = $store-&gt;name();</li>
     <li>$def_name    = $store-&gt;def_name();</li>
     <li>@index_names = $store-&gt;associated_indices();</li>
   </ul></li>
@@ -4672,7 +4696,7 @@ doc_key | single_line ] );</li>
     <li>$num = $iterator-&gt;prev_read();</li>
     <li>$num = $iterator-&gt;doc_id();</li>
     <li>@docs = $iterator-&gt;read_doc();</li>
-    <li>@docs = $iterator-&gt;to_array();</li>
+    <!-- <li>@docs = $iterator-&gt;to_array();</li> -->
   </ul></li>
 
   <li>XML::Comma::Util<ul>

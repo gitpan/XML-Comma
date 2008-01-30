@@ -6,11 +6,11 @@ use lib ".test/lib/";
 use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
-use Test::More tests => 10;
+use Test::More 'no_plan';
 
 # erase everything, so that we start fresh
 my $index = XML::Comma::Def->_test_index_only->get_index ( "main" );
-ok("1");
+ok("if we didn't die, we're okay here");
 
 my $it = $index->iterator();
 while ( ++$it ) {
@@ -18,7 +18,7 @@ while ( ++$it ) {
   #dbg 'id', $doc->doc_id();
   $doc->erase();
 }
-ok("2");
+ok("if we didn't die, we're okay here");
 
 my $second_index = XML::Comma::Def->_test_index_only->get_index ( "second" );
 
@@ -30,31 +30,29 @@ while ( ++$second_it ) {
 }
 
 my $doc = XML::Comma::Doc->new ( type => '_test_index_only' );
-ok("3");
+ok($doc);
 
 $doc->time ( time );
 $doc->string ( "foo" );
 $doc->store ( store => 'main' );
-ok("4");
+ok("if we didn't die, we're okay here");
 
 my $id = $doc->doc_id();
 #dbg "id: $id\n";
 
 undef $doc;
 $doc = XML::Comma::Doc->read ( "_test_index_only|main|$id" );
-ok("5");
-ok("6")  if  $doc->string() eq 'foo';
+ok($doc->string() eq 'foo');
 
 $doc->get_lock();
 $doc->erase();
-ok("7");
+ok("if we didn't die, we're okay here");
 
 undef $doc;
 eval {
   $doc = XML::Comma::Doc->read ( "_test_index_only|main|$id" );
-}; if ( $@ ) {
-  ok("8");
-}
+};
+ok($@);
 
 # let's see how long it takes to create these things
 my $how_many = 150;
@@ -68,13 +66,12 @@ while ( $id < $stop_id ) {
   $doc->store ( store => 'main' );
   $id = $doc->doc_id();
 }
-ok("9");
+ok("if we didn't die, we're okay here");
 
 $doc = XML::Comma::Doc->read ( "_test_index_only|main|$id" );
 my $last_time = $doc->time();
 my $seconds = $last_time - $first_time;
-
-ok("10");
+ok("if we didn't die, we're okay here");
 
 #dbg "created and stored $how_many docs in $seconds seconds";
 

@@ -20,6 +20,9 @@
 #
 ##
 
+#TODO: return a useful error message to the client as well - 
+# don't just stuff it in error.log here
+
 package XML::Comma::Pkg::Transfer::HTTP_Transfer;
 
 # _target           : url to get/post to/from
@@ -61,6 +64,7 @@ sub new {
   my $self = {}; bless ( $self, $class );
   $self->{_target} = $args{target} ||
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 'no target given to new()' );
+  $args{ignore_on} = [] unless(ref($args{ignore_on})); 
   if ( my @ignores = @{$args{ignore_on}} ) {
     my $hn = Sys::Hostname::hostname();
     $self->{_ignore_here} = $hn  if  array_includes ( @ignores, $hn );
@@ -70,7 +74,7 @@ sub new {
   # FIX: perhaps these should be set just before each request?
   $ENV{HTTPS_CERT_FILE} = $self->{_https_cert_file} || '';
   $ENV{HTTPS_KEY_FILE}  = $self->{_https_key_file} || '';
-  return $self;
+  return $self; 
 }
 
 
@@ -94,8 +98,8 @@ sub ping {
   if ( $response && $response->is_success() ) {
     return $response->content();
   } else {
-    XML::Comma::Log->err ( 'TRANSFER_ERROR',
-                           "couldn't ping remote" );
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           "couldn't ping remote on ".$self->{_target} );
     return undef;
   }
 }
@@ -139,7 +143,8 @@ sub get_hash {
   if ( $response && $response->is_success() ) {
     return $response->content();
   } else {
-    XML::Comma::Log->err ( 'TRANSFER_ERROR', 'remote get_hash error' );
+    XML::Comma::Log->err ( 'TRANSFER_ERROR', 
+                           'remote get_hash error on '.$self->{_target} );
   }
 }
 
@@ -157,7 +162,8 @@ sub put {
     return $response->content();
   } else {
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 
-                           'remote put error for' . $doc->doc_key() );
+                           'remote put error on '.$self->{_target}.
+                           ' for ' . $doc->doc_key() );
   }
 }
 
@@ -178,7 +184,8 @@ sub put_archive {
     return $response->content();
   } else {
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 
-                           'remote put_archive error for' . $doc->doc_key() );
+                           'remote put_archive error on '.$self->{_target}.
+                           ' for ' . $doc->doc_key() );
   }
 }
 
@@ -199,7 +206,8 @@ sub put_push {
     return $response->content();
   } else {
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 
-                           'remote put_push error for' . $doc->doc_key() );
+                           'remote put_push error on '.$self->{_target}.
+                           ' for ' . $doc->doc_key() );
   }
 }
 
@@ -217,7 +225,8 @@ sub erase {
     return $response->content();
   } else {
     XML::Comma::Log->err ( 'TRANSFER_ERROR', 
-                           'remote erase error for' . $doc->doc_key() );
+                           'remote erase error on '.$self->{_target}.
+                           ' for ' . $doc->doc_key() );
   }
 }
 
@@ -241,7 +250,6 @@ sub handler {
 
 sub get_and_store_handler {
   my ( $r, $params ) = @_;
-  my $output_string = '';
   eval {
     my ( $type, $store, $id ) = ( $params->{type},
                                   $params->{store},
@@ -256,7 +264,7 @@ sub get_and_store_handler {
     }; # (or empty, if the inner eval failed)
     return _ok ( $r, 'bin/data', \$output_string );
   }; if ( $@ ) {
-    return _not_ok ( $r, $@ );
+    return _not_ok ( $r, "get_and_store_handler: $@" );
   }
 }
 
@@ -276,7 +284,7 @@ sub get_hash_handler {
     };
     return _ok ( $r, 'bin/data', \$hash );
   }; if ( $@ ) {
-    return _not_ok ( $r, $@ );
+    return _not_ok ( $r, "get_hash_handler: $@" );
   }
 }
 
@@ -287,7 +295,7 @@ sub put_handler {
     $response_string =
       XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params )->doc_id();
   }; if ( $@ ) {
-    return _not_ok ( $r, $@ );
+    return _not_ok ( $r, "put_handler: $@" );
   }
   return _ok ( $r, 'text/plain', \$response_string );
 }
@@ -300,7 +308,7 @@ sub put_push_handler {
     $response_string =
       XML::Comma::Pkg::Transfer::HTTP_Transfer->_store ( $params )->doc_id();
   }; if ( $@ ) {
-    return _not_ok ( $r, $@ );
+    return _not_ok ( $r, "put_push_handler: $@" );
   }
 #    my $output_string;
 #    while ( my ($key, $value) = each %$params ) {
@@ -316,7 +324,7 @@ sub erase_handler {
     $response_string = XML::Comma::Def->read(name=>$params->{type})
       ->get_store($params->{store})->force_erase ( %$params );
   }; if ( $@ ) {
-    return _not_ok ( $r, $@ );
+    return _not_ok ( $r, "erase_handler: $@" );
   }
 #    my $output_string;
 #    while ( my ($key, $value) = each %$params ) {
@@ -352,7 +360,7 @@ sub _put_request {
   my $request = HTTP::Request->new ( POST => $self->{_target} );
   $request->push_header ( 'Content-Length' => length $body );
   $request->add_content ( $body );
-  return $request;
+  return $request; 
 }
 
 sub _put_bundle {
@@ -375,7 +383,7 @@ sub _get_request {
   my $request = HTTP::Request->new ( POST => $self->{_target} );
   $request->push_header ( 'Content-Length' => length $body );
   $request->add_content ( $body );
-  return $request;
+  return $request; 
 }
 
 sub _get_bundle {

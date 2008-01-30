@@ -84,10 +84,14 @@ sub read {
       $doc = 
         XML::Comma::Doc->new ( block=>$input_str,
                                read_args => $read_args,
-                               validate => $validate );
+                               validate => $validate,
+                               location=> $location,
+                               id=> $id,
+                               key=> $key,
+                               lock=> $lock,
+                               store_obj=> $self );
     }
     $doc->{_Doc_new} = 0; # blech, hack, yuck
-    $doc->set_storage_info ( $self, $location, $id, $key, $lock );
   }; if ( $@ ) {
     my $error = $@;
     if ( $lock ) { eval { XML::Comma->lock_singlet()->unlock($key) }; }
@@ -212,9 +216,20 @@ sub force_store {
     my ( $volume, $directories, $file ) = File::Spec->splitpath ( $location );
     XML::Comma::Storage::FileUtil->make_directory ( $self, $directories, 1 );
   }
+  # any blobs from remote need to exist before we call doc->new
+#XML::Comma::Log->warn("about to set blobs");
+  unless ( $args{blobs_local_files} ) {
+    foreach my $blob ( keys %{$args{blobs}} ) {
+      next unless $blob; #TODO: trace down why this is happening...
+#XML::Comma::Log->warn("setting blob: $blob");
+      open (my $fh, ">$blob") || die "TODO: proper error message: $@";
+      print $fh $args{blobs}->{$blob};
+      close($fh) || die "TODO: proper error message: $@";
+    }
+  }
+#XML::Comma::Log->warn("done setting blobs");
   # make the doc
-  my $doc = XML::Comma::Doc->new ( block => $args{doc_string},
-                                   no_read_hooks => 1 );
+  my $doc = XML::Comma::Doc->new ( block => $args{doc_string}, no_read_hooks => 1 );
   # set storage info
   $doc->set_storage_info ( $self, $location, $args{id}, $args{key} );
   # write
@@ -232,10 +247,11 @@ sub force_store {
       print "resetting and copying: " . $filename . "\n";
       $blob->set_from_file ( $filename );
     } else {
-      my $send_side_filename = $blob->get_location();
-      $blob->set();
-      $blob->set ( $args{blobs}->{$send_side_filename},
-                   filename => $send_side_filename );
+#			#this should already have been done by first blob loop
+#			my $send_side_filename = $blob->get_location();
+#			$blob->set();
+#			$blob->set ( $args{blobs}->{$send_side_filename},
+#									 filename => $send_side_filename );
     }
   }
   $doc->store ( no_hooks => $args{no_hooks} );
@@ -441,13 +457,13 @@ sub def_name {
 
 #this just calls associated_indices for people who spell different
 sub associated_indexes {
-	my ($self, @args) = @_;
-	$self->associated_indices(@args);
+  my ($self, @args) = @_;
+  $self->associated_indices(@args);
 }
 
 sub associated_indices {
-	my $ios = $_[0]->{_index_on_stores};
-	return (defined($ios) && @$ios ? @$ios : ());
+  my $ios = $_[0]->{_index_on_stores};
+  return (defined($ios) && @$ios ? @$ios : ());
 }
 
 sub init_and_cast {

@@ -2,9 +2,9 @@ use strict;
 
 use Test::More;
 unless ( XML::Comma->defs_from_PARs() ) {
-	plan skip_all => "not using defs_from_PARs";
+  plan skip_all => "not using defs_from_PARs";
 } else {
-	plan tests => 6;
+  plan tests => 6;
 }
 
 use FindBin;

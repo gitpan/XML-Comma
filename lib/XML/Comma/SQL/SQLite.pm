@@ -841,7 +841,7 @@ sub reconnect {
 }
 
 sub sql_textsearch_cat_seq_list {
-	die "TODO: steal SQLite.pm::sql_textsearch_cat_seq_list, and pack/unpack from Pg.pm";
+  die "TODO: steal SQLite.pm::sql_textsearch_cat_seq_list, and pack/unpack from Pg.pm";
 }
 
 1;

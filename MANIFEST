@@ -2,15 +2,14 @@ bin/comma-create-config.pl
 bin/comma-drop-index.pl
 bin/comma-load-and-index-doc.pl
 bin/comma-load-and-store-doc.pl
-bin/comma-load-and-store-doc.sh
 bin/comma-load-doc.pl
+bin/comma-rebuild-index.pl
 Changes
 INSTALL
 lib/XML/Comma/AbstractElement.pm
 lib/XML/Comma/BlobElement.pm
 lib/XML/Comma/Bootstrap.pm
 lib/XML/Comma/Configable.pm
-lib/XML/Comma/Configuration.pm
 lib/XML/Comma/DefManager.pm
 lib/XML/Comma/Def.pm
 lib/XML/Comma/Doc.pm
@@ -89,7 +88,6 @@ lib/XML/Comma/Storage/Store.pm
 lib/XML/Comma/Storage/Util.pm
 lib/XML/Comma/Util/DefModule.pm
 lib/XML/Comma/Util.pm
-lib/XML/Comma/VirtualDoc.pm
 LICENSE
 Makefile.PL
 MANIFEST
@@ -99,6 +97,7 @@ misc/MakeMakerMod.pm
 README
 t/aaa_test_setup.t
 t/bootstrap.t
+t/collection.t
 t/decorator.t
 t/defs/macros/boolean.macro
 t/defs/macros/date_8.macro  
@@ -114,6 +113,7 @@ t/defs/macros/timestamp.macro
 t/defs/macros/truncate_to_length.macro  
 t/defs/macros/unix_time.macro
 t/defs/standard/Comma_Standard_Image.def
+t/defs/_test_collection.def
 t/defs/_test_decorator.def
 t/defs/_test_document_hooks.def
 t/defs/_test_indexing.def
@@ -132,7 +132,6 @@ t/defs/_test_storage.def
 t/defs/_test_timestamp.def
 t/defs/_test_transfer_manual.def
 t/defs/_test_validation.def
-t/defs/_test_virtual_doc.def
 t/defs/_test_virtual_element.def
 t/document_hooks.t
 t/indexing.t
@@ -149,7 +148,6 @@ t/timestamp.t
 t/transfer.manual
 t/util.t
 t/validation.t
-t/virtual_doc.t
 t/virtual_element.t
 t/zzz_test_cleanup.t
 META.yml                                 Module meta-data (added by MakeMaker)

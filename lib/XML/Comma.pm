@@ -22,7 +22,7 @@
 
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.994';
+$XML::Comma::VERSION = '1.995';
 
 use strict;
 use vars '$AUTOLOAD';
@@ -31,6 +31,12 @@ use vars '$AUTOLOAD';
 use XML::Comma::Configuration;
 
 BEGIN {
+  # append architecture specific directory to sys_directory to allow
+  # e.g. sharing of comma install between different architecture machines
+  use Config qw();
+  XML::Comma::Configuration->_set("sys_directory",
+    XML::Comma::Configuration->get("sys_directory")."/".$Config::Config{archname}); 
+
   # make sure we have our basic systems directories
   make_system_directories ( qw[ comma_root
                                 document_root
@@ -39,19 +45,19 @@ BEGIN {
 
   # pull in hash module
   my $hash_module = XML::Comma->hash_module();
-  eval "use $hash_module";
+  eval "use $hash_module"; 
   die "can't use hash_module class: $@\n" if $@;
 
   # pull in parser
   my $parser = XML::Comma->parser();
-  eval "use $parser";
-  die "can't use parser class: $@\n" if $@;
+  eval "use $parser"; 
+  die "can't use parser class: $@\n" if $@; 
 
   sub parser {
     return 'XML::Comma::Parsing::' .XML::Comma::Configuration->get ( 'parser' );
   }
 
-  my $lock_singlet;
+  my $lock_singlet; 
   sub lock_singlet {
     return $lock_singlet ||= XML::Comma::SQL::Lock->new();
   }
@@ -71,7 +77,7 @@ BEGIN {
           ( 'UNKNOWN_CONFIG_VAR',
             "no such config variable as '$m' for XML::Comma\n" );
     }
-    return $value;
+    return $value; 
   }
 
   use File::Path qw();
@@ -106,7 +112,7 @@ use XML::Comma::Storage::Store;
 use XML::Comma::Indexing::Index;
 use XML::Comma::Bootstrap;
 use XML::Comma::DefManager;
-use XML::Comma::VirtualDoc;
+#use XML::Comma::VirtualDoc;
 
 
 1;

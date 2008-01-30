@@ -4,13 +4,13 @@ use strict;
 use warnings;
 
 {
-  my $config;
+  my $config; 
 
   sub get {
     my ( $class, $m ) = @_;
     # fill the private config hash if we haven't already
     $config->{$class} ||= $class->make_config();
-    return $config->{$class}->{$m};
+    return $config->{$class}->{$m}; 
   }
 
   sub dump {
@@ -19,6 +19,13 @@ use warnings;
     foreach my $key ( keys %{$config->{$class}} ) {
       print "$key --> " . $config->{$class}->{$key} . "\n";
     }
+  }
+
+  #only privileged code should ever call this. right now the only
+  #use is for appending architecture to XML::Comma->sys_directory()
+  sub _set {
+    my ( $class, $m, $v ) = @_;
+    $config->{$class}->{$m} = $v; 
   }
 
 }
@@ -33,17 +40,17 @@ sub make_config {
   my $block = join ( '', <$fh> );
   my $config = eval "{ $block }";
   if ( $@ ) {
-    my $err = $@;
-    die "eval err: $err\n";
+    my $err = $@; 
+    die "eval err: $err\n"; 
   }
-  return $config;
+  return $config; 
 }
 
 sub get_data_filehandle {
   no strict "refs";
   my $class = shift;
   my $fh_name = "$class" . '::DATA';
-  #print "fhname: $fh_name\n";
+  #print "fhname: $fh_name\n"; 
   return *{$fh_name};
 }
 

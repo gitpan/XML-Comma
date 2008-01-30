@@ -8,7 +8,7 @@ use File::Path;
 
 use strict;
 
-use Test::More tests => 29;
+use Test::More 'no_plan';
 
 my $def_one_name = "_test_multi_first";
 my $def_two_name = "_test_multi_second";
@@ -128,7 +128,7 @@ $it = $index_all->iterator;
 ok(  ++$it and $it->doc_key eq "_test_multi_first|one|004" );
 ok(  ++$it and $it->doc_key eq "_test_multi_first|one|005" );
 ok(  ++$it and $it->doc_key eq "_test_multi_first|one|006" );
-ok(  ++$it and $it->doc_key eq "_test_multi_first|two|005" ); #
+ok(  ++$it and $it->doc_key eq "_test_multi_first|two|005" ); 
 ok(  ++$it and $it->doc_key eq "_test_multi_first|two|006" );
 ok(  ++$it and $it->doc_key eq "_test_multi_first|two|007" );
 ok(  ++$it and $it->doc_key eq "_test_multi_second|two|001" );
@@ -139,18 +139,18 @@ ok(  ++$it and $it->doc_key eq "_test_multi_second|two|003" );
 $it = $index_all->iterator ( where_clause => "doctype='_test_multi_second'" );
 
 ok( 
-  ++$it and $it->store eq 'two'                           and
+  ++$it and $it->store eq 'two'                                and
             $it->doc_key eq "_test_multi_second|two|001"  and
-  ++$it and $it->doc_key eq "_test_multi_second|two|002"  and
+  ++$it and $it->doc_key eq "_test_multi_second|two|002"       and
   ++$it and $it->doc_key eq "_test_multi_second|two|003"
   );
 
 $it = $index_all->iterator ( where_clause => "doctype='_test_multi_first' AND
                                              store='one'" );
 ok( 
-  ++$it and $it->store eq 'one'                          and
+  ++$it and $it->store eq 'one'                               and
             $it->doc_key eq "_test_multi_first|one|004"  and
-  ++$it and $it->doc_key eq "_test_multi_first|one|005"  and
+  ++$it and $it->doc_key eq "_test_multi_first|one|005"       and
   ++$it and $it->doc_key eq "_test_multi_first|one|006"
   );
 
@@ -165,6 +165,9 @@ ok( $iter_count == 9 );
 
 eval { $index_all->rebuild() };
 ok( $@ ); # wildcards need store => [ specs ]
+
+### FIXME - the following two tests fail sporatically
+### - ski 2007/09/11
 
 $index_all->rebuild( 
 # stress 'doctype:store; or 'store' (implies $index->doctype()  syntax)

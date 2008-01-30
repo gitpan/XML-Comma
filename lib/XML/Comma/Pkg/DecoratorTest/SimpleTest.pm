@@ -10,7 +10,7 @@ __PACKAGE__->load_def;
 __DATA__
 
 <DocumentDefinition>
-	<name>SimpleTest</name>
-	<class><module>XML::Comma::Pkg::DecoratorTest::SimpleTest</module></class>
+  <name>SimpleTest</name>
+  <class><module>XML::Comma::Pkg::DecoratorTest::SimpleTest</module></class>
 </DocumentDefinition>
 

@@ -54,6 +54,8 @@ my $spec_parser =
 
 # _Iterator_from_tables : [] of tables to select from, includes data table and
 #                         whatever is in the sort_spec and textsearch_spec
+# _Iterator_data_table_aliased : table_alias/undef   tells us if the data tables 
+#                                have been aliased by a binary_table collection_spec.
 # _Iterator_where_clause
 # _Iterator_order_by
 # _Iterator_order_expressions : [] of expression elements that are used by
@@ -84,9 +86,6 @@ my $spec_parser =
 #                    : that a multi-way joing that may create duplicate rows
 #                    : has been constructed.
 #
-# _Iterator_doc_cache : {} doc_key => $doc cache documents that are lazily read
-#                       by asking for a non-indexed doc element from an iterator
-# _Iterator_doing_lazy_doc_eval
 
 sub new {
   my ( $class, %args ) = @_;
@@ -103,7 +102,6 @@ sub new {
 
     ( $self->{_Iterator_columns_lst}, $self->{_Iterator_columns_pos} ) =
       $self->_make_columns_lsts ( $args{fields} );
-    $self->{_Iterator_doing_lazy_doc_eval} = 0;
 
     my $cspec_arg;
     if ( $args{collection_spec} and $args{sort_spec} ) {
@@ -121,6 +119,13 @@ sub new {
     if ( defined $args{distinct} ) {
       $self->{_Iterator_distinct} = $args{distinct};
     }
+
+    # after all of the different parts of the SQL spec have been set up, check
+    # and see if we need to munge the where_clause.  For instance, if we
+    # aliased the data table name for a binary collection_spec join using
+    # doc_id, and we have doc_id specified in our where_clause, we need to try
+    # to alias doc_id to t01.doc_id.
+    $self->_possibly_munge_where_clause();
 
     $self->{_Iterator_newly_created} = 1;
     #  dbg 'i-spec', $self->{_Iterator_sort_spec};
@@ -335,14 +340,8 @@ sub retrieve_doc {
 
 sub read_doc {
   my ($self, %args) = @_;
-  #slow => 1 for internal ($it->$field_name) use
-#  if($args{slow}) {
-    return $self->{_Iterator_doc_cache}->{$self->doc_key} ||
-      XML::Comma::Doc->read( $self->doc_key(), %args );
-#  } else {
-#    return unless $self->iterator_has_stuff();
-#    return XML::Comma::VirtualDoc->new($self);
-#  }
+  return $self->{_Iterator_doc_cache}->{$self->doc_key} || 	 
+    XML::Comma::Doc->read( $self->doc_key(), %args ); 	 
 }
 
 # alias doc_(read && retrieve) to (read && retrieve)_doc 
@@ -371,16 +370,6 @@ sub doc_key {
       store => $store,
       id    => $self->doc_id() );
 }
-
-sub to_array {
-	my ( $self, %args ) = @_; 
-	my @docs = ();
-	while($self->iterator_has_stuff()) {
-		push @docs, XML::Comma::VirtualDoc->new($self); 
-		$self->iterator_next();
-	} 
-	return @docs;
-} 
 
 sub _current_element {
   my ( $self, $el_name ) = @_;
@@ -510,7 +499,6 @@ sub _make_collection_spec {
           $self->{_Iterator_index}->get_dbh_reader()->quote ( "%$partial%" );
 
       } elsif ( $type eq 'binary table' ) {
-#NOTE: this is NOT dead code
         push @binary_tables, $table_name;
         die "can't use NOT with binary-tables-type collection '$name'\n"
           if $NOT;
@@ -659,6 +647,11 @@ sub _make_binary_collection_spec {
     $t_num++;
     $sql .= " AND t01.doc_id=t" . sprintf( "%02d", $t_num ) . ".doc_id";
   }
+
+  # let others know that our from_tables are aliased now, so that things 
+  # such as future self joining for textsearches still works.
+  $self->{_Iterator_data_table_aliased} = 't01';
+
   # if we have an OR in our sql clause and have dealt with any tables
   # other than the data table, then we need to select DISTINCT. This
   # can be overridden if we already have an explicit 0 in
@@ -674,6 +667,9 @@ sub _make_binary_collection_spec {
 
 # FIX: should a single term with no matches should stop the search,
 # ala google?
+# 
+# This code counts on _make_collection_spec having been already executed.  A binary_table
+# collection spec will have aliased the data_table_name.  We follow suit.
 sub _make_textsearch_spec {
   my $self = shift;
   # don't do anything if we already have made temp tables -- reuse the
@@ -699,7 +695,13 @@ sub _make_textsearch_spec {
   my @stopwords;
   my @notfoundwords;
   my $dbh = $self->{_Iterator_index}->get_dbh_reader();
-  my $data_table_name = $self->{_Iterator_index}->data_table_name();
+
+  # check to see if we've aliased the data table previously in a 
+  # _make_binary_collection_spec call
+  my $data_table_name = $self->{_Iterator_data_table_aliased}; 
+  # or get the actual table name.
+  $data_table_name ||= $self->{_Iterator_index}->data_table_name();
+
   my $sql_string='';
   my @temp_tables;
   my ( $ts_name, $word_string ) =
@@ -785,6 +787,32 @@ sub _get_textsearch_preprocessor {
     $self->{_Iterator_index}->tag_up_path() . "\n";
 }
 
+my $sql_op_or_space =  join "|", qw[ \s < > = <= >= \( \) ];
+my $RE_doc_id_in_where = qq[(^|$sql_op_or_space)(doc_id)($sql_op_or_space)];
+sub _possibly_munge_where_clause {
+  my $self = shift;
+  if ( $self->{_Iterator_data_table_aliased} and 
+       $self->{_Iterator_where_clause} =~ m/$RE_doc_id_in_where/go ) {
+      my $prev_where_clause = $self->{_Iterator_where_clause};
+      $self->{_Iterator_where_clause} =~ s/$RE_doc_id_in_where/$1t01.$2$3/go;
+      XML::Comma::Log->warn( 
+        "ITERATOR_WARNING - remapping ambiguous column doc_id.  " . 
+        "Consider aliasing doc_id to t01.doc_id in your where_clause."
+      );
+      XML::Comma::Log->warn(
+        "ITERATOR_WARNING - original where_clause: $prev_where_clause " .
+        "changed to " . $self->{_Iterator_where_clause}
+      );
+  }
+}
+
+sub _get_bcollection_as_method {
+  my ($self, $col) = @_;
+  my $index = $self->{_Iterator_index};
+  my $btn = $index->sql_get_bcollection_table( $col );
+  return $index->sql_get_values_from_bcollection( $self->doc_id, $btn );
+}
+
 ####
 # AUTOLOAD
 #
@@ -800,33 +828,55 @@ sub AUTOLOAD {
 
 sub iterator_dispatch {
   my ( $self, $m, @args ) = @_;
-  my $value;
-  eval {
-    if ( my $method = $self->{_Iterator_index}->get_method($m) ) {
-      $value = $method->( $self, @args );
-    } else {
-      $value = $self->_current_element($m);
-    }
-  };
 
-  return $value unless $@;
+  # we need to preserve calling context during this dispatch
+  my ( $value, @value );
+  my $wantarray = wantarray();
 
-  # look to the doc if we didn't find anything in the index
-  my $prev_error = $@;  undef $@;
-  my $doc;
-  die $prev_error if($self->{_Iterator_doing_lazy_doc_eval});
-  eval {
-    $self->{_Iterator_doing_lazy_doc_eval} = 1;
-    $doc = $self->read_doc(slow => 1);
-    $self->{_Iterator_doing_lazy_doc_eval} = 0;
-    $value = $doc->$m();
-  };
-
-  XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $prev_error ) if $@;
-
-  # cache read doc and return value
-  $self->{_Iterator_doc_cache}->{$doc->doc_key} = $doc;
-  return $value;
+  # it's an index method
+  if ( my $method = $self->{_Iterator_index}->get_method($m) ) {
+    eval {
+      if ( $wantarray ) {
+        @value = $method->( $self, @args );
+      } else {
+        $value = $method->( $self, @args );
+      }
+    };
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ) if $@;
+    $wantarray ? return @value : return $value;
+  # do some extra sql to make binary table collections available to the 
+  # iterators
+  } elsif ( $self->{_Iterator_index}->{_Index_collections}->{$m} and 
+            $self->{_Iterator_index}
+                 ->{_Index_collections}->{$m}->{type} eq 'binary table' ) {
+    eval {
+      if ( $wantarray ) {
+        @value = $self->_get_bcollection_as_method($m);
+      } else {
+        $value = $self->_get_bcollection_as_method($m);
+      }
+    };
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ) if $@;
+    $wantarray ? return @value : return $value;
+  } else {
+    eval { 
+      if ( $wantarray ) {
+        @value = $self->_current_element($m);
+      } else {
+        $value = $self->_current_element($m);
+      }
+    };
+#    if($@) { 
+#      my $doc = $self->read_doc(slow => 1);
+#      if ( $wantarray ) {
+#        @value = $doc->_current_element($m);
+#      } else {
+#        $value = $doc->_current_element($m);
+#      }
+#    }
+    XML::Comma::Log->err ( 'ITERATOR_ACCESS_FAILED', $@ ) if $@;
+    $wantarray ? return @value : return $value;
+  }
 }
 
 sub DESTROY {

@@ -33,46 +33,43 @@ END
 package main;
 
 
-my @cmd_line_utils = qw(
-bin/comma-drop-index.pl
-bin/comma-load-doc.pl
-bin/comma-load-and-store-doc.sh
-bin/comma-load-and-index-doc.pl
-);
+my @cmd_line_utils = map { chomp; $_ } <bin/*.pl>;
 
 my $dbd_module = "DBD::mysql";
 eval { require DBD::mysql; }; if($@) {
-	#no mysql, try pg
-	$dbd_module = "DBD::Pg";
-	eval { require DBD::Pg; }; if($@) {
-		#neither found, use mysql by default due to its popularity
-		$dbd_module = "DBD::mysql";
-	}
+  #no mysql, try pg
+  $dbd_module = "DBD::Pg";
+  eval { require DBD::Pg; }; if($@) {
+    #neither found, use mysql by default due to its popularity
+    $dbd_module = "DBD::mysql";
+  }
 }
 
 my $prereq_pm = 
-	# need Storable to run bin/comma-create-config.pl
-	# but that's ok since it's been in core since 5.007003
-	# (5.8 came out around 2002)
-	{ 'Class::ClassDecorator'    => 0,
-	  'Compress::Zlib'           => 0,
-	  'Crypt::Blowfish'          => 0,
-	  'Crypt::CBC'               => 0,
-	  $dbd_module                => 0,
-	  'DBI'                      => 0,
-	  'Digest::HMAC_MD5'         => 0,
-	  'Inline'                   => 0,
-	  'Lingua::Stem'             => 0,
-	  'Math::BaseCalc'           => 0,
-	  'PAR'                      => 0,
-	  'String::CRC'              => 0,
-	  'Storable'                 => 0,
-	  'Test::More'               => 0,
+  # need Storable to run bin/comma-create-config.pl
+  # but that's ok since it's been in core since 5.007003
+  # (5.8 came out around 2002)
+  { 'Class::ClassDecorator'    => 0,
+    'Compress::Zlib'           => 0,
+    'Crypt::Blowfish'          => 0,
+    'Crypt::CBC'               => 0,
+    $dbd_module                => 0,
+    'DBI'                      => 0,
+    'Digest::HMAC_MD5'         => 0,
+    'Inline'                   => 0,
+    'Lingua::Stem'             => 0,
+    'Math::BaseCalc'           => 0,
+    'PAR'                      => 0,
+    'Proc::Exists'             => "0.04",
+    'String::CRC'              => 0,
+    'Storable'                 => 0,
+    'Test::More'               => 0,
 };
 
 WriteMakefile(
     'NAME'         => 'XML::Comma',
     'ABSTRACT'     => 'XML::Comma document life-cycle platform',
+    'LICENSE'      => 'gpl',
     'EXE_FILES'    => \@cmd_line_utils,
     'VERSION_FROM' => 'lib/XML/Comma.pm',
     'PREREQ_PM'    => $prereq_pm,
@@ -94,25 +91,27 @@ misc::MakeMakerMod::add_steps(
 
 my $has_all_pms = 1;
 foreach my $pm (keys %$prereq_pm) {
-	$pm =~ s/::/\//g;
-	$pm =~ s/$/.pm/;
-	eval { require $pm; };
-	if($@) {
-		#if we get here, we hope the user or CPAN will fill in the blanks.
-		warn "missing one or more dependencies ($pm), not running comma-create-config.pl\n";
-		$has_all_pms = 0;
-		last;
-	}
+  $pm =~ s/::/\//g;
+  $pm =~ s/$/.pm/;
+  eval { require $pm; };
+  if($@) {
+    #if we get here, we hope the user or CPAN will fill in the blanks.
+    warn "missing one or more dependencies ($pm), not running comma-create-config.pl\n";
+    $has_all_pms = 0;
+    last;
+  }
 }
 
 if($has_all_pms) {
-	#TODO: this should probably not be in Makefile.PL at all,
-	#but in a seperate make step added with MakeMakerMod or so...
-	eval { require XML::Comma::Configuration; };
-	if ( $@ ) {
-		my $ret = system ( $^X, 'bin/comma-create-config.pl' );
-		$ret >>= 8;
-		die "bin/comma-create-config.pl failed with error code $ret" if $ret;
-	}
+  #TODO: this should probably not be in Makefile.PL at all,
+  #but in a seperate make step added with MakeMakerMod or so...
+  use lib "lib";
+  eval { require XML::Comma::Configuration; };
+  if ( $@ ) {
+    die "need a valid Configuration.pm for non-mysql backends" unless($dbd_module eq "DBD::mysql");
+    my $ret = system ( $^X, 'bin/comma-create-config.pl' );
+    $ret >>= 8;
+    die "bin/comma-create-config.pl failed with error code $ret" if $ret;
+  }
 }
 

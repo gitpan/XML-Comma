@@ -3,7 +3,7 @@
 use strict;
 use File::Path;
 
-use Test::More tests => 8;
+use Test::More 'no_plan';
 
 use lib ".test/lib/";
 
@@ -45,7 +45,7 @@ ok("copy keeping open");
 # store again
 $doc->store();
 eval { &modify ( $doc ); };
-ok("store after copy")  if  $@;
+ok( $@ );
 
 
 $doc = XML::Comma::Doc->new ( type => '_test_read_only' );
@@ -53,7 +53,7 @@ $doc = XML::Comma::Doc->new ( type => '_test_read_only' );
 # store
 $doc->store( store=>'main' );
 eval { &modify ( $doc ); };
-ok("store without keep open")  if  $@;
+ok( $@ );
 
 # get lock
 $doc->get_lock();
@@ -63,7 +63,7 @@ ok("get lock after store");
 # copy
 $doc->copy();
 eval { &modify ( $doc ); };
-ok("copy without get_open")  if  $@;
+ok( $@ );
 
 # get lock
 $doc->get_lock();
@@ -73,6 +73,6 @@ ok("get lock after copy");
 # unlock
 $doc->doc_unlock();
 eval { &modify ( $doc ); };
-ok("unlock")  if  $@;
+ok( $@ );
 
 # aaah

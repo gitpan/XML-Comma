@@ -85,20 +85,22 @@ sub ping_reader {}
 
 sub ping {
   my $self = shift();
-  dbg 'ping from dbh_user';
+  # dbg 'ping from dbh_user';
   # if not pingable, do a connect
-  if ( ! $self->get_dbh()->ping() ) {
+  unless ( $self->get_dbh()->ping() ) {
     $self->_connect();
   }
   return 1;
 }
 
 sub get_dbh_writer {
-  shift->get_dbh();
+  my $self = shift;
+  $self->ping()  and  return $self->get_dbh();
 }
 
 sub get_dbh_reader {
-  shift->get_dbh();
+  my $self = shift;
+  $self->ping()  and  return $self->get_dbh();
 }
 
 sub get_dbh {
@@ -112,9 +114,9 @@ sub get_dbh {
 
 # BOTH
 sub disconnect {
-  # dbg 'disconnecting', $$, $_[0];
-  if  ( $_[0]->{_DBH} ) {
-    $_[0]->{_DBH}->disconnect();
+  my $self = shift;
+  if  ( $self->{_DBH} ) {
+    undef $self->{_DBH}; # let DBI's DESTROY do all the work
   }
 }
 
@@ -124,7 +126,9 @@ sub disconnect {
 sub _connect {
   my $self = shift();
   # try to deal nicely with a currently-connected handle (which we may
-  # have inherited from a fork, etc.
+  # have inherited from a fork, etc.  This eval is on the raw database 
+  # handle, not our housekeeping disconnect.  We want the database error
+  # to avoid the sleep, if we aren't connected.
   eval { $self->{_DBH}->disconnect(); sleep 1; };
   my $db_struct = $self->db_struct();
   my @connect_array = @{ $db_struct->{dbi_connect_info} };

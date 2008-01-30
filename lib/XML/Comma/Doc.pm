@@ -59,10 +59,8 @@ sub new {
                      read_args  => $arg{read_args} );
     }; if ( $@ ) { XML::Comma::Log->err ( 'DOC_NEW_ERROR', $@ ); }
     return $self;
-  } elsif ( $arg{file} ) {
-    return _new_from_file ( $arg{file}, $arg{read_args} || \%arg, $arg{validate} );
-  } elsif ( $arg{block} ) {
-    return _new_from_block ( $arg{block}, $arg{read_args} || \%arg, $arg{validate} );
+  } elsif ( $arg{file} || $arg{block} ) {
+    return _new_from_content ( %arg, %{$arg{read_args} || {}} );
   } else {
         XML::Comma::Log->err ( 'DOC_NEW_ERROR',
                                "no type/block/file given" );
@@ -80,26 +78,23 @@ sub _init {
   $self->SUPER::_init ( %arg );
 }
 
-sub _new_from_block {
+# there was almost complete duplication of code between
+# _new_from_file and _new_from_block, so i combined them
+# and fixed the arguments from the caller so that we don't
+# have to differentiate.
+sub _new_from_content {
+  my %arg = @_;
   my $doc = eval {
-    XML::Comma::parser()->new ( block => shift(), read_args => shift() );
+    XML::Comma::parser()->new ( %arg );
   }; if ( $@ ) {
     XML::Comma::Log->err ( 'DOC_NEW_ERROR', $@ );
   }
-  $doc->validate() if(shift());
+  # we need to set the storage info so that the content of
+  # any blob elements can be loaded and validated.
+  $doc->set_storage_info ( $arg{store_obj}, $arg{location}, $arg{id}, $arg{key}, $arg{lock} );
+  $doc->validate() if( $arg{validate} );
   return $doc;
 }
-
-sub _new_from_file {
-  my $doc = eval {
-    XML::Comma::parser()->new ( filename => shift(), read_args => shift() );
-  }; if ( $@ ) {
-    XML::Comma::Log->err ( 'DOC_NEW_ERROR', $@ );
-  }
-  $doc->validate() if(shift());
-  return $doc;
-}
-
 
 ##
 # retrieve: takes a single 'address' arg, or a hash of type=>,
@@ -209,9 +204,10 @@ sub get_lock_no_wait {
 # set the reference to this doc's definition. overrides Element->def()
 #
 sub _init_def {
-  $_[0]->{_def} = XML::Comma::DefManager->for_path ( $_[0]->tag() );
-  if ( my @classes = $_[0]->def->get_decorators ) {
-    bless ( $_[0], Class::ClassDecorator::hierarchy(ref($_[0]),@classes) );
+  my $self = shift;
+  $self->{_def} = XML::Comma::DefManager->for_path ( $self->tag() );
+  if ( my @classes = $self->def->get_decorators ) {
+    bless ( $self, Class::ClassDecorator::hierarchy(ref($self),@classes) );
   }
 }
 
@@ -231,6 +227,51 @@ sub to_string {
   }
   return $self->system_stringify();
 }
+
+###
+# return a concatenation of all fields for use in a textsearch, etc.
+# takes the same args as get_all_fields
+sub full_field_texts {
+  my ($self, %args) = @_; 
+  return join(" ", map { $_->get } $self->get_leaf_nodes(%args)); 
+}
+
+###
+# return all leaf nodes in the doc
+# you can also use an include or exclude argument to control which 
+# elements you care about, e.g.:
+#		include => [ path_1, path_2 ... ]
+#		exclude => [ path_1, path_2 ... ]
+#	where paths are of the form "$nest_name/$nest_name/$leaf_name"
+# TODO: provide optional list of property types to care about, e.g.
+# ignore booleans and ranges... another possibility - an option
+# to use the same things as ignore/include_for_hash?
+sub get_leaf_nodes {
+  my ($self, %args) = @_; 
+  die "can't specify both include and exclude args to get_leaf_nodes"
+    if($args{include} && $args{exclude}); 
+  my $def = $self->def;
+  my $path = $args{path} || '';
+  my @leaves;
+  foreach my $el_def ( $def->def_sub_elements() ) {
+    my $el_name = $el_def->name;
+    if($args{include}) {
+      next unless grep(/^$el_name$/, @{$args{include}} );
+    } elsif($args{exclude}) {
+      next if grep(/^$el_name$/, @{$args{exclude}} );
+    }
+    if($def->is_plural($el_name)) {
+      push @leaves, $self->elements($el_name); 
+    } elsif($el_def->is_nested()) {
+      push @leaves, XML::Comma::Doc::get_leaf_nodes(
+        $self->element($el_name), path => "$path/$el_name");
+    } else {
+      push @leaves, $self->element($el_name);
+    }
+  }
+  return wantarray ? @leaves : join(" ", @leaves);
+}
+
 #
 # to_string without the hooks, basically. FIX: clean up these two
 sub system_stringify {
@@ -270,7 +311,7 @@ sub doc_is_locked {
   return $_[0]->{_Doc_locked};
 }
 sub doc_is_new {
-  return $_[0]->{_Doc_new};
+  return !$_[0]->{Doc_storage}->{store};
 }
 ##
 
@@ -364,7 +405,8 @@ sub store {
     my $error = $@;
     my $doc_id;
     eval { $doc_id = $self->doc_id; };
-    XML::Comma::Log->err ( 'STORE_ERROR', $error, $doc_id ); }
+    XML::Comma::Log->err ( 'STORE_ERROR', $error, $doc_id );
+  }
   return $self;
 }
 
@@ -488,7 +530,7 @@ sub index_update {
                      ->update( $self,
                                $arg{comma_flag},
                                $arg{defer_textsearches},
-			     );
+           );
     };
     if ( $@ ) {
       my $error = $@;

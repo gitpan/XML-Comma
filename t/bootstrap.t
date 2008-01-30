@@ -4,7 +4,7 @@ use lib ".test/lib/";
 
 use XML::Comma;
 
-use Test::More tests => 2;
+use Test::More 'no_plan';
 
 # first, let's create a comma root directory and put some defs down
 # below it. this is the first test that is run by make tests, so we
@@ -17,15 +17,13 @@ if ( ! -d $root ) {
   chmod 0777, $root;
   print `cp -r $dist_defs_dir $root`;
 }
-
-ok("pseudo-install magic");
+ok("didn't die on pseudo-install magic");
 
 my $bd = XML::Comma::Def->new
   (
    block => XML::Comma::Bootstrap->bootstrap_block()
   );
-
-ok("bootstrap loaded as def") if($bd);
+ok($bd);
 
 
 
