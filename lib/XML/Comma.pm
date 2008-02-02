@@ -20,9 +20,11 @@
 #
 ##
 
+require 5.006_001;
+
 package XML::Comma;
 
-$XML::Comma::VERSION = '1.995';
+$XML::Comma::VERSION = '1.996';
 
 use strict;
 use vars '$AUTOLOAD';

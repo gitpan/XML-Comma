@@ -1,7 +1,18 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-$!++;
+$!++; 
+
+#if we run with the force arg or we can't find Configuration.pm, continue
+#TODO: THINK: why do we shell out to do this test? it's in Makefile.PL too
+my $config_exists = `$^X -e 'eval { require XML::Comma::Configuration }; print "ok" unless \$@;'` eq 'ok';
+$config_exists ||= -e "blib/lib/XML/Comma/Configuration.pm";
+my $force = defined($ARGV[0]) && ($ARGV[0] =~ /force/);
+if($config_exists and !$force) {
+	warn "warning: Configuration.pm exists, skipping $0\n"; 
+	exit 0;
+}
+shift(@ARGV); 
 
 print <<'END';
 
@@ -26,9 +37,9 @@ if (! -e $DEFAULTS_FILE) {
     'mysql_pass' => '',
     'mysql_db'   => 'comma',
     'mysql_host' => 'localhost',
-  }, $DEFAULTS_FILE;
+  }, $DEFAULTS_FILE; 
 }
-my $DEFAULTS = retrieve($DEFAULTS_FILE);
+my $DEFAULTS = retrieve($DEFAULTS_FILE); 
 
 sub prompt_and_save {
   my ($text, $var_name, %opts) = @_;
@@ -44,7 +55,7 @@ sub prompt_and_save {
   $DEFAULTS->{$var_name} = $ret;
   store $DEFAULTS, $DEFAULTS_FILE;
 
-  return $ret;
+  return $ret; 
 }
 
 my $comma_root = prompt_and_save ("XML::Comma comma_root", "comma_root");
@@ -232,10 +243,14 @@ system_db        => 'mysql',
 END
 
 open ( FILE, ">lib/XML/Comma/Configuration.pm" ) ||
-  die "could not open file to write config into: $!\n";
-print FILE $CONFIG;
+  die "could not open file to write config into: $!\n"; 
+print FILE $CONFIG; 
 close FILE;
 chmod 0755, "lib/XML/Comma/Configuration.pm";
+
+#TODO: is there any reason why can't we just write out to blib instead
+#      of writing to lib/ and then copying?
+`cp "lib/XML/Comma/Configuration.pm" "blib/lib/XML/Comma/Configuration.pm"`;
 
 sub fail {
   my $error = shift;

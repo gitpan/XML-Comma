@@ -25,7 +25,8 @@ rmtree(".test");
 `cp -RPpf blib .test`; #like cp -a but works on *bsd, macosx too
 #copy active Configuration.pm in place if it exists
 if($active_configuration_pm) {
-  copy($active_configuration_pm, ".test/lib/XML/Comma/Configuration.pm") || die "can't install temporary copy of Configuration.pm";
+  unlink(".test/lib/XML/Comma/Configuration.pm");
+  copy($active_configuration_pm, ".test/lib/XML/Comma/Configuration.pm") || die "can't install temporary copy of Configuration.pm - copy - $@";
 }
 chmod(0644, ".test/lib/XML/Comma/Configuration.pm");
 

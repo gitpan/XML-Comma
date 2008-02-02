@@ -98,6 +98,7 @@ README
 t/aaa_test_setup.t
 t/bootstrap.t
 t/collection.t
+t/comma_standard_image.t
 t/decorator.t
 t/defs/macros/boolean.macro
 t/defs/macros/date_8.macro  
@@ -115,6 +116,7 @@ t/defs/macros/unix_time.macro
 t/defs/standard/Comma_Standard_Image.def
 t/defs/_test_collection.def
 t/defs/_test_decorator.def
+t/defs/_test_doc_read_blob_validation.def
 t/defs/_test_document_hooks.def
 t/defs/_test_indexing.def
 t/defs/_test_index_only.def
@@ -133,6 +135,7 @@ t/defs/_test_timestamp.def
 t/defs/_test_transfer_manual.def
 t/defs/_test_validation.def
 t/defs/_test_virtual_element.def
+t/doc_read_blob_validation.t
 t/document_hooks.t
 t/indexing.t
 t/index_only.t
@@ -150,4 +153,5 @@ t/util.t
 t/validation.t
 t/virtual_element.t
 t/zzz_test_cleanup.t
+
 META.yml                                 Module meta-data (added by MakeMaker)

@@ -641,8 +641,6 @@ sub erase {
 #       workers =>n,
 #       stores=>[doctype:store, ...]
 #       defer_textsearches => [0|1] #default 1 on mysql, 0 on pg
-#       textsearch_interval => n, #2000 by default, only makes sense if
-#                                 #defer_textsearches is 1
 sub rebuild {
   my ( $self, %args ) = @_;
   my @stores = $self->_get_stores_for_rebuild ( %args );
@@ -723,9 +721,6 @@ sub _rebuild_loop {
   my $index_name    = $self->element('name')->get();
 
   my $stopped;
-  my $textsearch_interval = ($defer_textsearches == 0} ? 1 :
-    $args{textsearch_interval} || 2000;
-
   while ( $doc && ! $stopped  ) {
     eval {
       if ( $args{verbose} ) {
@@ -736,7 +731,7 @@ sub _rebuild_loop {
       # $doc->index_update ( index      => "$index_doctype:$index_name",
       $doc->index_update ( index      => "$index_name",
                            comma_flag => 0,
-                           defer_textsearches => $textsearch_interval != 1 );
+                           defer_textsearches => $defer_textsearches );
       # run stop_rebuild_hooks, passing $doc and $self. if any of the subs
       # return true, then we should exit from the rebuild
       foreach my $sub ( @{$self->get_hooks_arrayref('stop_rebuild_hook')} ) {
@@ -749,8 +744,8 @@ sub _rebuild_loop {
       $self->sql_set_all_table_comma_flags_politely ( $rebuild_flag );
       # periodically write out textsearches cache, to avoid a big
       # memory/db-size bottleneck
-      unless ( $count % $textsearch_interval ) {
-        print "pausing to do deferred textsearches...\n"  if ($args{verbose} && $textsearch_interval != 1);
+      unless ( $count % 2000 ) {
+        print "pausing to do deferred textsearches...\n"  if  $args{verbose};
         $self->sync_deferred_textsearches()
       }
       $iterator->inc ( -1 * ($args{workers}-1) )  if  $args{workers}>1;

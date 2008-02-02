@@ -4,6 +4,8 @@ use strict;
 
 use ExtUtils::MakeMaker;
 
+require 5.006_001;
+
 package MY;
 sub MY::libscan {
   my ( $self, $passed_path ) = @_;
@@ -18,16 +20,15 @@ sub MY::libscan {
 - XML::Comma is already installed on this machine. We'll use your
 - existing XML::Comma::Configuration file for 'make test', and leave
 - it alone during any future 'make install' operation. If you would
-- actually prefer to use the new Comma/Configuration.pm file that's in
-- this dist directory, you'll need to remove the one you have
-- installed in Perl's %INC path, then do a 'make realclean; perl
-- Makefile.PL'
+- like to make any changes before installing this version of Comma,
+- simply edit the version of Configuration.pm under blib/ after
+- running 'make', but before 'make test' and 'make install'
 
 END
       return '';
     }
   }
-  return $path;
+  return $path; 
 };
 
 package main;
@@ -81,6 +82,10 @@ WriteMakefile(
 #install base macros, defs, includes, etc.
 use misc::MakeMakerMod;
 misc::MakeMakerMod::add_steps(
+	step => "all", 
+	what => "$^X bin/comma-create-config.pl", 
+);
+misc::MakeMakerMod::add_steps(
    step => "install",
    what => "$^X misc/install-extras.pl"
 );
@@ -96,22 +101,13 @@ foreach my $pm (keys %$prereq_pm) {
   eval { require $pm; };
   if($@) {
     #if we get here, we hope the user or CPAN will fill in the blanks.
-    warn "missing one or more dependencies ($pm), not running comma-create-config.pl\n";
+    warn "missing one or more dependencies ($pm), here's hoping CPAN fills in the rest\n";
     $has_all_pms = 0;
     last;
   }
 }
 
-if($has_all_pms) {
-  #TODO: this should probably not be in Makefile.PL at all,
-  #but in a seperate make step added with MakeMakerMod or so...
-  use lib "lib";
-  eval { require XML::Comma::Configuration; };
-  if ( $@ ) {
-    die "need a valid Configuration.pm for non-mysql backends" unless($dbd_module eq "DBD::mysql");
-    my $ret = system ( $^X, 'bin/comma-create-config.pl' );
-    $ret >>= 8;
-    die "bin/comma-create-config.pl failed with error code $ret" if $ret;
-  }
+if($has_all_pms && ($dbd_module ne "DBD::mysql")) {
+  die "using non-mysql backend - you must create a valid Configuration.pm and run Makefile.PL again\n";
 }
 

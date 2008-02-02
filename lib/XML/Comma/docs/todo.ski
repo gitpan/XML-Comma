@@ -7,13 +7,10 @@
 - no doc_id on new (unstored) docs makes creating docs that point at one 
   another hard
 
-- an optional argument to to_array() indicating you want the whole
-  enchilada as if there was an iterator_refresh first. also an optional
-  argument indicating you need the index pos reset after your call.
-
-- do a basic SQL connect check, and if it fails, skip all the rest of
-  the indexing tests, marking them failed. see other cpan modules for
-  how to do this (i remember seeing things like "skipped: various reasons")
+- perhaps implement iterator->to_array($n) where you are forced to
+  specify a max size will get thru the comittee? other args:
+  whole_enchilada => 1, reset_it_count (equivalent to it_refresh
+  immediately after)
 
 doc_is_new is confusing now.
 since a new doc can be set an arbitrary number of times w/o need of 
@@ -56,10 +53,6 @@ tperl -e 'XML::Comma::Def->Shorten->get_index("main")->rebuild(verbose => 1)'
   error while rebuilding: UNKNOWN_ACTION -- no method or element 
   'extension' found in 'DocumentDefinition:store' at -e line 1
 
-in travel::webuser::get_user_by_email, change single_read to single
-and you uncover what appears to be a bug. I think this is related to the
-++$it problem?
-
 if i try to do <field><name>foo</name></field>, and foo is a plural
   element, i don't get indexed - nor do i get any error output!
   when is the right time to abort?
@@ -68,9 +61,11 @@ if i try to do <field><name>foo</name></field>, and foo is a plural
   same thing? (perhaps not, the programmer needs to know the
   difference to create sql to actually query the thing)
 
-shoot, we have to rejigger te install process to have a seperate 
-dbconfig step sooner than later, as when we return from cpan currently,
-we make and make test, and die slowly w/o that info
+- we have to rejigger the install process to have a seperate 
+  dbconfig step sooner than later, as when we return from cpan currently,
+  we make and make test, and die slowly w/o that info... do a basic SQL
+  connect check first, perhaps, and if it fails, skip the rest.
+
 
 testing cpan with a local tarball:
   TARBALL=/media/edgy/home/ski/mysrc/XML-Comma-1.993.tgz
@@ -78,8 +73,6 @@ testing cpan with a local tarball:
   tar xfz $TARBALL
   cd XML-Comma-*
   cpan .
-
-when installing, set DBI timeout lower?
 
 convert all uses of bareword file handles to proper my $foo style
   (that is, if this is compat with 5.6)
@@ -99,16 +92,11 @@ a terser, and hopefully quicker to parse data format not based on XML?
   to storage/location... or perhaps look at how the gzip compression
   is implemented and do something like that?
 
-bah! sync_deferred_textsearches is broken with pg! it's worked-around 
-for now, but that stinks...
+fix sync_deferred_textsearches/Pg the Right Way
 
-#TODO: allow nice way to use of $dbh->quote() on collections and
-#	textsearches (or is this done behind the scenes already? if so add 
-#	mention of that to the docs)
-
-#TODO: access to convenience methods like AllAfrica::Travel::Post::get_uri
-#  and blurb_text... for now we have to call
-#	AllAfrica::Travel::Post::get_uri($vdoc), instead of $vdoc->get_uri;
+- access to convenience methods like AllAfrica::Travel::Post::get_uri
+  and blurb_text... for now we have to call
+  AllAfrica::Travel::Post::get_uri($doc), instead of $doc->get_uri;
 
 #it'd also be nice to say things like the below, instead of
 #having a method with the same name as:
@@ -133,10 +121,9 @@ shortcut methods skip set_hook (and probably read_hook) !
     the <extension> field (ie, <prefix>, akin to
     PREFIX=/some/path make install)
 
-integrate Versionable.pm from travel code into base?
+integrate some variation on Versionable into core
 
-parameterized where_clauses and such. single quotes are always a pain in 
-the rear here...
+parameterized where_clauses and such.
 
 default mode of destination dir should be $owner:{www-data|web}
   and mode 664 on comma.log
@@ -186,10 +173,6 @@ dropdb -U postgres comma ; createdb -U postgres -O comma comma; \
 make distclean ; perl Makefile.PL && make && make test && sudo make install
 
 TODO: make sure all new API stuff is in doc/guide.html and Bootstrap.pm
-TODO: test-case for $blob_el->append...
-
-things to add to guide.html:
-  everything in comma-2.html, plus probably some other stuff...
 
 add to comma-2.html/Changelog:
   some sort of smart dump of svn commits to chronicle
@@ -209,8 +192,8 @@ consider iterator_refresh for storage iterators?
 $sit->length(max => $n) would be nice for gigantic stores...
 
 dave ideas:
-  2 - (not sure if this is something we should do via comma, but to 
-    fight the "SQL resistance" at MMFA):
+  2 - (not sure if this is something we should do via comma, but it
+       would help convert people who are SQL-addicts):
   this common construct is reaaaaaly slow:
         for ( @{ $doc->issue_ptr } ) {
            push @issues, $index->single( where_clause => "doc_id = $_" )
@@ -259,8 +242,7 @@ This is an API bug. THE other is_* have this problem as well.
 
 
 with postgres, we get lots of spurious warnings starting "NOTICE"
-  these can be ignored (i think/hope)
-  the Pg code in general needs a general cleanup too.
+  these can be ignored, but are ugly. Pg code in general needs a cleanup
 
 pg for dummies:
   To get postgres up and running on my machine, for use with comma, I
@@ -295,21 +277,14 @@ pg for dummies:
 - make $blob_el->set() more efficient by nuking the fcopy and
   instead keep the appendage and the original data seperate
   use _set_was_called for this
-- audit for SQL queries => parameterized queries, e.g.:
-  my $sth = $dbh->prepare_cached ( "SELECT bla FROM foo WHERE key = \"$key\"");
-  $sth->execute();
-becomes:
-  my $sth = $dbh->prepare_cached ( "SELECT bla FROM foo WHERE key = ? ");
-  $sth->execute( $key );
-this is MUCH more secure and less error prone. it appears most of the
-SQL code we have (if not all) already does this, but since I just 
-discovered it, I want to make sure it ALL does...
 
 - t/indexing.t sometimes fails because of an incomplete previous run, or
   cruft in the database. make it more robust.
   ### step 5. - STORE_ERROR/POST_STORE_ERROR/DOC_INDEX_ERROR (0001) 
-  think: table to drop, delete entryy in index_tables, delete any comma_locks (dangerous)
+  think: table to drop, delete entry in index_tables, delete any comma_locks
+  (dangerous)
 
-- it'd be nice if we could do some SQL-ish things with storage iterators... but best to
-  read up on the progress (or is that lack of progress) with SQLite first...
+- it'd be nice if we could do some SQL-ish things with storage iterators...
+  but best to read up on the progress (or is that lack of progress) with\
+  SQLite first...
 

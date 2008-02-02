@@ -3,7 +3,7 @@
 use strict;
 
 package misc::MakeMakerMod;
-our $VERSION = '0.002';
+$misc::MakeMakerMod::VERSION = '0.003';
 
 sub add_steps {
   my %args = @_; 

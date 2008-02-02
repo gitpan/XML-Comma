@@ -148,7 +148,7 @@ sub _maybe_create_temp {
     ( $self->{_Blob_tmpfhand}, $self->{_Blob_tmpfname} ) =
       File::Temp::tempfile ( 'comma_XXXXXX',
                              DIR    => $comma_temp_directory,
-                             SUFFIX => $self->get_extension(),
+                             SUFFIX => $self->get_extension() || '',
                              UNLINK => 1 );
   }
 }
