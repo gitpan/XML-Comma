@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                XML-Comma
-version:             1.996
+version:             1.997
 abstract:            XML::Comma document life-cycle platform
 license:             gpl
 generated_by:        ExtUtils::MakeMaker version 6.36

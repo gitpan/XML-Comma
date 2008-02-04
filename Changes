@@ -1,7 +1,13 @@
 Revision history for XML::Comma modules:
 
 -------------------------
-1.995  2007/02/02 r.1557
+1.997  2007/02/04 r.1563
+-------------------------
+
+  - fix embarrasing bug in comma-create-config.pl
+
+-------------------------
+1.996  2007/02/02 r.1557
 -------------------------
 
   - build out of CPAN should work better now

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
-$!++; 
+$|++; 
 
 #if we run with the force arg or we can't find Configuration.pm, continue
 #TODO: THINK: why do we shell out to do this test? it's in Makefile.PL too
