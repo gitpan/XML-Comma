@@ -34,10 +34,10 @@ sub err {
     my $str = $arg2->info_string_full();
     $str .= " - $extra_text"  if  $extra_text;
     my $error = XML::Comma::Err->new 
-      ( err_name => "$error_name/".$arg2->error_name(),
+      ( err_name => "$error_name/".$arg2->{_err_name},
         info_string => $str,
-        file   => $arg2->file(),
-        line   => $arg2->line(),
+        file   => $arg2->{_file},
+        line   => $arg2->{_line},
         doc_id => $doc_id );
     $class->log ( $error->to_string() )  unless  $internal_eval || $caller_eval;
     die $error;

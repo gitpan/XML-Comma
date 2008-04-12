@@ -21,7 +21,7 @@ my $doc;
 
 my $key = shift;
 
-die "usage: comma-load-and-store-doc.pl [-module <module to load/new()>] <doc-key>\n"
+die "usage: comma-load-and-store-doc.pl [-module <module to load>] <doc-key>\n"
   if ! $key;
 
 $doc = XML::Comma::Doc->retrieve ( $key );

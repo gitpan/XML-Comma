@@ -29,6 +29,12 @@ sub concat_key {
   return "$arg{type}|$arg{store}|$arg{id}";
 }
 
+#faster version of concat_key, with args in order instead of hash
+sub _concat_key {
+  my ( $class, $type, $store, $id ) = @_;
+  return "$type|$store|$id";
+}
+
 # return (type, storage-name, id);
 sub split_key {
   return split ( /\|/, $_[1] );

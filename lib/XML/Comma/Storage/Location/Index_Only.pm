@@ -96,8 +96,7 @@ sub write {
     $id = $doc->doc_id();
     my $stype = $store->doctype();
     my $sname = $store->name();
-    my $key = XML::Comma::Storage::Util->concat_key
-      ( type => $stype, store => $sname, id => $id );
+    my $key = XML::Comma::Storage::Util->_concat_key ( $stype, $sname, $id );
     my $locked = XML::Comma->lock_singlet()->lock ( $key );
     $doc->set_storage_info ( $store, undef, undef, $key );
   };

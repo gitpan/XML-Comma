@@ -29,6 +29,7 @@ use XML::Comma::Util qw( dbg trim name_and_args_eval array_includes );
            XML::Comma::Methodable );
 
 use Class::ClassDecorator;
+use Clone qw( clone );
 use strict;
 
 # _Def_deftable : cache built as-we-go for definitions,
@@ -166,34 +167,48 @@ sub finish_initial_read {
 # as Defs, not just as Elements
 sub add_element {
   my ( $self, $tag ) = @_;
-  $self->_add_element_legality_check ( $tag );
   my $element;
-  # sub-elements need to be instantiated as defs, but everything else
-  # should just be elements.
-  if ( $tag eq 'element' or
-       $tag eq 'nested_element' or
-       $tag eq 'blob_element' ) {
-    $element = XML::Comma::Def->new
-      ( def           => $self->def()->def_by_name($tag),
-        tag_up_path   => $self->tag_up_path() . ':' . $tag,
-        from_file     => $self->{_from_file},
-        last_mod_time => $self->{_last_mod_time},
-        init_index     => scalar(@{$self->{_nested_elements}}) );
-  } elsif ( $self->def()->def_by_name($tag)->is_nested() ) {
-    $element = XML::Comma::NestedElement->new
-      ( def            => $self->def()->def_by_name($tag),
-        tag_up_path    => $self->tag_up_path() . ':' . $tag,
-        init_index     => scalar(@{$self->{_nested_elements}}) );
+
+  # if we're an extending tag we need to clone the def we extend in order 
+  # to take the hatchet to it without effecting existing references to 
+  # said def.  Also, if we are an extending element, <name> is required.
+  if ( _tag_extends($tag) ) {
+    $element = clone( XML::Comma::DefManager->for_path($tag) );
+    $element->delete_element( "name" );
+    $element->{_tag_up_path} = $self->tag_up_path . ':' . $element->tag;
   } else {
-    $element = XML::Comma::Element->new
-      ( def          => $self->def()->def_by_name($tag),
-        tag_up_path  => $self->tag_up_path() . ':' . $tag,
-        init_index     => scalar(@{$self->{_nested_elements}}) );
+    $self->_add_element_legality_check ( $tag );
+    # sub-elements need to be instantiated as defs, but everything else
+    # should just be elements.
+    if ( $tag eq 'element' or
+         $tag eq 'nested_element' or
+         $tag eq 'blob_element' ) {
+      $element = XML::Comma::Def->new
+        ( def           => $self->def()->def_by_name($tag),
+          tag_up_path   => $self->tag_up_path() . ':' . $tag,
+          from_file     => $self->{_from_file},
+          last_mod_time => $self->{_last_mod_time},
+          init_index    => scalar(@{$self->{_nested_elements}}) );
+    } elsif ( $self->def()->def_by_name($tag)->is_nested() ) {
+      $element = XML::Comma::NestedElement->new
+        ( def            => $self->def()->def_by_name($tag),
+          tag_up_path    => $self->tag_up_path() . ':' . $tag,
+          init_index     => scalar(@{$self->{_nested_elements}}) );
+    } else {
+      $element = XML::Comma::Element->new
+        ( def          => $self->def()->def_by_name($tag),
+          tag_up_path  => $self->tag_up_path() . ':' . $tag,
+          init_index   => scalar(@{$self->{_nested_elements}}) );
+    }
   }
   $self->_add_elements ( $element );
   return $element;
 }
 
+sub _tag_extends {
+  my $tag = shift;
+  return index($tag, ':') >= 0;
+}
 
 ####
 sub name_up_path {
@@ -242,33 +257,25 @@ sub _index_on_store_hooks {
   foreach my $index_string ( $storage_el->elements_group_get(
                                'index_on_store') ) {
 
-    # mismatched <store/> and <doctype/> directives in an index declaration 
-    # throw an exception
-    
-    my $index;
-
-    my ( $def_name, $index_name ) = split /:/, $index_string;
-
-    if ( $def_name && $index_name ) { 
-      eval { $index = XML::Comma::Def->read( name => $def_name )
-                                     ->get_index ( $index_name ); 
-      }; if ( $@ ) {
-        die "can't index_by_name to '$index_string' -- it doesn't exist\n";
-      }
-      $self->_store_doctype_index_match_p( $index, $storage_el ) or 
-        die "can't index_by_name to '$index_string' " . 
-            "-- it doesn't accept writes from storage '" . 
-            $storage_el->name() . "' in def '" . $self->name() . "'\n";
+    my ( $def_name, $index_name );
+    if ( index($index_string, ':') > 0 ) {
+      ( $def_name, $index_name ) = split /:/, $index_string;
     } else {
-      eval { $index = $self->get_index ( $index_string ); };
-      if ( $@ ) {
-        die "can't index_by_name to '$index_string' -- it doesn't exist\n";
-      }
-      $self->_store_doctype_index_match_p( $index, $storage_el ) or
-        die "can't index_by_name to '$index_string' " . 
-            "-- it doesn't accept writes from storage '" . 
-           $storage_el->name() . "' in def '" . $self->name() . "'\n";
+      $def_name   = $self->name();  
+      $index_name = $index_string;
+      $index_string = $def_name . ':' . $index_name;
     }
+
+    my $index;
+    eval { $index = XML::Comma::Def->read( name => $def_name )
+                                   ->get_index ( $index_name ); 
+    }; if ( $@ ) {
+      die "can't index_by_name to '$index_string' -- it doesn't exist\n";
+    }
+    my $store_string = $self->name() . ':' . $storage_el->name();
+    $index->{_Index_from_stores}->{ $store_string } or 
+      die "can't index_by_name to '$index_string' " . 
+          "-- it doesn't accept writes from storage '$store_string'";
     
     push @{$storage_el->{_index_on_stores}}, $index_string;
     my $update_string = 
@@ -293,34 +300,12 @@ sub _create_indexes {
   }
 }
 
-sub _store_doctype_index_match_p {
-  my ( $self, $index, $storage_el ) = @_; 
-  no warnings;
-
-  # check that the user defined doctype declarations match the index
-  my $doctype_match = grep { $_ eq '*' or $_ eq $self->name() }
-    map{ eval $_ } $index->elements_group_get( 'doctype' );
-
-  # or that the default index doctype is the same as the def
-  $doctype_match ||= $index->doctype() eq $self->name();
-
-  # check user defined stores declarations match the storage element
-  my $store_match = grep { $_ eq '*' or $_ eq $storage_el->name() }
-    map { eval $_ } $index->elements_group_get( 'store' );
-
-  # or that the default index store is the same as the storage element
-  $store_match ||= $index->store() eq $storage_el->name();
-
-  return $doctype_match && $store_match; 
-}
-
-
 sub get_store {
   my ( $self, $storage_name ) = @_;
   return $self->{_Def_storages}->{$storage_name} ||
     XML::Comma::Log->err ( 'NO_SUCH_STORAGE',
                            "no storage named '$storage_name' defined for " .
-                           $self->name_up_path() );
+                           $self->{_Def_name_up_path} );
 }
 
 sub store_names {
@@ -332,7 +317,7 @@ sub get_index {
     return $self->{_Def_indexes}->{$index_name} ||
       XML::Comma::Log->err ( 'NO_SUCH_INDEX',
                              "no index named '$index_name' defined for ".
-                             $self->name_up_path() );
+                             $self->{_Def_name_up_path} );
 }
 
 sub index_names {

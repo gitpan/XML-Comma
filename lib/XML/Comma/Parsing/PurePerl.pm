@@ -53,11 +53,11 @@ sub new {
     $self->{_string} = $arg{block};
   } elsif ( $arg{file} ) {
     $self->{_from_file} = $arg{file};
-    open ( FILE, "${ \( $arg{file} )}" ) ||
+    open ( my $fh, "${ \( $arg{file} )}" ) ||
       die "can't open file '${ \( $arg{file} )}': $!\n";
     local $/ = undef;
-    $self->{_string} = <FILE>;
-    close ( FILE );
+    $self->{_string} = <$fh>;
+    close ( $fh );
   } else {
     die "no block or filename to parse";
   }
@@ -350,7 +350,7 @@ sub open_tag {
          (! $tag_name) ) {
       $tag_name = substr $self->{_string}, $self->{_pos}+1,
         $self->{_wpos} - $self->{_pos} - 2;
-      if ( $tag_name !~ /^[a-zA-Z_][a-zA-Z_0-9]*$/ ) {
+      if ( $tag_name !~ /^[a-zA-Z_][a-zA-Z_:0-9]*$/ ) {
         die "illegally named tag '$tag_name'\n";
       }
     } elsif ( $c eq '>' ) {

@@ -999,15 +999,11 @@ sub sql_key_indexed_p {
     die "internal index error: update without storage info";
   }
   my ( $doctype, $store, $id ) = XML::Comma::Storage::Util->split_key( $key );
-  my $AND = ''; # silence 'uninitialized' warnings
+  my $AND = '';
   my @values;
-  if ( $index->element('doctype')->get() ) {
-    $AND .= qq[ AND doctype = ? ];
-    push @values, $doctype;
-  }
-  if ( $index->element('store')->get() ) {
-    $AND .= qq[ AND store = ? ];
-    push @values, $store;
+  if ( $index->element('index_from_store')->get() ) {
+    $AND .= qq[ AND doctype = ? AND store = ? ];
+    push @values, $doctype, $store;
   }
   my $dbh = $index->get_dbh_writer();
   my $table_name = $index->data_table_name();
@@ -1407,7 +1403,7 @@ sub sql_select_from_data {
   } else {
     if ( $do_count_only ) {
       $select = 
-        'SELECT ' . $distinct_string . 'COUNT(*)';
+        "SELECT COUNT( $distinct_string $data_table_name.doc_id )";
     } else {
       $select = "SELECT $distinct_string";
       $select .= join

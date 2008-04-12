@@ -40,11 +40,12 @@ sub next_sequential_id {
   my $lfn = File::Spec->catfile ( $dir, $lockfilename );
   XML::Comma->lock_singlet()->wait_for_hold ( $lfn );
   # open to append (so that we can easily read and write)
-  if ( ! open(LOCK, "+< $lfn") ) {
+  my $lock;
+  if ( ! open($lock, "+< $lfn") ) {
       die "can't open lockfile '$lfn': $!\n";
   }
   # get current id
-  my $id = <LOCK>;
+  my $id = <$lock>;
   # increment, check limit
   $id++;
   if ( $id > $max ) {
@@ -52,10 +53,10 @@ sub next_sequential_id {
     return;
   }
   # write to file
-  seek ( LOCK, 0, 0 );
-  print LOCK "$id\n";
+  seek ( $lock, 0, 0 );
+  print $lock "$id\n";
   # unlock
-  close ( LOCK );
+  close ( $lock );
   XML::Comma->lock_singlet()->release_hold ( $lfn );
   return $id;
 }
@@ -71,11 +72,12 @@ sub current_sequential_id {
   # does directory exist -- if not return undef
   return  if  ! (-r $dir);
   my $lfn = File::Spec->catfile ( $dir, $lockfilename );
-  if ( ! open(LOCK, "< $lfn") ) {
+  my $lock;
+  if ( ! open($lock, "< $lfn") ) {
     die "can't open lockfile '$lfn': $!\n";
   }
-  my $id = <LOCK>;
-  close  ( LOCK );
+  my $id = <$lock>;
+  close  ( $lock );
   return $id;
 }
 
@@ -235,9 +237,9 @@ sub make_directory {
   chmod $store->dir_permissions(), @createds;
   if ( $make_lock ) {
     my $lfn = File::Spec->catfile ( $path, $lockfilename );
-    open ( LOCK, ">$lfn" ) ||
+    open ( my $lock, ">$lfn" ) ||
       die "could not create lockfile '$lfn': $!\n"; 
-    close ( LOCK );
+    close ( $lock );
     chmod $store->file_permissions(), $lfn;
   }
 }
@@ -245,20 +247,20 @@ sub make_directory {
 
 sub read_file {
   my ( $class, $location ) = @_;
-  open ( FILE, "<$location" ) ||
+  open ( my $file, "<$location" ) ||
     die "could not open file '$location':$!\n";
   local $/ = undef;
-  my $string = <FILE>;
-  close ( FILE );
+  my $string = <$file>;
+  close ( $file );
   return $string;
 }
 
 sub write_file {
   my ( $class, $location, $block, $permissions ) = @_;
-  open ( FILE, ">$location" ) ||
+  open ( my $file, ">$location" ) ||
     die "could not open file '$location': $!\n";
-  print FILE $block;
-  close FILE;
+  print $file $block;
+  close $file;
   chmod $permissions, $location;
 }
 
@@ -274,8 +276,8 @@ sub create_randnamed_file {
         ($stub||'') . random_an_string(8) . ($extension||'') );
     last  if  ! (-r $filename);
   }
-  open ( FILE, ">$filename" ) || die "couldn't create '$filename': $!\n";
-  close ( FILE );
+  open ( my $file, ">$filename" ) || die "couldn't create '$filename': $!\n";
+  close ( $file );
   chmod $permissions, $filename;
   return $filename;
 }

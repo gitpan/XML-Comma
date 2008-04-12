@@ -67,11 +67,11 @@ sub new {
     $string = $arg{block};
   } elsif ( $arg{file} ) {
     $file = $arg{file};
-    open ( FILE, "${ \( $arg{file} )}" ) ||
+    open ( my $fh, "${ \( $arg{file} )}" ) ||
       die "can't open file '${ \( $arg{file} )}': $!\n";
     local $/ = undef;
-    $string = <FILE>;
-    close ( FILE );
+    $string = <$fh>;
+    close ( $fh );
   } else {
     die "no block or filename to parse";
   }
@@ -388,7 +388,7 @@ char* top_level_class ( SV* obj ) {
   return ((Cobj*)SvIV(SvRV(obj)))->doc_class;
 }
 
-// get position, relateive to start of string
+// get position, relative to start of string
 int pos ( SV* obj ) {
   return (((Cobj*)SvIV(SvRV(obj)))->pos) - (((Cobj*)SvIV(SvRV(obj)))->string);
 }
@@ -467,7 +467,8 @@ void open_tag ( Cobj* cobj ) {
     if ( ! (((c >= 'a') && (c <= 'z')) ||
             ((c >= 'A') && (c <= 'Z')) ||
             ((c >= '0') && (c <= '9')) ||
-             (c == '_')) ) {
+             (c == '_')                ||
+             (c == ':')) ) {
       croak ( "illegal tag name\n" );
     }
   }

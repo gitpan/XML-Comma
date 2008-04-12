@@ -17,7 +17,11 @@ eval {
   $mod ||= "Imager";
   plan skip_all => "$mod not installed";
 } else {
-  plan "no_plan";
+  if($Imager::formats{png} && $Imager::formats{jpeg}) {
+    plan 'no_plan';
+  } else {
+    plan skip_all => "I need Imager built with libjpeg and libpng support";
+  }
 }
 
 #some trivial image specs: $width, $height, @rgb
@@ -58,13 +62,17 @@ my @images = (
     avg_color => "255,255,255", #jpeg gets this right
     thumb_format => "jpeg",
   },
-  {
+);
+if($Imager::formats{gif}) {
+  push @images, {
     spec => "1,3,255,255,255,255,255,255,255,255,255",
     format => "png",
     avg_color => "255,255,255",
     thumb_format => "gif",
   },
-);
+} else {
+  warn "Imager was build without giflib support, skipping gif tests\n";
+}
 
 my $tmp_img_path = ".test/tmp_image";
 foreach my $img_spec (@images) {

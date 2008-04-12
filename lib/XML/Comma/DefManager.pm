@@ -54,9 +54,9 @@ sub macro_string {
     return $macro_source->{source};
   }
 
-  open ( MACRO, $macro_source ) || die "can't open macro file: $!\n";
-  my @lines = <MACRO>;
-  close MACRO;
+  open ( my $macro, $macro_source ) || die "can't open macro file: $!\n";
+  my @lines = <$macro>;
+  close $macro;
   return join ( '', @lines );
 }
 
@@ -78,9 +78,9 @@ sub include_string {
     $content = $incl_source->{source};
   } else {
     $filename = $incl_source;
-    open ( INCL, $incl_source ) || die "can't open include file: $!\n";
-    my @lines = <INCL>;
-    close INCL;
+    open ( my $incl, $incl_source ) || die "can't open include file: $!\n";
+    my @lines = <$incl>;
+    close $incl;
     $content = join ( '', @lines );
   }
 
@@ -143,7 +143,7 @@ sub _make_def {
   if ( ref $def_source ) {
     $def = XML::Comma::Def->new ( block => $def_source->{source} );
   } else {
-    $def = XML::Comma::Def->new ( file => $def_source )
+    $def = XML::Comma::Def->new ( file => $def_source );
   }
   # make a "symbolic link" to this def from the requested def name, if
   # the requested name is different from the loaded top-level tag

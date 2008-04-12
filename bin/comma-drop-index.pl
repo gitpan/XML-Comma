@@ -5,9 +5,7 @@ use XML::Comma;
 use XML::Comma::Util qw( dbg );
 
 use Getopt::Long;
-my $doc_type;
-my $index_name;
-my $module;
+my ($doc_type, $index_name, $module); 
 my %args = ( 'type=s', \$doc_type,
              'index=s', \$index_name,
              'module=s', \$module );
@@ -16,11 +14,11 @@ my %args = ( 'type=s', \$doc_type,
 if ( $module ) {
   eval "use $module";
   if ( $@ ) { die "bad module load: $@\n" }
-  $module->new();
+#  $module->new();
 }
 
 if ( ! $doc_type or ! $index_name ) {
-  die "usage: drop-index.pl [ -module <module to load/new()> ] -type <document_type> -index <index_name>\n"
+  die "usage: comma-drop-index.pl [ -module <module to load> ] -type <document_type> -index <index_name>\n"
 }
 
 my $index = XML::Comma::Def->read(name=>$doc_type)->get_index($index_name);

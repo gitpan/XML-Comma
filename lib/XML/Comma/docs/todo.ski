@@ -1,3 +1,33 @@
+- implement ->count() for storage iterators, since we have to find all 
+  the docs before iterating over them anyway, so there's no performance
+  overhead... WARNING: be sure to die if given a where_clause!
+ski@wwe:~$ perl -le 'print time." starting..."; use XML::Comma; my $it = 
+XML::Comma::Def->AllAfrica_NewsStory->get_store("post")->iterator(); my 
+$i=0; while(++$it) { ++$i; print time.": ".$i unless($i % 1000) } print 
+$i'
+1205511459 starting...
+1205511477: 1000
+1205511482: 2000
+1205511487: 3000
+18 sec startup time + 4 sec per 1000 docs
+
+- '$doc->bar = 123;' syntax is possible - see:
+	perldoc perl56delta / perlsub:
+		Lvalue subroutines
+
+		WARNING: Lvalue subroutines are still experimental and the
+		implementation may change in future versions of Perl.
+
+	Compress-Raw-Zlib uses it...
+
+- if first time store and #stores in def == 1, don't complain if store
+  name isn't specified.
+
+- fixup "get_index->rebuild()" requires stores argument bug
+
+- fix comma-rebuild-index.pl and any other scripts to deal with loading
+  defs from modules
+
 - make install hack:
   in misc/install-extras.pl, exec perl -e 'use XML::Comma' to
   force compilation of Inline::C stuff for Parser?

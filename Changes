@@ -1,6 +1,18 @@
 Revision history for XML::Comma modules:
 
 -------------------------
+1.998  2007/04/12 r.1653
+-------------------------
+
+  - various indexing improvements
+
+  - first crack at def extension
+
+  - use Imager instead of GD for CSI.def
+
+  - all comma-*.pl accept an optional -module argument
+
+-------------------------
 1.997  2007/02/04 r.1563
 -------------------------
 

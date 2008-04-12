@@ -113,6 +113,7 @@ t/defs/macros/_test_parser_include.include
 t/defs/macros/timestamp.macro  
 t/defs/macros/truncate_to_length.macro  
 t/defs/macros/unix_time.macro
+t/defs/macros/language_switched.macro
 t/defs/standard/Comma_Standard_Image.def
 t/defs/_test_collection.def
 t/defs/_test_decorator.def
@@ -121,9 +122,11 @@ t/defs/_test_document_hooks.def
 t/defs/_test_indexing.def
 t/defs/_test_index_only.def
 t/defs/_test_introspection.def
-t/defs/_test_multi_bad.def
-t/defs/_test_multi_first.def
-t/defs/_test_multi_second.def
+t/defs/_test_multi_index_bad_one.def
+t/defs/_test_multi_index_bad_two.def
+t/defs/_test_multi_index_bad_three.def
+t/defs/_test_multi_index_one.def
+t/defs/_test_multi_index_two.def
 t/defs/_test_order.def
 t/defs/_test_parser.def
 t/defs/_test_parser_di_lst_eval_err.def
@@ -140,7 +143,7 @@ t/document_hooks.t
 t/indexing.t
 t/index_only.t
 t/introspection.t
-t/multi_store_doctype.t
+t/multi_index.t
 t/order.t
 t/par_def.par
 t/par_def.t

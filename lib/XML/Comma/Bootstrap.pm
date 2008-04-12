@@ -66,9 +66,10 @@ sub finish_initial_read {
   # only add_def for top-level and element blocks, and only set and
   # trim the content for the rest (a little cheating is okay in a
   # bootstrap module, right?)
-  if ( $self->tag() eq 'DocumentDefinition' or
-       $self->tag() eq 'element' or
-       $self->tag() eq 'nested_element' ) {
+  my $tag = $self->tag();
+  if ( $tag eq 'DocumentDefinition' or
+       $tag eq 'element' or
+       $tag eq 'nested_element' ) {
     $self->_Def_init_name_up_path ( $in_progress_parser );
     XML::Comma::DefManager->add_def ( $self );
     $self->_config_dispatcher();
@@ -332,15 +333,8 @@ sub bootstrap_block {
   <nested_element>
     <name>index</name>
     <element><name>name</name></element>
-    <!-- 'store' will default to self->element('name')->get() -
-         (note, this is handled by the Store->store() method in
-          the internals, but is extendable via the def for 
-          multi-store indexing) -->
     <element><name>store</name></element>
-    <!-- 'doctype' will default to index->doctype() - 
-         (note, this is also extendable via the def for 
-          multi-def indexing) -->
-    <element><name>doctype</name></element>
+    <element><name>index_from_store</name></element>
     <!-- doc_id_sql_type SHOULD NOT BE CHANGED without completely
          dropping and recreating a given index's database (or otherwise
          altering the database structure outside of Comma). ** there is
@@ -450,8 +444,7 @@ sub bootstrap_block {
       <name>method</name>
       <defname>DocumentDefinition:method</defname>
     </nested_element>
-    <plural>qw( store
-                doctype
+    <plural>qw( index_from_store
                 field
                 collection
                 bcollection

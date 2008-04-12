@@ -51,6 +51,7 @@ my $prereq_pm =
   # but that's ok since it's been in core since 5.007003
   # (5.8 came out around 2002)
   { 'Class::ClassDecorator'    => 0,
+    'Clone'                    => 0,
     'Compress::Zlib'           => 0,
     'Crypt::Blowfish'          => 0,
     'Crypt::CBC'               => 0,

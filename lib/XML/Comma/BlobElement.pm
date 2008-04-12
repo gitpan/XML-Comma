@@ -108,6 +108,10 @@ sub get {
   my $content = eval {
     if ( $self->{_Blob_tmpfname} ) {
       local $/ = undef;
+      #FIXME: this seems either wrong or extraneous code...
+      #if we expect $fh to always be at offset zero, why the initial seek?
+      #if we expect it to be at an arbitrary offset, we are clobbering
+      #that offset instead of using tell() and seeking back to that.
       my $fh = $self->{_Blob_tmpfhand};
       seek ( $fh, 0, 0 );
       my $content = <$fh>;

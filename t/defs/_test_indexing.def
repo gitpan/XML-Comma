@@ -167,7 +167,8 @@
   </index>
 
   <index>
-    <store>'*'</store>
+    <index_from_store>index_hook_abort_tests</index_from_store>
+    <index_from_store>main</index_from_store>
     <name>death1</name>
     <index_hook><![CDATA[
       sub { XML::Comma::Log->warn("in death1"); die; }
@@ -175,7 +176,8 @@
   </index>
 
   <index>
-    <store>'*'</store>
+    <index_from_store>index_hook_abort_tests</index_from_store>
+    <index_from_store>main</index_from_store>
     <name>death2</name>
     <index_hook><![CDATA[
       sub { XML::Comma::Log->warn("in death2"); die "true stuff"; };
@@ -183,13 +185,13 @@
   </index>
 
   <index>
-    <store>'*'</store>
+    <store>index_hook_abort_tests</store>
     <name>aaa_ok1</name>
     <field><name>foo</name></field>
   </index>
 
   <index>
-    <store>'*'</store>
+    <store>index_hook_abort_tests</store>
     <name>zzz_ok2</name>
     <field><name>foo</name></field>
   </index>

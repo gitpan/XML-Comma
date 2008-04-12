@@ -1,20 +1,25 @@
 #!/usr/bin/perl -w
 use strict;
 
+use XML::Comma;
 use Getopt::Long;
 
-my $file;
+my ($file, $module); 
 
-my %args = ( 'file=s', \$file );
+my %args = ( 'file=s', \$file,
+             'module=s', \$module );
 &GetOptions ( %args );
 
-use XML::Comma;
+if ( $module ) {
+  eval "use $module";
+  if ( $@ ) { die "bad module load: $@\n" }
+}
 
-my $doc;
+my $doc; 
 
 if ( ! $file ) {
   my $key = shift();
-  die "usage: comma-load-doc.pl [-file <filename>] [doc-key]\n"
+  die "usage: comma-load-doc.pl [ -module <module to load> ] [-file <filename>] [doc-key]\n"
     if ! $key;
   $doc = XML::Comma::Doc->retrieve ( $key );
 } else {

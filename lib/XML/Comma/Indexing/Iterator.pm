@@ -168,7 +168,7 @@ sub count_only {
         $self->{_Iterator_collection_spec},
         $self->{_Iterator_textsearch_spec},
         'do count only' );
-    #  dbg 'sql-count', $string;
+    # dbg 'count_only', $string;
     $sth = $self->{_Iterator_index}->get_dbh_reader()->prepare ( $string );
     $sth->execute();
   }; if ( $@ ) { 
@@ -204,7 +204,7 @@ sub aggregate {
         $self->{_Iterator_textsearch_spec},
         '',   # count only
         $function );
-   # dbg 'sql-aggr', $string;
+   # dbg 'aggregate', $string;
     $sth = $self->{_Iterator_index}->get_dbh_reader()->prepare ( $string );
     $self->{_Iterator_select_returnval} = $sth->execute();
   }; 
@@ -259,7 +259,7 @@ sub iterator_refresh {
        $self->{_Iterator_textsearch_spec} 
     );
     #dbg 'refreshing', $self;
-    #dbg 'sql', $string;
+    # dbg 'sql', $string;
     $self->{_Iterator_sth} = $dbh->prepare ( $string );
     $self->{_Iterator_select_returnval} = $self->{_Iterator_sth}->execute();
     if ( $self->sql_select_returns_count  and
@@ -352,23 +352,18 @@ sub read_doc {
   
 sub doc_key {
   my $self = shift();
-  # these will possibly be dispatched to the iterator to account for 
-  # <store>/<doctype> declarations.
+  # if we're working on an index with <index_from_store> look
+  # to the database for the doctype/store
   my ( $type, $store );
-  if ( $self->{_Iterator_index}->element('doctype')->get() ) {
-    $type = $self->doctype();
-  } else {
-    $type = $self->{_Iterator_index}->doctype();
-  }
-  if ( $self->{_Iterator_index}->element('store')->get() ) {
+  if ( $self->{_Iterator_index}->element( 'index_from_store' )->get() ) {
+    $type  = $self->doctype();
     $store = $self->store();
-  } else { 
+  } else {
+    $type  = $self->{_Iterator_index}->doctype();
     $store = $self->{_Iterator_index}->store();
   }
-  return XML::Comma::Storage::Util->concat_key
-    ( type  => $type,
-      store => $store,
-      id    => $self->doc_id() );
+  return XML::Comma::Storage::Util->_concat_key
+    ( $type, $store, $self->doc_id() );
 }
 
 sub _current_element {

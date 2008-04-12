@@ -59,10 +59,8 @@ sub read {
   } else {
     $location = $self->location_from_id ( $id );
   }
-  my $key = XML::Comma::Storage::Util->concat_key
-    ( type => $self->{_Store_doctype},
-      store => $self->name(),
-      id => $id );
+  my $key = XML::Comma::Storage::Util->_concat_key
+    ( $self->{_Store_doctype}, $self->name(), $id );
   my $doc;
   if ( $lock ) {
     return  if  ! XML::Comma->lock_singlet()->lock ( $key,
@@ -117,10 +115,8 @@ sub write {
     if ( $id eq 'COMMA_DB_SEQUENCE_SET' ) {
       $arg{doc}->set_storage_info ( undef, undef, $id );
     } else {
-      $key = XML::Comma::Storage::Util->concat_key
-        ( type => $self->{_Store_doctype},
-          store => $self->name(),
-          id => $id );
+      $key = XML::Comma::Storage::Util->_concat_key
+        ( $self->{_Store_doctype}, $self->name(), $id );
       my $locked = XML::Comma->lock_singlet()->lock ( $key );
       if ( ! $locked ) {
         XML::Comma::Log->err ( 'STORE_ERROR',

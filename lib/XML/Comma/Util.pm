@@ -152,7 +152,10 @@ sub dbg {
 sub name_and_args_eval {
   my ( $string, %defines ) = @_;
   my $name; my $args_string;
-  if ( $string =~ m|(.*)(:(?!:))(.*)|s ) {
+  #note1: (?!:) is an assertion that the char after : isn't another colon
+  #note2: the first match must be non-greedy so we can say things like:
+  #range: $XML::Comma::Util::some_constant, $Some::Module::whatever
+  if ( $string =~ m|(.*?)(:(?!:))(.*)|s ) {
     $name = $1;
     $args_string = $3;
   } else {

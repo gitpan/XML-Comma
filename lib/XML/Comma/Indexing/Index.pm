@@ -103,16 +103,25 @@ sub _init_Index_variables {
   foreach my $field ( $self->elements('field') ) {
     $self->_init_make_column_entry ( $field, 'field' );
   }
-  # sneak store and doctype index variables in under 'field'
-  # store
-  if ( $self->element('store')->get() ) {
-    push @{ $self->{ _Index_extra_pk_fields } }, "store";
-    $self->_init_make_column_entry ( 'store', 'field' );
-  }
-  # doctype
-  if ( $self->element('doctype')->get() ) {
-    push @{ $self->{ _Index_extra_pk_fields } }, "doctype";
-    $self->_init_make_column_entry ( 'doctype', 'field' );
+  # stash our valid stores
+  if ( $self->element('index_from_store')->get() ) {
+    if ( $self->element('store')->get() ) {
+      die "index_from_store and store can't co-mingle";
+    }
+    foreach my $ifs ( $self->elements_group_get('index_from_store') ) {
+      if ( index($ifs, ':') > 0 ) {
+        $self->{_Index_from_stores}->{ $ifs }++;
+      } else {
+        $self->{_Index_from_stores}->{ $self->doctype() . ':' . $ifs }++;
+      }
+    }
+    # and make doctype and store available as columns
+    foreach my $field ( qw( doctype store ) ) {
+      push @{ $self->{ _Index_extra_pk_fields } }, $field;
+      $self->_init_make_column_entry ( $field, 'doctype_store' );
+    }
+  } else { # we can only index from our own doctype to our store name
+    $self->{_Index_from_stores}->{ $self->doctype() . ':' . $self->store() }++;
   }
   # collections
   foreach my $collection ( $self->elements('collection'),
@@ -176,21 +185,22 @@ sub _init_check_for_double_defines {
 
 sub _init_make_column_entry {
   my ( $self, $el, $type ) = @_;
-  my ( $name, $index_name, $code_element );
-  if ( $el eq 'store' || $el eq 'doctype' ) {
-    $name = $el; # ignore double_defines
+  my $index_name = $self->element('name')->get();
+  #dbg "making_column:", $index_name, $el->name(), $type;
+  my $code_ref; 
+  my ( $name, $code_element );
+  if ( $type eq 'doctype_store' ) {
+    $name = $el;
   } else {
-    $index_name = $self->element('name')->get();
     $name = $self->_init_check_for_double_defines ( $index_name, $el );
     ($code_element) = $el->elements('code');
   }
-  my $code_ref; 
   if ( $code_element ) {
     $code_ref = eval $code_element->get();
     die "error with code block of $type '$name' " .
         "for index '$index_name': $@\n" if $@; 
   } else {
-    if ( $el eq 'store' ) { 
+   if ( $el eq 'store' ) { 
       $code_ref = eval "sub { \$_[0]->doc_store()->name() }";
       die "error with code block of $type '$name' " .
           "for index '$index_name': $@\n" if $@; 
@@ -241,7 +251,7 @@ sub column_value {
   my ( $index, $column_name, $doc ) = @_;
   my $column = $index->{_Index_columns}->{$column_name} ||
     die "no such column as '$_[0]' found for index '$column_name'\n";
-  if ( $column->{type} eq 'field' ) {
+  if ( $column->{type} eq 'field'  or  $column->{type} eq 'doctype_store' ) {
     return  scalar  $column->{code}->($doc,$index);
   } elsif ( $column->{type} eq 'collection' ) {
     return
@@ -323,9 +333,9 @@ sub update {
 
   # ensure this document is allowed to update the index it's trying to
   $self->_can_alter_index_p( $doc ) or 
-    XML::Comma::Err->( 
+    XML::Comma::Log->err( 
       'INDEX_UPDATE_ERROR', $doc->doc_key() . 
-      " can't update index '" . $self->name() . "'"
+      " can't update index '" . $self->doctype() . ':' . $self->name() . "'"
     );
 
 ### note: why was this added and then commented out? do we want it?
@@ -445,16 +455,7 @@ sub _can_alter_index_p {
   my ( $doctype, $store, $id ) = 
     XML::Comma::Storage::Util->split_key( $doc->doc_key() );
   
-  my @doctypes = grep { defined } 
-                   map { eval $_->get() } $self->elements( 'doctype' ); 
-  my @stores   = grep { defined } 
-                   map { eval $_->get() } $self->elements( 'store' ); 
-  push @doctypes, $self->doctype();
-  push @stores, $self->store();
-  my $doctype_match = grep { $_ eq '*' or $_ eq $doctype } @doctypes;  
-  my $store_match   = grep { $_ eq '*' or $_ eq $store   } @stores; 
-
-  return $doctype_match && $store_match; 
+  return $self->{_Index_from_stores}->{ "$doctype:$store" };
 }
 
 sub iterator {
@@ -726,10 +727,7 @@ sub _rebuild_loop {
       if ( $args{verbose} ) {
         print "updating " . $doc->doc_id() . " (" . $count . ")\n";
       }
-      # use doctype:index syntax to account for updating from a doctype other 
-      # than what our iterator was based on
-      # $doc->index_update ( index      => "$index_doctype:$index_name",
-      $doc->index_update ( index      => "$index_name",
+      $doc->index_update ( index      => "$index_doctype:$index_name",
                            comma_flag => 0,
                            defer_textsearches => $defer_textsearches );
       # run stop_rebuild_hooks, passing $doc and $self. if any of the subs
@@ -805,58 +803,35 @@ sub _rebuild_fork {
 sub _get_stores_for_rebuild {
   my ( $self, %args ) = @_;
 
-  my @doctypes = grep { !/^$/ } map { eval $_->get() } 
-    $self->elements( 'doctype' );
-  my @stores   = grep { !/^$/ } map { eval $_->get() } 
-    $self->elements( 'store' );
-
-  push @doctypes, $self->doctype();
-  push @stores  , $self->store();
-  
-  my $any_doctype = grep { /^\*$/ } @doctypes; 
-  my $any_store   = grep { /^\*$/ } @stores; 
-
-  # if the doctype or store specification in an <index> block 
-  # is wildcarded, we throw an exception unless we get a 
-  # stores => [] argument rather than trying to guess what the 
-  # user meant.
-  if ( ($any_doctype || $any_store) and ! $args{stores} ) {
-    XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', 
-                          "no stores specified in rebuild() for index '" . 
-                          $self->element('name')->get() . "'"
-                        );
-  }
-  
   my %stores;
 
   if ( $args{ stores } ) { 
     foreach my $store_arg ( @{ $args{ stores } } ) {
       my ( $doctype, $store );
-      if ( $store_arg =~ /:/ ) {
+      if ( index($store_arg, ':') > 0 ) {
         ( $doctype, $store ) = split /:/, $store_arg;
-      } else {
+      } else { 
         $doctype = $self->doctype();
         $store   = $store_arg;
+        $store_arg = $doctype . ':' . $store;
       }
-      unless ( (grep { /^$doctype$/ } @doctypes or $any_doctype) and 
-               (grep { /^$store$/   } @stores   or $any_store  ) ) { 
+      unless ( $self->{_Index_from_stores}->{ $store_arg } ) {
         XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', "Index '" .
                               $self->element('name')->get . "'" . 
                               " can't rebuild from '$store_arg'" );
       }
       eval {
-        $stores{ "$doctype$store" } = XML::Comma::Def->read( name => $doctype )
+        $stores{ $store_arg } = XML::Comma::Def->read( name => $doctype )
                                                      ->get_store( $store );
       }; if ( $@ ) {
         XML::Comma::Log->err( 'INDEX_REBUILD_ERROR', $@ );
       }
     }
   } else {
-    foreach my $doctype ( @doctypes ) {
-      foreach my $store ( @stores ) {
-        $stores{ "$doctype$store" } =  XML::Comma::Def->read( name => $doctype )
-                                                 ->get_store( $store );
-      }
+    foreach my $store_arg ( keys %{ $self->{_Index_from_stores} } ) {
+      my ( $doctype, $store ) = split /:/, $store_arg;
+        $stores{ $store_arg } =  XML::Comma::Def->read( name => $doctype )
+                                                ->get_store( $store );
     }
   }
   return values %stores;
@@ -1360,8 +1335,7 @@ sub _check_tables {
     #dbg 'storing def in info table', $self->name();
     $self->sql_update_def_in_tables_table();
     # now compare the old def fields, collections and sql_indexes
-    $self->_check_store ( $old_def );
-    $self->_check_doctype ( $old_def );
+    $self->_check_doctype_store ( $old_def );
     $self->_check_fields ( $old_def );
     $self->_check_collections ( $old_def );
     $self->_check_data_table_sql_indexes ( $old_def );
@@ -1371,33 +1345,19 @@ sub _check_tables {
   }
 }
 
-# _check_store and _check_doctype get to be pretty basic
-sub _check_store {
+sub _check_doctype_store {
   my ( $self, $old_def ) = @_;
-  my $store     = 1 if $self->element('store')->get();
-  my $old_store = 1 if $old_def->element('store')->get();
-  if ( $store and !$old_store ) {
-    $self->sql_alter_data_table_add( 'store', 'VARCHAR(255) NOT NULL' );
-    $self->sql_alter_data_table_change_primary_key( 'store' );
-  } elsif ( !$store and $old_store ) {
-    $self->sql_alter_data_table_drop_or_modify( 'store' );
-  } else {
-    # no-op, they didn't change
-  }
-}
-
-sub _check_doctype {
-  my ( $self, $old_def ) = @_;
-  my $doctype     = 1 if $self->element('doctype')->get();
-  my $old_doctype = 1 if $old_def->element('doctype')->get();
-  if ( $doctype and !$old_doctype ) {
+  my $has = 1 if $self->element('index_from_store')->get();
+  my $old_has = 1 if $old_def->element('index_from_store')->get();
+  if ( $has and !$old_has ) {
     $self->sql_alter_data_table_add( 'doctype', 'VARCHAR(255) NOT NULL' );
-    $self->sql_alter_data_table_change_primary_key( 'doctype' );
-  } elsif ( !$doctype and $old_doctype ) {
+    $self->sql_alter_data_table_add( 'store', 'VARCHAR(255) NOT NULL' );
+    $self->sql_alter_data_table_change_primary_key( qw(doctype store) );
+  } 
+  if ( !$has and $old_has ) {
     $self->sql_alter_data_table_drop_or_modify( 'doctype' );
-  } else {
-    # no-op, they didn't change
-  }
+    $self->sql_alter_data_table_drop_or_modify( 'store' );
+  } 
 }
 
 sub _check_fields {
@@ -1587,27 +1547,14 @@ sub _check_textsearches {
 sub _create_new_data_table {
   my ( $self, $existing_table_name ) = @_;
   $self->sql_create_data_table ( $existing_table_name );
-  my ( $store, $doctype );
-  $store   = 'store'   if $self->element('store')->get(); 
-  $doctype = 'doctype' if $self->element('doctype')->get();
-  if ( $store || $doctype ) {
-    if ( $store ) {
-      my $name = 'store';
-      my $type = 'VARCHAR(255) NOT NULL'; # XXX dug does this belong 
-                                          # in Bootstrap?
-      $self->sql_alter_data_table_add ( $name, $type );
+  my $ifs = $self->element('index_from_store')->get(); 
+  if ( $ifs ) {
+    my $type = 'VARCHAR(255) NOT NULL'; 
+    my @columns = qw( doctype store );
+    foreach my $column ( @columns ) {
+      $self->sql_alter_data_table_add ( $column, $type );
     }
-    if ( $doctype ) {
-      my $name = 'doctype';
-      my $type = 'VARCHAR(255) NOT NULL'; # XXX dug does this belong 
-                                          # in Bootstrap?
-      $self->sql_alter_data_table_add ( $name, $type );
-    }
-    my @pkeys = grep { defined } ( $store, $doctype );
-    # ick, gack, yuck. indexes that allow storage from multiple 
-    # doctypes or stores can't use doc_id as the primary key.  Is 
-    # this the best way? 
-    $self->sql_alter_data_table_change_primary_key( @pkeys );
+    $self->sql_alter_data_table_change_primary_key( @columns );
   }
   foreach my $field ( $self->elements('field') ) {
     my $name = $field->element('name')->get();

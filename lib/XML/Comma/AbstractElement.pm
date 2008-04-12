@@ -75,7 +75,7 @@ sub _init {
 
 sub _init_def {
   $_[0]->{_def} = $_[1] || die "no def given for element creation";
-  if ( my @classes = $_[0]->def->get_decorators ) {
+  if ( my @classes = $_[1]->get_decorators ) {
     bless ( $_[0], Class::ClassDecorator::hierarchy(ref($_[0]),@classes) );
   }
 }
@@ -88,14 +88,17 @@ sub _init_def {
 ########
 
 sub tag {
+  #warn "XX TAG CALLER: ".join(", ", caller);
   return $_[0]->{_tag};
 }
 
 sub tag_up_path {
+  #warn "XX TAG_UP_PATH CALLER: ".join(", ", caller);
   return $_[0]->{_tag_up_path}
 }
 
 sub def {
+  #warn "XX DEF CALLER: ".join(", ", caller);
   return $_[0]->{_def};
 }
 
@@ -131,7 +134,7 @@ sub comma_hash {
 # FIX: catch warnings (use of uninitialized value..., etc), not just errors?
 sub method {
   my ( $self, $name, @args ) = @_;
-  my $method = $self->def()->get_method ( $name );
+  my $method = $self->{_def}->get_method ( $name );
   if ( $method ) {
     my $return; my @return;
     if ( wantarray ) {
@@ -147,13 +150,13 @@ sub method {
   } else {
     XML::Comma::Log->err ( 'NO_SUCH_METHOD',
                            "no method '$name' found in '" .
-                           $self->tag_up_path() . "'" );
+                           $self->{_tag_up_path} . "'" );
   }
 }
 
 sub method_code {
   my ( $self, $name ) = @_;
-  return $self->def()->get_method ( $name );
+  return $self->{_def}->get_method ( $name );
 }
 
 
@@ -163,7 +166,7 @@ sub method_code {
 
 sub applied_macros {
   my $self = shift;
-  return $self->def()->applied_macros ( @_ );
+  return $self->{_def}->applied_macros ( @_ );
 }
 
 
@@ -177,7 +180,7 @@ sub set_read_only {
   my $self = shift();
   $self->{_read_only} = 1;
   # recurse if nested
-  if ( $self->def()->is_nested() ) {
+  if ( $self->{_def}->is_nested() ) {
     foreach my $el ( $self->elements() ) {
       $el->set_read_only();
     }
@@ -189,7 +192,7 @@ sub unset_read_only {
   my $self = shift();
   $self->{_read_only} = 0;
   # recurse if nested
-  if ( $self->def()->is_nested() ) {
+  if ( $self->{_def}->is_nested() ) {
     foreach my $el ( $self->elements() ) {
       $el->unset_read_only();
     }
@@ -269,12 +272,13 @@ sub finish_initial_read {
   unless ( $_[0]->{Doc_storage}->{read_args}->{no_read_hooks} ) {
     eval {
       foreach my $hook
-        ( @{$_[0]->def()->get_hooks_arrayref('read_hook')} ) {
+        ( @{$_[0]->{_def}->get_hooks_arrayref('read_hook')} ) {
           $hook->( $_[0] );
         }
     }; if ( $@ ) {
       XML::Comma::Log->err
-          ( 'READ_HOOK_ERROR', "in " . $_[0]->tag_up_path() . ": $@" );
+          ( 'READ_HOOK_ERROR', "in " . $_[0]->{_tag_up_path} . ": $@" 
+);
     }
   }
   # destroy read_args ref
